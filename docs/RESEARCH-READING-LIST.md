@@ -1,0 +1,816 @@
+# MonsterTime reading list (selected from the GameTev research library)
+
+Selected mechanically by matching report frontmatter against MonsterTime's design
+vector, not by picking folder names that sounded relevant. Library root is
+`D:\Programs\GameTev\research`. Paths below are relative to it.
+
+- Reports swept: **694**
+- Reports selected: **239**
+- Near misses recorded and rejected: **45**
+
+## Coverage note from the selector
+
+> Considered all 694 reports across 24 domains. I read the pasted index in full and went to disk for the three blocks it truncated (game-systems, claude-assisted-engine-build, the tail of source-code-analysis) so that no domain was judged by title alone. Selected 238 reports (roughly 34 percent of the library).
+> 
+> Whole domains rejected, with reasons: source-code-analysis (52 reports, static analysis of existing codebases, no design-vector contact), business-legal minus two (US entity/tax and platform storefront terms do not apply to a free web app), game-dev-teaching (11 reports, all teach the developer rather than the player), monetization minus one (monetization is none; only the retention funnel survives), and most of communities-premises (about 50 reports built for a merchant-town shop sim; only the four small-group social-dynamics reports transfer). About 55 of the 60 visual-trace reports were rejected because they are read-direction procedures for a 2D flat-shape tracing pipeline; the nine creature and readability ones were kept. About 55 of the 70 asset-forge reports were rejected as Godot-specific or genre-specific recipes; the seeded-determinism, palette, pattern, pet-entity, save-apply and 3D standin recipes were kept because their maths and contracts are engine-independent.
+> 
+> Gaps where NO report in the library answers a part of the design vector:
+> 
+> 1. Installable app, offline and home-screen expectations. There is no PWA, service worker, web app manifest, install-prompt, offline-first or background-sync report anywhere. I grepped the full library and confirmed zero hits. The installable-app-and-onboarding cluster is therefore staffed entirely by generic FTUE and onboarding reports; the platform mechanics of installability are unanswered.
+> 
+> 2. Push notifications and return-to-app patterns. Only two reports mention push notifications at all (game-design.game-meta-features-systems and genres.digital-board-abstract-strategy), and neither owns the subject. For a game built on several check-ins a day with an async friend group, notification design, quiet hours and the nag-versus-invite line is a real hole.
+> 
+> 3. Virtual pet / creature-raising as a genre. Zero hits for tamagotchi or virtual pet in the whole library. genres.life-sims, genres.farming-ranching-sim and the Slime Rancher ledger are the nearest neighbours and none of them owns the pet-as-dependent relationship, need decay while absent, or the guilt dynamic that goes with it.
+> 
+> 4. Asynchronous multiplayer as a netcode and social model. The multiplayer domain is built for live sessions. There is no report on async state merge, conflict resolution when two friends act between syncs, or turn-passing social design. multiplayer.multiplayer-framework-custom-engine and asset-forge.save-apply-live-contract are the closest and both leave the merge problem open.
+> 
+> 5. Three.js and the browser as a runtime. No WebGL, WebGPU, three.js or browser-runtime report exists; visual.graphics-apis-gpu-architecture is the closest and is written for native APIs. Everything selected for rendering has to be translated across that gap.
+> 
+> 6. Tablet layout specifically. Touch is well covered by input-controls.touch-mobile-input and ux-accessibility.ui-scaling-visual-customization, but nothing addresses the phone-to-tablet responsive reflow of a 3D scene plus chrome as its own problem.
+> 
+> 7. Shared ownership and griefing between co-owners. communities-premises.feuds-grudges-reconciliation and multiplayer.community-moderation-trust-safety-systems are proxies; neither covers a single object several people can permanently alter, which is MonsterTime's central social risk.
+
+## accessibility (21)
+
+- **[must]** `ux-accessibility.game-accessibility-overview-standards`
+  - path: `ux-accessibility/game-accessibility-overview-standards/report.md`
+  - why: accessibility_priority high needs a framework map and a scope-tiered minimum baseline before any other a11y decision.
+- **[must]** `ux-accessibility.designing-accessibility-from-day-one`
+  - path: `ux-accessibility/designing-accessibility-from-day-one/report.md`
+  - why: Solo dev, custom engine, one persistent creature living for months: decoupled input/cue/settings architecture must exist before content, not after.
+- **[must]** `ux-accessibility.cognitive-accessibility`
+  - path: `ux-accessibility/cognitive-accessibility/report.md`
+  - why: Re-entry systems and externalized memory are the exact shape of a 1-3 minute check-in into a state that changed while you were away.
+- **[must]** `ux-accessibility.color-contrast-accessibility`
+  - path: `ux-accessibility/color-contrast-accessibility/report.md`
+  - why: Traits and creature states are read by colour on a phone in daylight; redundant non-colour coding and semantic palette roles are load-bearing.
+- **[must]** `ux-accessibility.photosensitivity-motion`
+  - path: `ux-accessibility/photosensitivity-motion/report.md`
+  - why: 3D camera on a moving creature plus whimsical juice: the vection and comfort-option set is the named motion-sensitivity requirement.
+- **[must]** `ux-accessibility.low-vision-screen-reader-support`
+  - path: `ux-accessibility/low-vision-screen-reader-support/report.md`
+  - why: Screen reader is called out explicitly; a browser app can expose a real accessibility tree, and the semantic narration model defines the target claim.
+- **[must]** `ux-accessibility.text-readability`
+  - path: `ux-accessibility/text-readability/report.md`
+  - why: Memory text naming real friends is the narrative payload and is read on a phone at arm's length.
+- **[must]** `ux-accessibility.ui-scaling-visual-customization`
+  - path: `ux-accessibility/ui-scaling-visual-customization/report.md`
+  - why: Safe-area and repositioning plus per-element scaling is the phone-and-tablet layer; the meaning/presentation/placement/profile split is the architecture to copy.
+- **[must]** `visual.visual-accessibility`
+  - path: `visual/visual-accessibility/report.md`
+  - why: The rendering-side companion: colourblind, contrast, text scaling and motion enforced inside the three.js scene, not just the DOM UI.
+- **[must]** `audio.audio-accessibility`
+  - path: `audio/audio-accessibility/report.md`
+  - why: Mobile web is played sound-off by default; the audio-only-information audit decides what the creature's sounds must also say visually.
+- **[should]** `ux-accessibility.visualizing-audio-cues`
+  - path: `ux-accessibility/visualizing-audio-cues/report.md`
+  - why: Creature sounds are a gameplay input that shapes gene expression, so they need an informational-equivalent visual channel.
+- **[should]** `ux-accessibility.subtitles-captions`
+  - path: `ux-accessibility/subtitles-captions/report.md`
+  - why: Non-speech sound coverage: the creature vocalizes rather than speaks, which is the caption case, not the subtitle case.
+- **[should]** `ux-accessibility.audio-mix-accessibility`
+  - path: `ux-accessibility/audio-mix-accessibility/report.md`
+  - why: Semantic mix controls and true-mono downmix matter on a phone speaker played one-handed in public.
+- **[should]** `ux-accessibility.reducing-physical-demand`
+  - path: `ux-accessibility/reducing-physical-demand/report.md`
+  - why: One-handed phone use is named: holds-to-toggles, reduced precision and fatigue budgeting are the direct answers.
+- **[should]** `ux-accessibility.input-remapping-alternative-inputs`
+  - path: `ux-accessibility/input-remapping-alternative-inputs/report.md`
+  - why: At high a11y priority a touch-only game still owes switch/eye-gaze pathways and a semantic action layer above raw gestures.
+- **[should]** `ux-accessibility.cvd-daltonization-matrices`
+  - path: `ux-accessibility/cvd-daltonization-matrices/report.md`
+  - why: Citable numeric CVD simulate/correct matrices; the maths ports to a GLSL pass in three.js even though the shipped shader is Godot.
+- **[should]** `ux-accessibility.accessibility-communication`
+  - path: `ux-accessibility/accessibility-communication/report.md`
+  - why: An installable app with a settings hub needs plain-language grouping and presets, and claims tied to evidence.
+- **[should]** `ux-accessibility.accessibility-testing-consulting`
+  - path: `ux-accessibility/accessibility-testing-consulting/report.md`
+  - why: High a11y priority is a claim; this is the only report that says how to validate it against real assistive tech.
+- **[should]** `qa-testing.accessibility-testing`
+  - path: `qa-testing/accessibility-testing/report.md`
+  - why: Places the a11y check inside the ordinary solo-dev test matrix and pass cadence rather than as a one-off audit.
+- **[nice]** `ux-accessibility.difficulty-pacing-assist-cognitive-load`
+  - path: `ux-accessibility/difficulty-pacing-assist-cognitive-load/report.md`
+  - why: Timer classification applies to need-decay clocks that run while the player is away; the assist ladder is how you stop a pet becoming a chore.
+- **[nice]** `input-controls.specialized-adaptive-controllers`
+  - path: `input-controls/specialized-adaptive-controllers/report.md`
+  - why: Browser gamepad/switch devices are reachable on web; covers the device end of the alternative-input claim.
+
+## mobile-touch-responsive (24)
+
+- **[must]** `input-controls.touch-mobile-input`
+  - path: `input-controls/touch-mobile-input/report.md`
+  - why: The central platform report: touch as its own paradigm, touch targets, gestures, occlusion by the thumb.
+- **[must]** `qa-testing.compatibility-device-testing`
+  - path: `qa-testing/compatibility-device-testing/report.md`
+  - why: Phone plus tablet plus browser engines is an effectively infinite matrix; representative selection is the only tractable answer for a solo dev.
+- **[must]** `visual.rendering-performance-optimization`
+  - path: `visual/rendering-performance-optimization/report.md`
+  - why: A 3D scene on a mid phone GPU inside a browser tab: measuring the actual bottleneck is the difference between shipping and not.
+- **[must]** `visual.asset-optimization`
+  - path: `visual/asset-optimization/report.md`
+  - why: Web download weight plus phone VRAM caps the whole creature and habitat budget; poly/texture/memory budgets are set here.
+- **[should]** `input-controls.cross-platform-control-parity`
+  - path: `input-controls/cross-platform-control-parity/report.md`
+  - why: One web build must feel native on phone, tablet and desktop browser simultaneously.
+- **[should]** `input-controls.context-sensitive-contextual-controls`
+  - path: `input-controls/context-sensitive-contextual-controls/report.md`
+  - why: On a small screen one tap on the creature must resolve to feed/pet/train by context rather than a button wall.
+- **[should]** `input-controls.control-feel-responsiveness`
+  - path: `input-controls/control-feel-responsiveness/report.md`
+  - why: A 90-second session is almost entirely feel; the perceptual qualities are the product here.
+- **[should]** `input-controls.input-latency-responsiveness`
+  - path: `input-controls/input-latency-responsiveness/report.md`
+  - why: Browser touch-to-photon latency has extra stages (event coalescing, rAF, compositor) and must be budgeted deliberately.
+- **[should]** `input-controls.input-system-architecture`
+  - path: `input-controls/input-system-architecture/report.md`
+  - why: Custom engine means the input pipeline is the developer's to build; this is the foundation the other input reports assume.
+- **[should]** `input-controls.camera-control-input`
+  - path: `input-controls/camera-control-input/report.md`
+  - why: Pinch/drag orbit around a single hero creature is the only camera verb in the game; this owns hand-to-rig mapping.
+- **[should]** `ux-accessibility.hud-interface-ux`
+  - path: `ux-accessibility/hud-interface-ux/report.md`
+  - why: Tiny screen, one hero subject: the permanent/on-demand/contextual/cut method decides what earns a slot over the creature.
+- **[should]** `visual.ui-implementation-tech`
+  - path: `visual/ui-implementation-tech/report.md`
+  - why: DOM-over-canvas versus in-scene UI is a real architectural fork for a three.js app, with layout, binding and input-routing consequences.
+- **[should]** `qa-testing.performance-testing-profiling`
+  - path: `qa-testing/performance-testing-profiling/report.md`
+  - why: Continuous frame-time budget defence over months of added traits, which is when silent regression happens.
+- **[should]** `engine-tech.asset-resource-management-streaming`
+  - path: `engine-tech/asset-resource-management-streaming/report.md`
+  - why: First-load weight and memory budgets on the weakest supported device are the gate on an installable web app.
+- **[nice]** `input-controls.haptics-rumble-force-feedback`
+  - path: `input-controls/haptics-rumble-force-feedback/report.md`
+  - why: Phone vibration is the cheapest way to make petting land, and doubles as a non-audio, non-visual feedback channel.
+- **[nice]** `input-controls.keyboard-mouse-input`
+  - path: `input-controls/keyboard-mouse-input/report.md`
+  - why: Desktop browser is a real entry point for a web game and is a structurally different paradigm from touch.
+- **[nice]** `input-controls.device-support-hot-swapping`
+  - path: `input-controls/device-support-hot-swapping/report.md`
+  - why: A tablet with a keyboard, a phone rotated mid-session: the device layer has to just work without a mode switch.
+- **[nice]** `input-controls.3d-look-sensitivity-defaults`
+  - path: `input-controls/3d-look-sensitivity-defaults/report.md`
+  - why: Copyable numeric defaults for orbit sensitivity, the one tuning number the creature camera cannot guess.
+- **[nice]** `qa-testing.emitted-game-performance-floor`
+  - path: `qa-testing/emitted-game-performance-floor/report.md`
+  - why: Per-archetype numeric frame-time/draw-call ceilings; the numbers port even though the measurement hooks are Godot.
+- **[nice]** `visual.anti-aliasing-upscaling`
+  - path: `visual/anti-aliasing-upscaling/report.md`
+  - why: Low-poly silhouettes alias badly, and mobile web AA choice is a cheap readability win on a single hero subject.
+- **[nice]** `visual.graphics-apis-gpu-architecture`
+  - path: `visual/graphics-apis-gpu-architecture/report.md`
+  - why: WebGL2 versus WebGPU is a live, unmade decision for a browser 3D game and this is the report that frames it.
+- **[nice]** `visual.rendering-pipeline-architecture`
+  - path: `visual/rendering-pipeline-architecture/report.md`
+  - why: Explains where lighting cost is paid, which is how you decide how many lights the diorama can afford on a phone.
+- **[nice]** `qa-testing.stress-soak-stability-testing`
+  - path: `qa-testing/stress-soak-stability-testing/report.md`
+  - why: A tab left open and a creature state that grows for months are both leak-shaped; soak testing is the only way to see it.
+- **[nice]** `qa-testing.network-testing-simulation`
+  - path: `qa-testing/network-testing-simulation/report.md`
+  - why: Check-ins happen on flaky mobile networks; sync must be tested under real latency and loss, not on localhost.
+
+## installable-app-and-onboarding (20)
+
+- **[must]** `ux-accessibility.first-time-user-experience-ftue`
+  - path: `ux-accessibility/first-time-user-experience-ftue/report.md`
+  - why: Launch to first honest reason to return, which for MonsterTime includes joining a friend group and meeting a creature that already exists.
+- **[must]** `ux-accessibility.onboarding-tutorial-design`
+  - path: `ux-accessibility/onboarding-tutorial-design/report.md`
+  - why: Just-in-time layering across many days is the only teaching shape a 1-3 minute session tolerates.
+- **[must]** `ux-accessibility.settings-options-ux`
+  - path: `ux-accessibility/settings-options-ux/report.md`
+  - why: Defaults audit and taxonomy for the settings screen, which carries the entire accessibility floor in an app with no other menus.
+- **[must]** `ux-accessibility.feedback-game-feel-ux`
+  - path: `ux-accessibility/feedback-game-feel-ux/report.md`
+  - why: Every action on the creature must visibly close its loop or the group cannot tell that behaviour causes traits.
+- **[should]** `ux-accessibility.information-architecture-menu-flow`
+  - path: `ux-accessibility/information-architecture-menu-flow/report.md`
+  - why: Findability and back-stack behaviour for the few screens that exist (creature, memories, group, settings) on a phone.
+- **[should]** `ux-accessibility.teaching-complex-asymmetric-systems`
+  - path: `ux-accessibility/teaching-complex-asymmetric-systems/report.md`
+  - why: Hidden DNA is hidden information and friends arrive at different times with different knowledge; this is the literacy-arc report for exactly that.
+- **[should]** `ux-accessibility.cognitive-load-player-attention`
+  - path: `ux-accessibility/cognitive-load-player-attention/report.md`
+  - why: Peak-load budget for a session that must be comprehensible in ninety seconds after three days away.
+- **[should]** `ux-accessibility.affordances-signifiers-signposting`
+  - path: `ux-accessibility/affordances-signifiers-signposting/report.md`
+  - why: In a diegetic 3D scene the player must perceive what is touchable on the creature and around it without labels.
+- **[should]** `ux-accessibility.usability-friction`
+  - path: `ux-accessibility/usability-friction/report.md`
+  - why: A no-fail cozy game has no intended challenge, so every friction found is accidental by definition; the taxonomy is the audit tool.
+- **[should]** `ux-accessibility.game-ux-design-discipline`
+  - path: `ux-accessibility/game-ux-design-discipline/report.md`
+  - why: Umbrella report that maps a design vector onto the specialist UX sub-reports; useful as the routing spine for this reading list.
+- **[should]** `ux-accessibility.playtesting-usability-testing`
+  - path: `ux-accessibility/playtesting-usability-testing/report.md`
+  - why: The group of 3-8 friends is both the audience and the test cohort; think-aloud and severity format make that observation rigorous.
+- **[should]** `ux-accessibility.iterating-from-feedback`
+  - path: `ux-accessibility/iterating-from-feedback/report.md`
+  - why: A shared creature generates loud opinions from a handful of people; signal-versus-noise triage protects the design.
+- **[should]** `ux-accessibility.ux-metrics-telemetry`
+  - path: `ux-accessibility/ux-metrics-telemetry/report.md`
+  - why: Check-in frequency and drop-off are the health metrics of an endless pet; privacy-safe indie-scale instrumentation is the constraint.
+- **[should]** `visual.ui-ux-flow-menu-design`
+  - path: `visual/ui-ux-flow-menu-design/report.md`
+  - why: Structural navigation and visual menu design decided together, which is what a four-screen app needs.
+- **[should]** `visual.ui-visual-design-hud`
+  - path: `visual/ui-visual-design-hud/report.md`
+  - why: Element earning, hierarchy and iconography for the small amount of chrome allowed to sit over the creature.
+- **[should]** `visual.diegetic-immersive-ui`
+  - path: `visual/diegetic-immersive-ui/report.md`
+  - why: A cozy pet game wants status expressed by the creature and its home rather than by bars; this owns the fiction/space placement decision.
+- **[should]** `narrative.diegetic-ui-as-narrative`
+  - path: `narrative/diegetic-ui-as-narrative/report.md`
+  - why: The memory record naming real friends is best delivered as an in-world object rather than a menu list.
+- **[should]** `living-world-dialogue.dialogue-as-tutorial-feedback`
+  - path: `living-world-dialogue/dialogue-as-tutorial-feedback/report.md`
+  - why: Teach-through-character and diegetic-versus-popup feedback: the creature itself is the only teacher available.
+- **[nice]** `asset-forge.first-session-teaching-recipes`
+  - path: `asset-forge/first-session-teaching-recipes/report.md`
+  - why: Replaces a static how-to-play panel with a teach-by-doing in-world first objective, which is the right first-run shape here.
+- **[nice]** `asset-forge.settings-menu-recipes`
+  - path: `asset-forge/settings-menu-recipes/report.md`
+  - why: A concrete settings schema and accessibility floor to copy as a checklist, engine-independent even though the code is Godot.
+
+## creature-anatomy-and-motion (65)
+
+- **[must]** `bestiary.brown-bear`
+  - path: `D:/Programs/GameTev/research/bestiary/brown-bear/report.md`
+  - why: Shoulder-height proportion bands, hump load-share and the first gait duty-factor table: direct morph-range and walk-cycle data.
+- **[must]** `bestiary.house-cat`
+  - path: `D:/Programs/GameTev/research/bestiary/house-cat/report.md`
+  - why: Muzzle-ratio face answer, a complete within-sample limb bone set and spinal posture angles: the cleanest quadruped morph reference.
+- **[must]** `bestiary.horse`
+  - path: `D:/Programs/GameTev/research/bestiary/horse/report.md`
+  - why: Allele-frequency morph table across 28 breeds plus a breed-borne variation ladder: the model for rolling trait frequencies rather than inventing them.
+- **[must]** `bestiary.white-tailed-deer`
+  - path: `D:/Programs/GameTev/research/bestiary/white-tailed-deer/report.md`
+  - why: The founding bestiary format: proportion bands, population size bands, part-to-member map and a morph table with real frequencies.
+- **[must]** `bestiary.wild-boar`
+  - path: `D:/Programs/GameTev/research/bestiary/wild-boar/report.md`
+  - why: Fore-to-hind mass load, dorsal crest geometry, tusk bands by sex and coat-morph frequencies: a bulk-and-ornament trait axis.
+- **[must]** `bestiary.rabbit`
+  - path: `D:/Programs/GameTev/research/bestiary/rabbit/report.md`
+  - why: Fore-against-hind limb ratio, ear and tail measurements and a real vertebral-formula distribution: proportion variation with numbers.
+- **[must]** `bestiary.red-kangaroo`
+  - path: `D:/Programs/GameTev/research/bestiary/red-kangaroo/report.md`
+  - why: A body plan that fits only with a stated distortion, plus tail-as-limb data: the template for a creature that is deliberately not a real animal.
+- **[must]** `visual.species-silhouette-morphology`
+  - path: `visual/species-silhouette-morphology/report.md`
+  - why: A modular part vocabulary that still reads at small size is exactly the trait-expression vocabulary MonsterTime needs.
+- **[must]** `visual.stylized-proportion-registers`
+  - path: `visual/stylized-proportion-registers/report.md`
+  - why: The appeal axis: which proportion registers keep a morphed body cute rather than broken, tone-matched to whimsical-uncanny.
+- **[must]** `visual.smooth-body-construction`
+  - path: `visual/smooth-body-construction/report.md`
+  - why: Parametric organic body construction is literally the base-mesh problem: one core smoothly deformed by parameters.
+- **[must]** `visual.rigging-skinning`
+  - path: `visual/rigging-skinning/report.md`
+  - why: One body deformed many ways means skin weights and blendshapes are the whole trait pipeline; LBS versus DQS matters when limbs change length.
+- **[must]** `visual.procedural-animation-ik`
+  - path: `visual/procedural-animation-ik/report.md`
+  - why: Authored clips break when proportions change per group; IK and procedural adjustment are how one walk survives every morph.
+- **[must]** `visual.animation-systems-state-machines-blend-trees`
+  - path: `visual/animation-systems-state-machines-blend-trees/report.md`
+  - why: Idle, eat, sleep, react, grow: the runtime driver and its transitions are the creature's visible behaviour.
+- **[must]** `visual.animation-principles-games`
+  - path: `visual/animation-principles-games/report.md`
+  - why: Weight, intent and life are the entire product when the game is one creature you watch for ninety seconds.
+- **[must]** `visual.voxel-low-poly`
+  - path: `visual/voxel-low-poly/report.md`
+  - why: Low-poly is the named art style; this separates it as a modelling approach from voxel data structures.
+- **[must]** `visual.camera-systems`
+  - path: `visual/camera-systems/report.md`
+  - why: An effectively fixed camera on one creature still needs a rig, damping, collision and framing decisions made deliberately.
+- **[must]** `visual.3d-camera-rig-numeric-defaults`
+  - path: `visual/3d-camera-rig-numeric-defaults/report.md`
+  - why: Copyable numbers for the rig the camera-systems report leaves illustrative; saves guessing distance, FOV and damping.
+- **[must]** `visual.visual-readability-clarity-game-feel`
+  - path: `visual/visual-readability-clarity-game-feel/report.md`
+  - why: The hero subject must stay legible against its habitat on a small screen, with juice that informs rather than decorates.
+- **[should]** `bestiary.brown-rat`
+  - path: `D:/Programs/GameTev/research/bestiary/brown-rat/report.md`
+  - why: Skull/ear/limb-segment bands and an explicit note that shoulder height is unavailable: small-creature proportions plus honest data absence.
+- **[should]** `bestiary.cattle`
+  - path: `D:/Programs/GameTev/research/bestiary/cattle/report.md`
+  - why: Horn geometry with an orientation distribution and horned-versus-polled presence rates: the model for a rollable appendage trait.
+- **[should]** `bestiary.common-frog`
+  - path: `D:/Programs/GameTev/research/bestiary/common-frog/report.md`
+  - why: Four-segment hindlimb plus fusion and absence rows: how to encode a body that lacks parts other plans assume.
+- **[should]** `bestiary.common-octopus`
+  - path: `D:/Programs/GameTev/research/bestiary/common-octopus/report.md`
+  - why: A boneless segment table and fixed counts: the reference for soft, non-skeletal deformation a morph-driven creature can borrow.
+- **[should]** `bestiary.blue-shark`
+  - path: `D:/Programs/GameTev/research/bestiary/blue-shark/report.md`
+  - why: The first no-plan-fits declaration plus fusiform taper and suspended-attitude pitch angles: how to record a body no existing plan covers.
+- **[should]** `bestiary.shore-crab`
+  - path: `D:/Programs/GameTev/research/bestiary/shore-crab/report.md`
+  - why: Carapace ratio by sex and moult-step growth: discrete growth stages rather than continuous scaling, which a months-long creature may need.
+- **[should]** `bestiary.wolf-spider`
+  - path: `D:/Programs/GameTev/research/bestiary/wolf-spider/report.md`
+  - why: Leg proportion gradient across four pairs and the library's only peer-reviewed rollable limb-loss frequencies.
+- **[should]** `visual.animation-tech-gpu-skinning-performance`
+  - path: `visual/animation-tech-gpu-skinning-performance/report.md`
+  - why: Morph-target and skinning cost on a phone GPU is the technical ceiling on how many traits can be live at once.
+- **[should]** `visual.blender-parametric-rig-recipes`
+  - path: `visual/blender-parametric-rig-recipes/report.md`
+  - why: Executable headless recipes for building the parametric figure and its variants, the authoring side of the morph library.
+- **[should]** `visual.facial-animation-lip-sync`
+  - path: `visual/facial-animation-lip-sync/report.md`
+  - why: Face rigs and gaze mechanisms; a pet that looks at you is most of the emotional payload, and gaze is cheap.
+- **[should]** `visual.npr-stylized-rendering`
+  - path: `visual/npr-stylized-rendering/report.md`
+  - why: Stylized-3d means deliberately breaking from PBR; this is how the renderer is made to do that on purpose.
+- **[should]** `visual.art-style-survey-selection`
+  - path: `visual/art-style-survey-selection/report.md`
+  - why: Resolves the design vector into a specific look decision rather than a vague low-poly gesture.
+- **[should]** `visual.art-direction-visual-identity`
+  - path: `visual/art-direction-visual-identity/report.md`
+  - why: A solo dev still needs a documented look that holds while dozens of trait parts get added over months.
+- **[should]** `visual.color-theory-palettes`
+  - path: `visual/color-theory-palettes/report.md`
+  - why: Per-group creature colour must vary without ever becoming ugly or unreadable; harmony rules bound the seeded range.
+- **[should]** `visual.composition-framing-visual-hierarchy`
+  - path: `visual/composition-framing-visual-hierarchy/report.md`
+  - why: One subject, fixed camera: staging and eye-direction are the whole composition problem.
+- **[should]** `visual.lighting-as-mood-storytelling`
+  - path: `visual/lighting-as-mood-storytelling/report.md`
+  - why: Cozy and faintly uncanny is mostly a lighting claim; this owns light as mood rather than as technique.
+- **[should]** `visual.real-time-lighting-global-illumination`
+  - path: `visual/real-time-lighting-global-illumination/report.md`
+  - why: The cost side of that mood: which lighting mechanisms a browser on a phone can actually afford.
+- **[should]** `visual.shadows`
+  - path: `visual/shadows/report.md`
+  - why: A contact shadow is what places the creature on the ground; shadow technique and artifacts decide whether it reads as present.
+- **[should]** `visual.shaders-materials-pbr`
+  - path: `visual/shaders-materials-pbr/report.md`
+  - why: Baseline material model to deviate from deliberately, and the map set the creature's skin traits will be authored against.
+- **[should]** `visual.vfx-particle-systems`
+  - path: `visual/vfx-particle-systems/report.md`
+  - why: Whimsical reactions (crumbs, hearts, sleep motes) are the cheapest way to make a check-in feel alive.
+- **[should]** `visual.procedural-generative-visuals`
+  - path: `visual/procedural-generative-visuals/report.md`
+  - why: Per-group seed driving materials and scatter is how two groups end up with visibly different creatures and habitats.
+- **[should]** `visual.art-asset-pipeline-dcc-tools`
+  - path: `visual/art-asset-pipeline-dcc-tools/report.md`
+  - why: The glTF path from a DCC tool into a custom three.js runtime, including how morph targets survive export.
+- **[should]** `visual-trace.body-plan-taxonomy-read`
+  - path: `visual-trace/body-plan-taxonomy-read/report.md`
+  - why: Classifying a creature's body plan before spending shape is the same call MonsterTime makes when DNA picks a plan.
+- **[should]** `visual-trace.asymmetry-odd-anatomy`
+  - path: `visual-trace/asymmetry-odd-anatomy/report.md`
+  - why: When mirror symmetry breaks and what it costs: the direct lever for faintly uncanny without ugly.
+- **[should]** `visual-trace.limbs-wings-appendage-triage`
+  - path: `visual-trace/limbs-wings-appendage-triage/report.md`
+  - why: A price list for what sticks out of a creature, which is a usable budget model for a rollable appendage trait set.
+- **[should]** `asset-forge.portrait-expression-recipes`
+  - path: `asset-forge/portrait-expression-recipes/report.md`
+  - why: A bounded emotion-tag vocabulary expressed as deltas over a face: exactly the blendshape-set design problem, transferable from 2D.
+- **[should]** `asset-forge.palette-derivation-algorithms`
+  - path: `asset-forge/palette-derivation-algorithms/report.md`
+  - why: Executable maths turning a few seeded base swatches into a full coherent palette, which is how a per-group creature gets its colours.
+- **[should]** `asset-forge.procedural-texture-pattern-fills`
+  - path: `asset-forge/procedural-texture-pattern-fills/report.md`
+  - why: A seeded, palette-constrained surface vocabulary: the pattern half of never shipping the same creature twice.
+- **[should]** `generative-assets.generated-asset-consistency-qa`
+  - path: `generative-assets/generated-asset-consistency-qa/report.md`
+  - why: A growing library of trait parts must stay stylistically one creature; the human-in-the-loop discipline applies however the parts are made.
+- **[nice]** `visual.post-processing-stack`
+  - path: `visual/post-processing-stack/report.md`
+  - why: Tone mapping and a restrained bloom carry most of the cozy look; ordering and mobile cost are the constraints.
+- **[nice]** `visual.technical-art-bridge`
+  - path: `visual/technical-art-bridge/report.md`
+  - why: A solo dev is their own tech artist; this names the tools, rigs and standards that role must supply.
+- **[nice]** `visual.concept-art-previsualization`
+  - path: `visual/concept-art-previsualization/report.md`
+  - why: De-risking a creature whose whole identity is its silhouette before committing to a rig.
+- **[nice]** `visual.cinematography-for-games`
+  - path: `visual/cinematography-for-games/report.md`
+  - why: Lensing and staging for a fixed camera, and for the small framed moments a memory might be shown in.
+- **[nice]** `visual.terrain-vegetation-foliage`
+  - path: `visual/terrain-vegetation-foliage/report.md`
+  - why: The habitat around the creature still needs ground and plants that cost almost nothing on a phone.
+- **[nice]** `visual.water-atmosphere-sky-volumetrics`
+  - path: `visual/water-atmosphere-sky-volumetrics/report.md`
+  - why: Sky and atmosphere set time-of-day mood in a diorama; the staged build order keeps it affordable.
+- **[nice]** `visual-trace.face-head-detail-budget`
+  - path: `visual-trace/face-head-detail-budget/report.md`
+  - why: When a head earns face features, and which ones; the face is what a friend group will anthropomorphize.
+- **[nice]** `visual-trace.creature-interview-script`
+  - path: `visual-trace/creature-interview-script/report.md`
+  - why: An ordered question list for pinning down a creature's form; reusable as the trait-authoring checklist.
+- **[nice]** `visual-trace.threat-features-expression`
+  - path: `visual-trace/threat-features-expression/report.md`
+  - why: Which shapes read as menacing: needed to keep an uncanny monster from tipping into frightening, or to tip it on purpose.
+- **[nice]** `visual-trace.negative-space-readability-check`
+  - path: `visual-trace/negative-space-readability-check/report.md`
+  - why: A post-placement would-this-read-small gate, which every generated trait combination needs to pass.
+- **[nice]** `visual-trace.figure-ground-separation`
+  - path: `visual-trace/figure-ground-separation/report.md`
+  - why: Finding and protecting the main mass, applied to keeping the creature separate from its habitat.
+- **[nice]** `visual-trace.organic-to-geometric-conversion`
+  - path: `visual-trace/organic-to-geometric-conversion/report.md`
+  - why: Per-subject recipes for trees, rocks and clouds: the cheap habitat dressing vocabulary.
+- **[nice]** `asset-forge.surface-wear-and-decal-recipes`
+  - path: `asset-forge/surface-wear-and-decal-recipes/report.md`
+  - why: A creature alive for months should show accumulated wear; this is the overlay vocabulary for visible history.
+- **[nice]** `asset-forge.primitive-3d-standins`
+  - path: `asset-forge/primitive-3d-standins/report.md`
+  - why: Style-true 3D from boxes, capsules and spheres: the fastest honest prototype of a low-poly creature and habitat.
+- **[nice]** `asset-forge.dressed-3d-prop-identity-recipes`
+  - path: `asset-forge/dressed-3d-prop-identity-recipes/report.md`
+  - why: Objects the group gives the creature must read as that specific object, not a greybox.
+- **[nice]** `asset-forge.particle-preset-recipes`
+  - path: `asset-forge/particle-preset-recipes/report.md`
+  - why: Nine intents mapped to concrete parameters; the numbers port to any particle system including three.js.
+- **[nice]** `generative-assets.ai-3d-asset-generation`
+  - path: `generative-assets/ai-3d-asset-generation/report.md`
+  - why: A solo dev producing dozens of morph-compatible parts has to at least price this route before rejecting it.
+- **[nice]** `qa-testing.visual-snapshot-regression-testing`
+  - path: `qa-testing/visual-snapshot-regression-testing/report.md`
+  - why: Combinatorial trait morphs cannot be eyeballed; image diffing across seeded creatures is the only realistic regression net.
+
+## social-async-and-retention (49)
+
+- **[must]** `genres.life-sims`
+  - path: `genres/life-sims/report.md`
+  - why: The named genre, and it owns the exact problem: no-fail self-directed play that must give a reason to keep playing rather than a way to win.
+- **[must]** `genres.farming-ranching-sim`
+  - path: `genres/farming-ranching-sim/report.md`
+  - why: The cozy input-growth-output loop with delayed reliable payoff is the shape of feeding and training a creature across days.
+- **[must]** `game-design.core-loop-and-progression-structure`
+  - path: `game-design/core-loop-and-progression-structure/report.md`
+  - why: Nested loops and the arc from first minute to month three, which is the endless session model stated in the vector.
+- **[must]** `game-design.game-meta-features-systems`
+  - path: `game-design/game-meta-features-systems/report.md`
+  - why: The wrapper catalog covering collectibles, meta-progression, social identity and engagement loops, and one of only two reports in the library that touch async multiplayer and push notifications.
+- **[must]** `game-systems.cozy-sim-systems-floor`
+  - path: `game-systems/cozy-sim-systems-floor/report.md`
+  - why: MonsterTime's own class: an enforceable checklist, pacing envelope, HUD floor and divergence axes to score the build against.
+- **[must]** `game-systems.slime-rancher-experience-ledger`
+  - path: `game-systems/slime-rancher-experience-ledger/report.md`
+  - why: The library's closest shipped analogue: creature raising with day-over-day pacing, in 3D, boot to quit.
+- **[must]** `multiplayer.backend-persistence-player-data`
+  - path: `multiplayer/backend-persistence-player-data/report.md`
+  - why: One shared creature persisting for months is a data-modelling and idempotency problem before it is a gameplay one.
+- **[must]** `engine-tech.save-systems-serialization-versioning`
+  - path: `engine-tech/save-systems-serialization-versioning/report.md`
+  - why: The creature's schema must survive every patch shipped during its life; migration is not optional in an endless game.
+- **[must]** `engine-tech.engine-architecture-subsystems-game-loop`
+  - path: `engine-tech/engine-architecture-subsystems-game-loop/report.md`
+  - why: Custom engine on three.js means the subsystem layout and loop are the developer's decisions, including a loop that must tolerate tab suspension.
+- **[must]** `qa-testing.save-load-persistence-state-testing`
+  - path: `qa-testing/save-load-persistence-state-testing/report.md`
+  - why: Corrupting a months-old shared creature is the one unrecoverable failure in this design; round-trip integrity testing is the guard.
+- **[should]** `genres.mmorpg`
+  - path: `genres/mmorpg/report.md`
+  - why: Owns the persistent-world-that-continues-without-you promise, which is MonsterTime's model at a group of eight rather than thousands.
+- **[should]** `genres.idle-incremental`
+  - path: `genres/idle-incremental/report.md`
+  - why: Offline progression, the return-to-app moment and progression as the entire content: the mechanics of a several-times-a-day check-in.
+- **[should]** `genres.sandbox-physics-toy`
+  - path: `genres/sandbox-physics-toy/report.md`
+  - why: A no-goal frame with expressive verbs and consistent interacting rules is exactly what makes an inexhaustible pet rather than a chore list.
+- **[should]** `genres.survival`
+  - path: `genres/survival/report.md`
+  - why: The library's owner of needs and depletion pressure and the day/night cycle; hunger and tiredness decay live here even though the threat half does not apply.
+- **[should]** `game-systems.stardew-valley-experience-ledger`
+  - path: `game-systems/stardew-valley-experience-ledger/report.md`
+  - why: Day-clock pacing and a soft-fail loop, measured boot to quit: the reference cadence for a daily cozy check-in.
+- **[should]** `game-systems.unpacking-experience-ledger`
+  - path: `game-systems/unpacking-experience-ledger/report.md`
+  - why: Near-zero HUD and a no-fail session loop, which is the interface ambition for a screen dominated by one creature.
+- **[should]** `game-systems.collector-3d-systems-floor`
+  - path: `game-systems/collector-3d-systems-floor/report.md`
+  - why: The 3D class checklist and HUD floor for a stylized third-person collector, the nearest 3D presentation floor to this build.
+- **[should]** `multiplayer.anticheat-server-authority`
+  - path: `multiplayer/anticheat-server-authority/report.md`
+  - why: Shared ownership means one friend must not be able to forge actions on the creature; server authority is the answer and the client cannot be trusted with DNA.
+- **[should]** `multiplayer.community-moderation-trust-safety-systems`
+  - path: `multiplayer/community-moderation-trust-safety-systems/report.md`
+  - why: Griefing inside a small friend group, plus user-typed names and memory text, needs a reporting and review posture even at eight players.
+- **[should]** `multiplayer.deterministic-simulation`
+  - path: `multiplayer/deterministic-simulation/report.md`
+  - why: Seed-derived DNA and expression must resolve identically on every friend's device; the non-determinism source taxonomy is the checklist that makes that true.
+- **[should]** `multiplayer.multiplayer-framework-custom-engine`
+  - path: `multiplayer/multiplayer-framework-custom-engine/report.md`
+  - why: Netcode model selection from scratch in your own engine; async state sync is a legitimate choice on that menu and needs to be made explicitly.
+- **[should]** `asset-forge.save-apply-live-contract`
+  - path: `asset-forge/save-apply-live-contract/report.md`
+  - why: What a load must do to a running scene is precisely the problem of applying a friend's changes to a creature already on screen.
+- **[should]** `asset-forge.runtime-seed-determinism-recipes`
+  - path: `asset-forge/runtime-seed-determinism-recipes/report.md`
+  - why: A shared seed field with per-consumer stream derivation and a divergence contract: the executable version of one seed per friend group.
+- **[should]** `asset-forge.companion-pet-recipes`
+  - path: `asset-forge/companion-pet-recipes/report.md`
+  - why: The only report in the library that grounds a follower/pet entity and its command interface directly.
+- **[should]** `communities-premises.social-obligation-favor-economy`
+  - path: `communities-premises/social-obligation-favor-economy/report.md`
+  - why: A shared creature runs on communal duty and refusal cost; this models who is expected to feed it and what happens when they do not.
+- **[should]** `communities-premises.status-standing-small-community`
+  - path: `communities-premises/status-standing-small-community/report.md`
+  - why: Traits credited to named friends create standing inside a group of 3-8; the earned-slowly, lost-in-an-afternoon asymmetry is the risk to design against.
+- **[should]** `qa-testing.live-ops-post-launch-qa`
+  - path: `qa-testing/live-ops-post-launch-qa/report.md`
+  - why: Every patch lands on creatures already alive; blast-radius QA is how you ship without resetting someone's three months.
+- **[should]** `qa-testing.determinism-replay-testing`
+  - path: `qa-testing/determinism-replay-testing/report.md`
+  - why: Seed plus input replays with checksum divergence detection is a cheap, strong guard on the never-the-same-creature promise.
+- **[should]** `business-legal.minors-data-privacy-coppa-compliance`
+  - path: `business-legal/minors-data-privacy-coppa-compliance/report.md`
+  - why: The game stores the real names of a player's friends and friend groups may include minors; age-gate and analytics consequences are real here.
+- **[should]** `narrative.multiplayer-live-service-narrative`
+  - path: `narrative/multiplayer-live-service-narrative/report.md`
+  - why: Names the ways a shared, never-pausing world breaks single-player narrative assumptions, which is where the memory system lives.
+- **[nice]** `genres.colony-survival-management-sims`
+  - path: `genres/colony-survival-management-sims/report.md`
+  - why: Emergent anecdotes produced by a needs simulation is the mechanism behind memories worth telling a friend about.
+- **[nice]** `genres.walking-sim-interactive-narrative`
+  - path: `genres/walking-sim-interactive-narrative/report.md`
+  - why: Defined by subtraction: no combat, no fail, tiny interaction budget, atmosphere as the product; a useful discipline for a 90-second session.
+- **[nice]** `genres.genre-fusion-design-method`
+  - path: `genres/genre-fusion-design-method/report.md`
+  - why: Life sim crossed with async social is a fusion; this is the method for making the seam coherent rather than bolted on.
+- **[nice]** `game-systems.a-short-hike-experience-ledger`
+  - path: `game-systems/a-short-hike-experience-ledger/report.md`
+  - why: A measured no-fail session in a stylized 3D world, boot to quit, at roughly the tone MonsterTime wants.
+- **[nice]** `game-systems.untitled-goose-game-experience-ledger`
+  - path: `game-systems/untitled-goose-game-experience-ledger/report.md`
+  - why: A no-fail 3D mischief loop with a whimsical animal protagonist and almost no HUD.
+- **[nice]** `game-systems.frog-detective-experience-ledger`
+  - path: `game-systems/frog-detective-experience-ledger/report.md`
+  - why: Low-poly whimsical 3D with a no-fail loop; a direct tonal and presentational reference point.
+- **[nice]** `game-systems.powerwash-simulator-experience-ledger`
+  - path: `game-systems/powerwash-simulator-experience-ledger/report.md`
+  - why: A no-fail task loop measured in detail, including how it stays satisfying with no failure pressure at all.
+- **[nice]** `game-systems.donut-county-experience-ledger`
+  - path: `game-systems/donut-county-experience-ledger/report.md`
+  - why: Low-poly stylized 3D with a growth mechanic and a light frame story; useful for how growth is shown rather than numbered.
+- **[nice]** `game-systems.short-narrative-systems-floor`
+  - path: `game-systems/short-narrative-systems-floor/report.md`
+  - why: Class checklist and HUD floor for authored narrative at small scale, which is the register the memory entries sit in.
+- **[nice]** `game-systems.first-person-diegetic-manipulation-mechanisms`
+  - path: `game-systems/first-person-diegetic-manipulation-mechanisms/report.md`
+  - why: Direct diegetic manipulation of world objects transfers to touching, poking and feeding the creature without a menu.
+- **[nice]** `multiplayer.multiplayer-telemetry-analytics`
+  - path: `multiplayer/multiplayer-telemetry-analytics/report.md`
+  - why: What to instrument on the shared side: who checks in, which actions actually drive expression, and group health.
+- **[nice]** `multiplayer.multiplayer-testing-qa-tooling`
+  - path: `multiplayer/multiplayer-testing-qa-tooling/report.md`
+  - why: Synthetic clients simulating eight friends acting over weeks is the only way to test months of accumulation in an afternoon.
+- **[nice]** `asset-forge.progression-math-recipes`
+  - path: `asset-forge/progression-math-recipes/report.md`
+  - why: Growth curves and thresholds: concrete maths for how a creature matures over months without hitting a ceiling.
+- **[nice]** `asset-forge.day-night-weather-cycle-recipes`
+  - path: `asset-forge/day-night-weather-cycle-recipes/report.md`
+  - why: A runtime day/night state machine with the photosensitivity constraint already wired in, for a creature living on a real clock.
+- **[nice]** `communities-premises.feuds-grudges-reconciliation`
+  - path: `communities-premises/feuds-grudges-reconciliation/report.md`
+  - why: Shared ownership plus irreversible trait consequences produces grudges; the state machine and the reconciliation beat are the griefing design.
+- **[nice]** `communities-premises.gossip-networks-informal-power`
+  - path: `communities-premises/gossip-networks-informal-power/report.md`
+  - why: Hidden DNA makes information a currency inside the group; this models how that information actually moves between people.
+- **[nice]** `monetization.conversion-retention-as-monetization`
+  - path: `monetization/conversion-retention-as-monetization/report.md`
+  - why: Selected for its four-stage retention funnel only, not its revenue framing: the game lives or dies on day-1 through day-30 return.
+- **[nice]** `qa-testing.beta-early-access-community-testing`
+  - path: `qa-testing/beta-early-access-community-testing/report.md`
+  - why: The real test unit is one friend group playing for weeks; this distinguishes the test-program shapes that fit that.
+- **[nice]** `qa-testing.crash-error-reporting-telemetry`
+  - path: `qa-testing/crash-error-reporting-telemetry/report.md`
+  - why: A crash on a stranger's phone browser is otherwise invisible to a solo dev with no QA team.
+
+## other (60)
+
+- **[must]** `narrative.emergent-systemic-narrative`
+  - path: `narrative/emergent-systemic-narrative/report.md`
+  - why: Story arising from systems and agent behaviour rather than an authored plot is exactly how memories naming friends get generated.
+- **[must]** `narrative.reactivity-narrative-state`
+  - path: `narrative/reactivity-narrative-state/report.md`
+  - why: The world acknowledging what a specific person did is the entire credit mechanic; reactivity, not branching, is the right frame.
+- **[must]** `process.solo-dev-workload-burnout-management`
+  - path: `process/solo-dev-workload-burnout-management/report.md`
+  - why: Scope is solo developer and the game is designed to run for months after launch, which is the multi-year capacity problem this owns.
+- **[must]** `audio.sound-design-fundamentals`
+  - path: `audio/sound-design-fundamentals/report.md`
+  - why: Sounds are both feedback and a gameplay input that shapes gene expression; readable SFX craft is foundational here.
+- **[should]** `narrative.branching-state-management`
+  - path: `narrative/branching-state-management/report.md`
+  - why: The variable/flag plumbing under months of accumulated creature state, including how to name and test it before it becomes unmanageable.
+- **[should]** `narrative.naming-nomenclature`
+  - path: `narrative/naming-nomenclature/report.md`
+  - why: Trait names, creature names and group names are the highest-leverage characterization per byte in a game with almost no text.
+- **[should]** `narrative.theme-tone-voice`
+  - path: `narrative/theme-tone-voice/report.md`
+  - why: Whimsical, cozy and faintly uncanny has to hold across hundreds of systemically generated lines; this is how tone survives volume.
+- **[should]** `narrative.companion-npc-writing`
+  - path: `narrative/companion-npc-writing/report.md`
+  - why: A companion who accrues relationship over time is literally the creature; the budget guidance fits a solo dev.
+- **[should]** `narrative.character-writing-arcs`
+  - path: `narrative/character-writing-arcs/report.md`
+  - why: The creature is the only character in the game and still needs a legible want and flaw to be worth returning to.
+- **[should]** `narrative.barks-ambient-dialogue`
+  - path: `narrative/barks-ambient-dialogue/report.md`
+  - why: Systemic event-triggered lines, explicitly including non-voice signals: the creature's reaction vocabulary and its repetition problem.
+- **[should]** `narrative.environmental-storytelling`
+  - path: `narrative/environmental-storytelling/report.md`
+  - why: The habitat accumulating traces of what the group did lets a returning player infer the week they missed.
+- **[should]** `living-world-dialogue.procedural-dynamic-dialogue-guardrails`
+  - path: `living-world-dialogue/procedural-dynamic-dialogue-guardrails/report.md`
+  - why: Memory text naming real people is generated text; the bounded-generation tiers and mush detector are the guardrails on it.
+- **[should]** `living-world-dialogue.everyday-npc-dialogue-social-texture`
+  - path: `living-world-dialogue/everyday-npc-dialogue-social-texture/report.md`
+  - why: Anti-repetition gating is existential for content seen several times a day for months.
+- **[should]** `audio.audio-direction-sonic-identity`
+  - path: `audio/audio-direction-sonic-identity/report.md`
+  - why: A creature with no voice actor needs a coherent sonic identity for its calls, its home and its UI to feel like one thing.
+- **[should]** `audio.procedural-synthesized-audio`
+  - path: `audio/procedural-synthesized-audio/report.md`
+  - why: Runtime synthesis gives every group's creature its own voice from the same seed, which sample playback cannot.
+- **[should]** `audio.generative-procedural-music`
+  - path: `audio/generative-procedural-music/report.md`
+  - why: Per-seed music is the audio half of two groups never getting the same creature, and it never wears out on a daily check-in.
+- **[should]** `audio.ui-interface-audio`
+  - path: `audio/ui-interface-audio/report.md`
+  - why: The most-heard, least-budgeted category, and in a 90-second session it is a large fraction of everything heard.
+- **[should]** `audio.audio-game-feel-juice`
+  - path: `audio/audio-game-feel-juice/report.md`
+  - why: Feeding and petting are tiny actions that only feel good if the sound sells them.
+- **[should]** `audio.ambience-soundscapes`
+  - path: `audio/ambience-soundscapes/report.md`
+  - why: The habitat has to sound like a place the creature lives, which is most of the cozy claim.
+- **[should]** `audio.adaptive-interactive-music`
+  - path: `audio/adaptive-interactive-music/report.md`
+  - why: Music that follows the creature's mood and time of day rather than looping flat through every check-in.
+- **[should]** `audio.game-music-composition-scoring`
+  - path: `audio/game-music-composition-scoring/report.md`
+  - why: Non-linear composition craft for music that must survive being heard in short fragments many times a day.
+- **[should]** `audio.audio-emotion-psychoacoustics`
+  - path: `audio/audio-emotion-psychoacoustics/report.md`
+  - why: Cozy and faintly uncanny are perceptual claims; this supplies the evidence-based levers rather than folklore.
+- **[should]** `audio.audio-settings-player-options`
+  - path: `audio/audio-settings-player-options/report.md`
+  - why: Phone speaker, headphones and silent-mode are all normal listening conditions; the default mix matters more than the sliders.
+- **[should]** `audio.audio-implementation-event-systems`
+  - path: `audio/audio-implementation-event-systems/report.md`
+  - why: Custom engine means the event and parameter model between game state and Web Audio has to be designed, not inherited.
+- **[should]** `audio.audio-optimization`
+  - path: `audio/audio-optimization/report.md`
+  - why: Audio memory and decode cost on mobile browsers is a real budget line next to the 3D scene.
+- **[should]** `process.ideal-game-dev-progression`
+  - path: `process/ideal-game-dev-progression/report.md`
+  - why: The disciplined route from a pile of research reports to a built game, which is the exact position this reading list creates.
+- **[nice]** `narrative.embedded-found-narrative`
+  - path: `narrative/embedded-found-narrative/report.md`
+  - why: Memory entries are discovered rather than delivered; the flavour-text and log craft applies directly.
+- **[nice]** `narrative.show-dont-tell-in-games`
+  - path: `narrative/show-dont-tell-in-games/report.md`
+  - why: A trait caused by a friend should be visible on the body before it is ever stated in text.
+- **[nice]** `narrative.mechanics-as-metaphor`
+  - path: `narrative/mechanics-as-metaphor/report.md`
+  - why: Crediting traits to the friends who caused them is an argument about the group made through rules; procedural rhetoric names the technique.
+- **[nice]** `narrative.ludonarrative-harmony-dissonance`
+  - path: `narrative/ludonarrative-harmony-dissonance/report.md`
+  - why: Guards against the creature's stated feelings drifting away from what the systems actually reward.
+- **[nice]** `narrative.open-world-narrative-structure`
+  - path: `narrative/open-world-narrative-structure/report.md`
+  - why: Story that survives not knowing the order or timing of encounters is the same constraint as not knowing when each friend checks in.
+- **[nice]** `narrative.pacing-narrative-against-gameplay`
+  - path: `narrative/pacing-narrative-against-gameplay/report.md`
+  - why: Interleaving story beats with play, at the scale of one beat per short session.
+- **[nice]** `narrative.worldbuilding-for-games`
+  - path: `narrative/worldbuilding-for-games/report.md`
+  - why: Medium narrative weight needs a rule for how much world is worth building and how it earns its place.
+- **[nice]** `narrative.narrative-design-vs-game-writing`
+  - path: `narrative/narrative-design-vs-game-writing/report.md`
+  - why: For a solo dev doing both roles, the split clarifies which memory-system problems are structural and which are prose.
+- **[nice]** `narrative.comedy-humor-in-games`
+  - path: `narrative/comedy-humor-in-games/report.md`
+  - why: Whimsy that comes from the interaction rather than from jokes is the kind this game can sustain.
+- **[nice]** `living-world-dialogue.relationship-state-dialogue`
+  - path: `living-world-dialogue/relationship-state-dialogue/report.md`
+  - why: Per-friend relationship variables colouring what the creature does when that particular person opens the app.
+- **[nice]** `audio.spatial-3d-audio`
+  - path: `audio/spatial-3d-audio/report.md`
+  - why: Direction and distance in a small 3D diorama, cheaply, so the creature sounds like it is where it looks.
+- **[nice]** `audio.diegetic-non-diegetic-audio`
+  - path: `audio/diegetic-non-diegetic-audio/report.md`
+  - why: Deciding which sounds belong to the creature's world and which belong to the app is a real placement question here.
+- **[nice]** `audio.dynamic-mixing-mastering`
+  - path: `audio/dynamic-mixing-mastering/report.md`
+  - why: Ambience, music, creature and UI all at once in a tiny mix on a phone speaker.
+- **[nice]** `audio.footsteps-surface-audio`
+  - path: `audio/footsteps-surface-audio/report.md`
+  - why: A pet's presence is sold by its footfalls; surface selection and variation is the systems problem behind that.
+- **[nice]** `audio.foley-recording`
+  - path: `audio/foley-recording/report.md`
+  - why: An ownable creature voice usually comes from original recorded source rather than a stock library.
+- **[nice]** `audio.dsp-real-time-effects`
+  - path: `audio/dsp-real-time-effects/report.md`
+  - why: Reverb, filtering and limiting are how a small Web Audio mix stops sounding thin, and they are cheap.
+- **[nice]** `audio.audio-engine-middleware`
+  - path: `audio/audio-engine-middleware/report.md`
+  - why: Frames the built-in-versus-custom decision that a browser game resolves as Web Audio plus a hand-rolled layer.
+- **[nice]** `audio.audio-asset-pipeline`
+  - path: `audio/audio-asset-pipeline/report.md`
+  - why: Keeping a growing set of creature sounds organized and iterable as a solo dev.
+- **[nice]** `audio.music-tension-pacing`
+  - path: `audio/music-tension-pacing/report.md`
+  - why: The lever that makes an identical scene read as cozy or faintly uncanny.
+- **[nice]** `asset-forge.music-loop-recipes`
+  - path: `asset-forge/music-loop-recipes/report.md`
+  - why: Mood words mapped to concrete scale, tempo and pattern parameters: executable input to seeded per-group music.
+- **[nice]** `asset-forge.sfx-recipe-table`
+  - path: `asset-forge/sfx-recipe-table/report.md`
+  - why: Twelve feedback events as concrete synthesis parameters, portable to Web Audio oscillators.
+- **[nice]** `asset-forge.ambience-loop-recipes`
+  - path: `asset-forge/ambience-loop-recipes/report.md`
+  - why: Seamless biome beds as synthesis parameters, which is the cheapest way to give each habitat its own bed.
+- **[nice]** `generative-assets.ai-audio-voice-generation`
+  - path: `generative-assets/ai-audio-voice-generation/report.md`
+  - why: Prices the generated route for creature vocalizations and ambience against hand-recorded foley.
+- **[nice]** `engine-tech.game-engine-selection`
+  - path: `engine-tech/game-engine-selection/report.md`
+  - why: Requirements-first validation of the custom three.js call before production content is committed to it.
+- **[nice]** `engine-tech.multithreading-job-systems-performance`
+  - path: `engine-tech/multithreading-job-systems-performance/report.md`
+  - why: Web workers for trait resolution and state sync so the render loop never stalls on a phone.
+- **[nice]** `engine-tech.physics-engine-integration-selection`
+  - path: `engine-tech/physics-engine-integration-selection/report.md`
+  - why: Whether the creature and its objects need a physics library at all, and the timestep/stability cost if so.
+- **[nice]** `process.version-control-binary-game-assets`
+  - path: `process/version-control-binary-game-assets/report.md`
+  - why: Meshes, morph targets and audio are binaries that plain git handles badly, and the library grows for months.
+- **[nice]** `process.game-systems-scope-goals-roadmap-audit`
+  - path: `process/game-systems-scope-goals-roadmap-audit/report.md`
+  - why: An audit procedure for checking the roadmap still matches the planned systems, useful on a long solo build.
+- **[nice]** `business-legal.ip-asset-licensing-for-shipping`
+  - path: `business-legal/ip-asset-licensing-for-shipping/report.md`
+  - why: Fonts, music and SFX rights trigger on public shipping, which a web app does the moment the URL is shared.
+- **[nice]** `qa-testing.exploratory-ad-hoc-testing`
+  - path: `qa-testing/exploratory-ad-hoc-testing/report.md`
+  - why: Charter-driven improvisation is the realistic testing mode for a solo dev with no test team.
+- **[nice]** `qa-testing.regression-smoke-sanity-testing`
+  - path: `qa-testing/regression-smoke-sanity-testing/report.md`
+  - why: Blast-radius selection keeps the per-patch test cost survivable on a live persistent game.
+- **[nice]** `qa-testing.test-planning-strategy`
+  - path: `qa-testing/test-planning-strategy/report.md`
+  - why: Risk-based prioritization of what will not be tested, which is the only honest plan at this scope.
+- **[nice]** `claude-assisted-engine-build.ai-assisted-development-custom-engine`
+  - path: `claude-assisted-engine-build/ai-assisted-development-custom-engine/report.md`
+  - why: The build method for a custom-engine project without an editor or engine conventions to lean on.
+- **[nice]** `claude-assisted-engine-build.avoiding-ai-slop-craft-taste-distinctiveness`
+  - path: `claude-assisted-engine-build/avoiding-ai-slop-craft-taste-distinctiveness/report.md`
+  - why: A game whose core promise is that no two groups get the same creature cannot afford generic, converged output.
+
+## Rejected near misses
+
+Kept so the selection can be audited rather than trusted.
+
+- `ux-accessibility.creation-flow-census`: Looks like the Spore creature-creator answer, but it is an app-side census for GameTev's own forge flow; MonsterTime has no creator screen because DNA is rolled from a seed.
+- `ux-accessibility.difficulty-assist-systems-accessibility`: Decomposes challenge into demand axes and presets. A no-fail cozy pet has no challenge axis to decompose, and the easy-mode discourse does not arise.
+- `ux-accessibility.player-guidance-wayfinding`: Owns navigation across explorable space (markers, compass, mental maps). The camera is effectively fixed on one creature; there is nothing to navigate.
+- `ux-accessibility.pause-action-scope-addendum`: A narrow engineering rule about where the pause input may register. An endless async check-in game has no pause state and no back-stack from pause.
+- `ux-accessibility.dcc-viewport-conventions-census`: A tooling census (Blender, Maya, Unreal) for gating a forge-layout redesign. Nothing about a player-facing phone app.
+- `input-controls.movement-controls-character-control`: Turns stick/key input into character movement. The creature moves itself; the player never drives a character controller.
+- `input-controls.motion-gyro-controls`: Gyro as a fine-aim layer atop stick aim. There is no aiming, and phone gyro for a diorama camera would fight one-handed use.
+- `input-controls.input-remapping-rebinding`: Redundant with the accessibility remapping report, which is selected, and a touch-first game has no default keybind set to rebind.
+- `visual.lod-culling-visibility`: LOD and culling pay off across many objects at varying distance. One hero subject in a small diorama gets its budget from asset-optimization instead.
+- `visual.gpu-driven-modern-rendering`: Virtual geometry, mesh shaders and GPU-driven culling are not available or affordable in a mobile browser.
+- `visual.cinematics-cutscenes`: Authored dramatic scenes with a gameplay seam. Memories here are systemic records, not scripted cutscenes, and cutscene tooling is out of solo scope.
+- `visual.prerendered-3d-to-2d-sprite-pipelines`: Renders 3D down to 2D sprites. MonsterTime stays 3D at runtime, which is the opposite direction.
+- `visual.pixel-art`: Wrong art style entirely; low-poly stylized 3D shares none of the pixel placement craft.
+- `visual.motion-capture-pipeline`: Optical/inertial full-body capture of humans. The creature is non-humanoid and the pipeline is far outside solo scope.
+- `visual-trace.silhouette-first-character-read`: A humanoid tracing procedure at a 16-flat-shape budget. The creature is non-humanoid and built in 3D, so the creature-side trace reports were taken instead.
+- `visual-trace.mode-selection-interview`: Pipeline plumbing for GameTev's picture-tracing tool (contracts, downgrades, refusals), not a design input for this game.
+- `multiplayer.state-replication-interest-management`: Server-authoritative snapshot netcode for players sharing a live simulation. MonsterTime players are never online together; async state sync is a different problem.
+- `multiplayer.disconnection-reconnection-host-migration`: Session-based disconnect detection and host election. There is no live session to drop out of.
+- `multiplayer.dedicated-server-hosting-scaling-matchmaking`: Game-server lifecycle and matchmaking. Groups are formed by invitation between friends and there is no game server to orchestrate.
+- `multiplayer.serialization-bandwidth-optimization`: Bit-packing and delta encoding for per-tick wire traffic. A creature state document synced a few times a day is nowhere near that pressure.
+- `genres.hyper-casual`: Reads relevant as mobile-native and short-session, but its core is one mechanic wired to an ad-driven business model, and monetization here is none.
+- `genres.social-deduction-hidden-role`: Hidden DNA is hidden information, not hidden roles; there is no deception contest, no accusation phase and no adversarial group.
+- `genres.horror`: Faintly uncanny is a tonal seasoning, not fear engineering; the report's atmosphere-threat-pacing machinery would push the game somewhere it should not go.
+- `genres.management-tycoon-sims`: An economic core plus customer simulation. There is no revenue loop and no customers; the pet needs report shape comes from life-sim and survival instead.
+- `game-design.game-flow-endings-recipes`: Fail-state screens, ending selection, credits and attract loop. The session model is endless with one creature and no ending to select.
+- `game-design.journey-act-chapter-structure-recipes`: A grouping vocabulary above authored beats. Nothing here is authored into acts; the arc is emergent over months.
+- `narrative.story-lore-bible`: Canon management for keeping a large team consistent. A solo dev with a systemic memory generator has no continuity-across-writers problem.
+- `narrative.writing-for-localization`: No localization is stated in the vector. Worth revisiting if the group text ever ships in more than one language.
+- `narrative.character-relationship-web-recipes`: A schema field for connecting story cards in GameTev's own generator, not a model of friends' relationships to a shared creature.
+- `narrative.romance-relationship-systems`: Romanceable companions with authored affection arcs. The relationship here is between real friends and a pet, with no courtship shape.
+- `audio.lip-sync-facial-audio-integration`: Syncing mouth movement to recorded speech. The creature vocalizes without language and there is no VO to sync.
+- `audio.environmental-acoustics-reverb-occlusion`: Four interacting systems for how sound differs across rooms and spaces. One small diorama does not have rooms to occlude between.
+- `asset-forge.shadow-grounding-recipes`: Baked contact shadows drawn under a 2D actor. The 3D equivalent is covered by the selected shadows report.
+- `asset-forge.sprite-animation-pose-recipes`: A 2D keyframe pose vocabulary for sprite rigs; superseded here by 3D animation state machines and procedural IK.
+- `asset-forge.ui-motion-and-transition-recipes`: A Godot Control-node tween vocabulary. The reduced-motion discipline that makes it valuable is already carried by photosensitivity-motion.
+- `asset-forge.boot-splash-and-window-boot-conventions`: Reads like the installable-app first-seconds answer, but it is Godot desktop window and splash conventions, not web app launch or install.
+- `generative-assets.ai-image-generation-2d`: Production-volume 2D sprites and tilesets. A low-poly 3D creature needs geometry and morph targets, not sprite sheets.
+- `qa-testing.patch-cadence-roadmap-communication`: Player-facing patch notes and roadmap posts for a public live game. The audience is a handful of friends who can be told directly.
+- `qa-testing.load-scale-testing-multiplayer`: Capacity readiness for N concurrent players. Concurrency is near zero by design; the backend risk is data integrity, not load.
+- `monetization.in-game-economy-design-balancing`: Faucets and sinks across resources. Monetization is none and no in-game currency is described; food and objects are inputs, not an economy.
+- `monetization.ethical-player-respecting-monetization`: A fair-value-exchange build list. There is no exchange, so the whole frame is inert here.
+- `game-dev-teaching.teach-me-how-model`: Teaches the developer, not the player. Player onboarding is owned by onboarding-tutorial-design and FTUE, both selected.
+- `communities-premises.reputation-economic-force`: Trust converted into shop revenue via regular-base size and price premiums. The social credit mechanic here is non-economic; status-standing covers it better.
+- `communities-premises.names-local-naming`: Person, place and shop-sign naming for a settlement. Creature and trait naming is better served by the narrative naming report, which is selected.
+- `source-code-analysis.feature-concept-location`: Representative of the whole source-code-analysis domain: it is about comprehending existing codebases, not about designing or building this game.
