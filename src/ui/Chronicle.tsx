@@ -65,7 +65,11 @@ function build(creature: Creature | null, actions: ActionRecord[]): Entry[] {
 
   for (const trait of creature.traits) {
     const allele = alleleById(trait.allele)
-    const stamp = actions[trait.atAction]
+    // atAction is the 1-indexed action count at which the trait locked in
+    // (express.ts sets count = i + 1), so the triggering action is one back
+    // from that in the 0-indexed array. Guard against an out-of-range index
+    // (there should never be one) rather than let a stale trait render blank.
+    const stamp = trait.atAction >= 1 ? actions[trait.atAction - 1] : undefined
     out.push({
       key: `t:${trait.locus}:${trait.allele}:${trait.atAction}`,
       trait: true,

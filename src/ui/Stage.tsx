@@ -31,7 +31,9 @@ interface StageProps {
   stale: boolean
   groupId: string
   actorId: string
-  onRename: (name: string) => void
+  // Renames the CREATURE, not the caller. The person's own display name is a
+  // separate identity (set at join time) and must never be overwritten by this.
+  onRename: (creatureName: string) => void
   onOpenGroup: (() => void) | null
 }
 
@@ -138,7 +140,15 @@ export default function Stage(props: StageProps): JSX.Element {
   )
 }
 
-function NamePlate({ name, onRename }: { name: string | null; onRename: (name: string) => void }): JSX.Element {
+// Renders and edits the CREATURE's name. This is not the visitor's own name:
+// see the onRename comment on StageProps for why that distinction matters.
+function NamePlate({
+  name: creatureName,
+  onRename,
+}: {
+  name: string | null
+  onRename: (creatureName: string) => void
+}): JSX.Element {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
 
@@ -171,11 +181,11 @@ function NamePlate({ name, onRename }: { name: string | null; onRename: (name: s
       type="button"
       className="creature-name"
       onClick={() => {
-        setDraft(name ?? '')
+        setDraft(creatureName ?? '')
         setEditing(true)
       }}
     >
-      {name ?? <span className="name-unset">Give it a name</span>}
+      {creatureName ?? <span className="name-unset">Give it a name</span>}
     </button>
   )
 }
