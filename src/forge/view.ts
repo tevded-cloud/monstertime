@@ -60,6 +60,20 @@ function emptyMorphs(): Morphs {
   return m
 }
 
+// A phone is fill-rate bound before it is anything else, and it throttles once
+// it gets warm. This scene runs a shadow pass and antialiasing over a full
+// bleed canvas, and the creature is meant to be watched for minutes at a time,
+// so the target is a frame rate a warm phone can hold rather than the best
+// first frame. Capping at 1.5 instead of 2 is 44 percent fewer fragments at the
+// same canvas size: a 390 by 844 phone goes from 1.32 to 0.74 megapixels.
+// Desktop keeps 2, where there is no thermal envelope worth defending.
+// (visual.rendering-performance-optimization, mobile row.)
+function pixelRatioCap(): number {
+  const coarse =
+    typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches
+  return Math.min(window.devicePixelRatio || 1, coarse ? 1.5 : 2)
+}
+
 // Overshoots slightly and settles. A trait that eases in without overshooting
 // reads as a fade, and a fade reads as a loading state rather than as growth.
 function easeOutBack(t: number): number {
@@ -114,6 +128,11 @@ export class CreatureView {
   private grown = new Map<string, Grown>()
 
   private auraNode: THREE.Object3D | null = null
+  // Two fields for one thing, deliberately. auraKind drives the animation and
+  // the light rig, which genuinely care only about the kind. The rebuild has to
+  // key on the allele instead: several alleles share a kind, so comparing kinds
+  // meant a creature moving between two of them kept the old node forever.
+  private auraAllele: string | null = null
   private auraKind: Aura = 'none'
   private auraMotes: THREE.Points | null = null
   private auraShell: THREE.Mesh | null = null
@@ -177,7 +196,7 @@ export class CreatureView {
       return
     }
 
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
+    this.renderer.setPixelRatio(pixelRatioCap())
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
     // Neutral rather than ACES: the palette is chosen in sRGB and ACES pulls the
@@ -260,7 +279,7 @@ export class CreatureView {
     if (!r || this.disposed) return
     const w = Math.max(1, this.canvas.clientWidth || this.canvas.width)
     const h = Math.max(1, this.canvas.clientHeight || this.canvas.height)
-    r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
+    r.setPixelRatio(pixelRatioCap())
     // updateStyle false: the page owns the canvas box, this only owns the
     // drawing buffer inside it.
     r.setSize(w, h, false)
@@ -470,8 +489,9 @@ export class CreatureView {
 
     // Aura: one object at the creature root, rebuilt only when the allele moves.
     const nextAura = auraFor(aura)
-    if (nextAura !== this.auraKind) {
+    if (aura !== this.auraAllele) {
       this.clearAura(this.keep)
+      this.auraAllele = aura
       this.auraKind = nextAura
       if (aura) {
         const node = builderFor(aura)({
@@ -558,6 +578,7 @@ export class CreatureView {
     this.auraShell = null
     this.auraRings = []
     this.moteBase = null
+    this.auraAllele = null
     this.auraKind = 'none'
   }
 

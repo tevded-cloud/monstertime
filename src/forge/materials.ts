@@ -185,6 +185,13 @@ const HIDE_SURFACES: Record<AlleleId, Surface> = {
   // A travel coat: layered and lying flat, dust worked into every seam. Fed
   // well and walked a long way, which is a different animal from a storm pelt.
   'hide.travelCoat': { pattern: 'banded', roughness: 0.88, metalness: 0, relief: 0.05, sheen: 0, wash: 0.22 },
+  // A deep felt: dense nap, no shine anywhere, and it eats the rim light.
+  // Named here rather than left to the keyword fallback below, which is not as
+  // clever as it looks: "deepfelt" contains "felt", not "pelt", so it missed
+  // every word in the table and landed on the hash, which made a felt glossy.
+  'hide.deepFelt': { pattern: 'fuzzed', roughness: 0.99, metalness: 0, relief: 0.07, sheen: 0, wash: 0.1 },
+  // A drum hide: stretched tight over the frame of the animal, one even sheen.
+  'hide.drumHide': { pattern: 'banded', roughness: 0.46, metalness: 0.03, relief: 0.014, sheen: 0.03, wash: 0 },
 }
 
 // Keyword fallback, for hide alleles added to the dna module after this file
