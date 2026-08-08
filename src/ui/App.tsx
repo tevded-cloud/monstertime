@@ -76,7 +76,13 @@ export default function App(): JSX.Element {
         />
       </main>
 
-      {!compact && <aside className="rail">{panels}</aside>}
+      {!compact && (
+        // Named because a landmark a reader can jump to is worth nothing if the
+        // list of them reads "complementary" and leaves you to guess.
+        <aside className="rail" aria-label="The group and the chronicle">
+          {panels}
+        </aside>
+      )}
 
       {compact && (
         <Sheet open={sheetOpen} onClose={() => setSheetOpen(false)}>
@@ -121,7 +127,7 @@ function Sheet({ open, onClose, children }: { open: boolean; onClose: () => void
 
 function Lost({ groupId }: { groupId: string }): JSX.Element {
   return (
-    <div className="lost">
+    <main className="lost">
       <div className="mark">
         <Sigil />
         <span>MonsterTime</span>
@@ -144,6 +150,6 @@ function Lost({ groupId }: { groupId: string }): JSX.Element {
           Start one of your own instead
         </button>
       </div>
-    </div>
+    </main>
   )
 }

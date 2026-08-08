@@ -25,7 +25,14 @@
 
   --ink: #e8ebe7;
   --ink-2: #99a19d;
-  --ink-3: #676e6b;
+  /* The quiet tier still has to be readable prose: it carries the empty states,
+     the hints and the chronicle timestamps. Measured against the three grounds
+     it sits on, #676e6b came to 3.75 / 3.57 / 3.32 to 1, which is under the 4.5
+     a body string needs; the same hue lifted to #7c8481 measures 5.11 / 4.87 /
+     4.52. Same colour, same rank below --ink-2 (7.06), now legible in daylight.
+     (ux-accessibility.color-contrast-accessibility: figure-ground separation is
+     a task requirement, and value is the channel that survives everything.) */
+  --ink-3: #7c8481;
 
   /* The one accent. Warm, because everything else is cold. */
   --ember: #ff7a45;
@@ -42,6 +49,27 @@
 
   --rail: clamp(316px, 27vw, 380px);
   --topbar: 60px;
+
+  /* The phone does not own its whole screen. A notch eats the top, a home
+     indicator eats the bottom, and in landscape the cutout eats one side. These
+     are read once here and added to padding everywhere an element touches an
+     edge, so the layout has one runtime rectangle rather than a constant
+     repeated per widget. index.html already ships viewport-fit=cover, without
+     which every one of these resolves to 0 and the whole scheme is dead code.
+     (ux-accessibility.ui-scaling-visual-customization section 5.2; the second of
+     the two problems it separates, the OS-owned region, is the one that applies
+     here: there is no television overscan and no player-facing inset control.) */
+  --inset-t: env(safe-area-inset-top, 0px);
+  --inset-r: env(safe-area-inset-right, 0px);
+  --inset-b: env(safe-area-inset-bottom, 0px);
+  --inset-l: env(safe-area-inset-left, 0px);
+
+  /* A relaxed fingertip lands a contact patch of 8 to 14mm and the published
+     platform floors work out at roughly 7 to 10mm of glass, which is about this
+     many CSS pixels at ordinary phone densities. It is a floor for the region
+     that answers a thumb, never a size the chrome is redrawn to.
+     (input-controls.touch-mobile-input sections 2.4 and 6.1.) */
+  --tap: 44px;
 }
 
 *,
@@ -65,6 +93,12 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior: none;
+  /* Safari inflates text on its own when a phone turns landscape, which moves
+     type the design placed and can push a fixed row out of its container. Sizes
+     here are deliberate, so the inflation is declined; the browser's own font
+     scaling and pinch zoom are untouched. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 button,
@@ -78,6 +112,11 @@ button {
   border: 0;
   padding: 0;
   cursor: pointer;
+  /* No double-tap-to-zoom on a control, so a second tap is a second press
+     rather than the page jumping, and no grey iOS flash over chrome that has
+     its own pressed state below. */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 button:disabled {
@@ -191,6 +230,11 @@ code {
   width: 100%;
   height: 100%;
   display: block;
+  /* manipulation, not none: the creature has no drag verb to protect, so the
+     only thing worth taking away is the double-tap zoom that would otherwise
+     jump the whole app when somebody taps the animal twice. Pinch zoom stays,
+     because it is how a low-vision reader gets a closer look. */
+  touch-action: manipulation;
 }
 
 /* A 1px viewport frame with brighter corner ticks. It reads as a specimen
@@ -198,7 +242,8 @@ code {
    rectangle does not. */
 .frame {
   position: absolute;
-  inset: 18px;
+  inset: calc(18px + var(--inset-t)) calc(18px + var(--inset-r)) calc(18px + var(--inset-b))
+    calc(18px + var(--inset-l));
   pointer-events: none;
   border: 1px solid rgba(232, 235, 231, 0.05);
 }
@@ -243,12 +288,12 @@ code {
   top: 0;
   left: 0;
   right: 0;
-  min-height: var(--topbar);
+  min-height: calc(var(--topbar) + var(--inset-t));
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 20px;
+  padding: calc(14px + var(--inset-t)) calc(20px + var(--inset-r)) 14px calc(20px + var(--inset-l));
   background: linear-gradient(to bottom, rgba(10, 12, 13, 0.86), rgba(10, 12, 13, 0));
 }
 
@@ -275,8 +320,20 @@ button.creature-name {
   border-bottom: 1px solid transparent;
 }
 
-button.creature-name:hover {
-  border-bottom-color: var(--line);
+@media (hover: hover) {
+  button.creature-name:hover {
+    border-bottom-color: var(--line);
+  }
+}
+
+/* Glass has no hover, so a name whose only affordance is a hover underline
+   reads as plain text on a phone and never gets pressed. On a touch device the
+   hairline is simply always there: the same mark, permanently spent.
+   (input-controls.touch-mobile-input section 2.3.) */
+@media (hover: none) {
+  button.creature-name {
+    border-bottom-color: var(--line);
+  }
 }
 
 .name-unset {
@@ -345,9 +402,16 @@ button.creature-name:hover {
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-.btn:hover:not(:disabled) {
-  color: var(--ink);
-  border-color: #35403f;
+/* Every hover rule in this file is gated on a device that actually has one.
+   Ungated, a phone latches the hover state onto whatever was tapped last and
+   leaves it lit until something else is touched, which reads as a control stuck
+   on. The pressed states that replace them for touch are in the coarse-pointer
+   block near the end of the file. */
+@media (hover: hover) {
+  .btn:hover:not(:disabled) {
+    color: var(--ink);
+    border-color: #35403f;
+  }
 }
 
 .btn:disabled {
@@ -368,10 +432,12 @@ button.creature-name:hover {
   font-weight: 600;
 }
 
-.btn-primary:hover:not(:disabled) {
-  background: #ff8d5e;
-  border-color: #ff8d5e;
-  color: var(--on-ember);
+@media (hover: hover) {
+  .btn-primary:hover:not(:disabled) {
+    background: #ff8d5e;
+    border-color: #ff8d5e;
+    color: var(--on-ember);
+  }
 }
 
 .btn-primary:disabled {
@@ -396,9 +462,11 @@ button.creature-name:hover {
   text-decoration-color: var(--line);
 }
 
-.btn-text:hover {
-  color: var(--ink);
-  text-decoration-color: var(--ember);
+@media (hover: hover) {
+  .btn-text:hover {
+    color: var(--ink);
+    text-decoration-color: var(--ember);
+  }
 }
 
 .is-copied {
@@ -421,15 +489,23 @@ button.creature-name:hover {
   color: var(--ink-2);
 }
 
+/* Filled and hollow, not warm and cold. Below 560px the words next to this dot
+   go to the screen reader only, so on a phone the dot is the whole visible
+   channel for connected-or-not, and hue alone cannot carry it: the breathing
+   that would otherwise back the colour up is exactly what a reduced-motion
+   reader has turned off. A ring against a disc separates in greyscale, standing
+   still, for everyone. (ux-accessibility.color-contrast-accessibility section
+   1.3: no required meaning rides on hue alone.) */
 .dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--ink-3);
+  border: 1.5px solid var(--ink-3);
   flex: none;
 }
 
 .dot-live {
+  border-color: var(--ember);
   background: var(--ember);
   animation: breathe 3.4s ease-in-out infinite;
 }
@@ -464,9 +540,9 @@ button.creature-name:hover {
 
 .notice {
   position: absolute;
-  top: calc(var(--topbar) + 6px);
-  left: 20px;
-  right: 20px;
+  top: calc(var(--topbar) + var(--inset-t) + 6px);
+  left: calc(20px + var(--inset-l));
+  right: calc(20px + var(--inset-r));
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -482,9 +558,9 @@ button.creature-name:hover {
 
 .ticker {
   position: absolute;
-  top: calc(var(--topbar) + 10px);
-  left: 0;
-  right: 0;
+  top: calc(var(--topbar) + var(--inset-t) + 10px);
+  left: calc(12px + var(--inset-l));
+  right: calc(12px + var(--inset-r));
   text-align: center;
   font-size: 13.5px;
   color: var(--ink-2);
@@ -510,12 +586,18 @@ button.creature-name:hover {
 
 /* ------------------------------------------------------------- action bar */
 
+/* The six verbs sit along the bottom because that is the one band a thumb
+   sweeps without the hand moving; the top of a tall phone is the stretch zone
+   and is spent only on the share and group buttons, which are rare and
+   deliberate. The inline insets matter in landscape, where the cutout is on a
+   side and the home indicator is still below.
+   (input-controls.touch-mobile-input sections 2.6 and 2.7.) */
 .actionbar {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 0 16px calc(16px + env(safe-area-inset-bottom)) 16px;
+  padding: 0 calc(16px + var(--inset-r)) calc(16px + var(--inset-b)) calc(16px + var(--inset-l));
   background: linear-gradient(to top, rgba(10, 12, 13, 0.92) 45%, rgba(10, 12, 13, 0));
 }
 
@@ -555,6 +637,10 @@ button.creature-name:hover {
   align-items: center;
   gap: 5px;
   width: 62px;
+  /* Six of these have to fit the narrowest phone, and flex would happily shrink
+     them past a thumb rather than admit it. The floor holds; the row loses its
+     gaps first (see the 380px block). */
+  min-width: var(--tap);
   padding: 9px 0 7px;
   border-radius: var(--r-1);
   border: 1px solid transparent;
@@ -562,9 +648,11 @@ button.creature-name:hover {
   transition: color 120ms ease, background 120ms ease, border-color 120ms ease;
 }
 
-.kind:hover:not(:disabled) {
-  color: var(--ink);
-  background: var(--ground-3);
+@media (hover: hover) {
+  .kind:hover:not(:disabled) {
+    color: var(--ink);
+    background: var(--ground-3);
+  }
 }
 
 .kind[aria-expanded='true'] {
@@ -600,11 +688,15 @@ button.creature-name:hover {
   padding: 12px 16px 8px;
 }
 
+/* dvh, not vh: on a phone vh is the tall viewport the browser has when its own
+   chrome is hidden, so a tray sized in vh is taller than the screen it is
+   actually being read on and its last row sits under the address bar. */
 .variants {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  max-height: min(46vh, 320px);
+  max-height: min(46dvh, 320px);
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 0 8px 8px;
 }
 
@@ -616,8 +708,10 @@ button.creature-name:hover {
   border: 1px solid transparent;
 }
 
-.variant:hover:not(:disabled) {
-  background: var(--ground-3);
+@media (hover: hover) {
+  .variant:hover:not(:disabled) {
+    background: var(--ground-3);
+  }
 }
 
 .variant:disabled {
@@ -650,6 +744,21 @@ button.creature-name:hover {
   }
 }
 
+/* Six thumb-sized targets and their gaps need 284px of glass. A 320px phone
+   offers 304 once the bar's own padding is off, and a 360px one offers 344, so
+   the row is given its gaps back first and the targets are never the thing that
+   shrinks. */
+@media (max-width: 380px) {
+  .actionbar {
+    padding-left: calc(8px + var(--inset-l));
+    padding-right: calc(8px + var(--inset-r));
+  }
+
+  .kinds {
+    gap: 4px;
+  }
+}
+
 /* ----------------------------------------------------------------- panels */
 
 .panel {
@@ -663,6 +772,9 @@ button.creature-name:hover {
   flex: none;
   max-height: 52%;
   overflow-y: auto;
+  /* Reaching the end of the crowd must not hand the rest of the flick to
+     whatever is behind it, which on a phone is the sheet and then the page. */
+  overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--line) transparent;
 }
@@ -791,6 +903,7 @@ button.creature-name:hover {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--line) transparent;
 }
@@ -882,6 +995,9 @@ button.creature-name:hover {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* The sheet is flush to the bottom edge, so the last chronicle entry would
+     otherwise be read through the home indicator. */
+  padding-bottom: var(--inset-b);
 }
 
 .sheet::backdrop {
@@ -915,8 +1031,10 @@ button.creature-name:hover {
   color: var(--ink-2);
 }
 
-.icon-btn:hover {
-  color: var(--ink);
+@media (hover: hover) {
+  .icon-btn:hover {
+    color: var(--ink);
+  }
 }
 
 /* ---------------------------------------------------------------- landing */
@@ -929,7 +1047,8 @@ button.creature-name:hover {
   gap: 48px;
   max-width: 1080px;
   margin: 0 auto;
-  padding: 48px 32px;
+  padding: calc(48px + var(--inset-t)) calc(32px + var(--inset-r)) calc(48px + var(--inset-b))
+    calc(32px + var(--inset-l));
 }
 
 .mark {
@@ -1038,7 +1157,8 @@ button.creature-name:hover {
   .landing {
     grid-template-columns: 1fr;
     gap: 32px;
-    padding: 32px 22px 56px;
+    padding: calc(32px + var(--inset-t)) calc(22px + var(--inset-r)) calc(56px + var(--inset-b))
+      calc(22px + var(--inset-l));
   }
 
   .plate {
@@ -1064,7 +1184,8 @@ button.creature-name:hover {
   justify-content: center;
   max-width: 560px;
   margin: 0 auto;
-  padding: 32px;
+  padding: calc(32px + var(--inset-t)) calc(32px + var(--inset-r)) calc(32px + var(--inset-b))
+    calc(32px + var(--inset-l));
 }
 
 .lost h1 {
@@ -1073,6 +1194,68 @@ button.creature-name:hover {
   font-size: 34px;
   line-height: 1.1;
   margin-bottom: 14px;
+}
+
+/* ------------------------------------------------------------------- touch */
+
+/* Two things a finger needs that a cursor does not, and neither of them is a
+   redesign. The first is a target it can hit: the drawn chrome keeps the size
+   the art direction gave it and an invisible pad underneath takes the tappable
+   region out to --tap, which is the forgiving-hit-testing answer rather than
+   the redraw-everything-bigger one. The second is an answer: glass gives no
+   click back, so a press that registers has to say so on screen, and with the
+   hover states correctly gated off there would otherwise be nothing at all
+   between the tap and the result. The pressed look is the hover look, so touch
+   and pointer end up at the same place.
+   (input-controls.touch-mobile-input sections 6.1, 6.4 and 7.2.) */
+@media (pointer: coarse) {
+  .btn,
+  .icon-btn,
+  .btn-text,
+  button.creature-name {
+    position: relative;
+  }
+
+  .btn::after,
+  .icon-btn::after,
+  .btn-text::after,
+  button.creature-name::after {
+    content: '';
+    position: absolute;
+    left: -6px;
+    right: -6px;
+    top: 50%;
+    transform: translateY(-50%);
+    height: max(calc(100% + 12px), var(--tap));
+  }
+
+  /* The pads are 6px per side, so the row's own gap has to clear 12px or two
+     neighbours start arguing over the same 4px of glass. */
+  .topbar-tools {
+    gap: 12px;
+  }
+
+  .btn:active:not(:disabled) {
+    color: var(--ink);
+    border-color: #35403f;
+  }
+
+  .btn-primary:active:not(:disabled) {
+    background: #ff8d5e;
+    border-color: #ff8d5e;
+    color: var(--on-ember);
+  }
+
+  .btn-text:active,
+  .icon-btn:active {
+    color: var(--ink);
+  }
+
+  .kind:active:not(:disabled),
+  .variant:active:not(:disabled) {
+    color: var(--ink);
+    background: var(--ground-3);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

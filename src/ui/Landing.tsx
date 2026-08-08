@@ -57,7 +57,7 @@ export default function Landing({ mode }: LandingProps): JSX.Element {
   const invited = mode === 'join'
 
   return (
-    <div className="landing">
+    <main className="landing">
       <div>
         <div className="mark">
           <Sigil />
@@ -152,7 +152,7 @@ export default function Landing({ mode }: LandingProps): JSX.Element {
       <div className="plate">
         <Plate />
       </div>
-    </div>
+    </main>
   )
 }
 

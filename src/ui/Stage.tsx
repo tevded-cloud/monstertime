@@ -45,15 +45,17 @@ export default function Stage(props: StageProps): JSX.Element {
   const seen = useRef(-1)
   const [ticker, setTicker] = useState<{ id: string; text: string } | null>(null)
 
+  // CreatureView already watches this exact canvas and resizes itself, which is
+  // what makes an orientation change and a mobile address bar sliding away come
+  // out right. A second observer here would only mean two buffer reallocations
+  // and two camera reframes for every one layout change, which on a phone lands
+  // during precisely the moment the layout is moving every frame.
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     const view = new CreatureView(canvas)
     viewRef.current = view
-    const observer = new ResizeObserver(() => view.resize())
-    observer.observe(canvas)
     return () => {
-      observer.disconnect()
       view.dispose()
       viewRef.current = null
     }
@@ -102,7 +104,18 @@ export default function Stage(props: StageProps): JSX.Element {
           <NamePlate name={creature ? creature.name : null} onRename={onRename} />
           <div className="stage-line">
             <span className="label">{creature ? creature.stageName : 'waiting'}</span>
-            <span className="meter" aria-hidden="true">
+            {/* The bar is the only place how far along this stage is says
+                anything at all, so it carries the number rather than hiding
+                behind aria-hidden and leaving a reader with the stage name and
+                nothing else. */}
+            <span
+              className="meter"
+              role="progressbar"
+              aria-label="Growth through this stage"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round((creature ? creature.stageProgress : 0) * 100)}
+            >
               <i style={{ transform: `scaleX(${creature ? creature.stageProgress : 0})` }} />
             </span>
           </div>
@@ -128,8 +141,11 @@ export default function Stage(props: StageProps): JSX.Element {
         </div>
       )}
 
+      {/* The live region below is the screen reader's copy of this line. Without
+          hiding the visible one a reader gets the same sentence twice, once
+          announced and once when it walks the page. */}
       {ticker && !stale && (
-        <p className="ticker" key={ticker.id}>
+        <p className="ticker" key={ticker.id} aria-hidden="true">
           {ticker.text}
         </p>
       )}
