@@ -16,7 +16,6 @@ import type {
   PresentActor,
   ServerMessage,
 } from '../core/types'
-import { setLocalName } from './identity'
 
 export type ConnectionStatus = 'connecting' | 'open' | 'closed' | 'error'
 
@@ -146,11 +145,18 @@ class SocketConnection implements Connection {
         break
       }
       case 'named': {
-        // The server is the authority on what name it actually recorded
-        // for this connection (it may sanitise or cap differently than the
-        // client does), so its answer is folded back into local identity
-        // rather than trusting whatever was last typed into a field.
-        setLocalName(message.name)
+        // 'named' carries the CREATURE's name, not the person's. The worker
+        // writes it into the group's meta row (rename() there, not this
+        // one) and broadcasts it to every connected client so the nameplate
+        // updates for everyone, the same as any other shared piece of the
+        // snapshot. It must never reach local identity: doing so once
+        // overwrote every member's own stored name with whatever the
+        // creature was last called, and that corruption is durable because
+        // it gets sent back in the next hello and stamped onto every
+        // action after it.
+        if (!this.snapshot) break
+        this.snapshot = { ...this.snapshot, name: message.name }
+        this.emitSnapshot()
         break
       }
       case 'present': {
@@ -243,12 +249,15 @@ class SocketConnection implements Connection {
 
   rename(name: string): void {
     if (this.closed) return
-    // Renaming carries none of the ordering hazard act() does (a name is
-    // not folded into pressure, and never decides which allele expresses),
-    // so an immediate local update is safe and gives instant feedback in
-    // any "your name" field. The server's later 'named' message reconciles
-    // this if it sanitises or caps the value differently.
-    setLocalName(name)
+    // This is the CREATURE's name, not the person's: it is the nameplate
+    // path, wired from Stage.tsx's NamePlate through group.rename, and has
+    // nothing to do with local identity (that is commitLocalName, a
+    // separate flow in useGroup.ts backed by identity.ts). There is no
+    // optimistic local update here because there is nothing local to
+    // update; this only asks. The server records it and broadcasts 'named'
+    // back to every socket in the group, including this one, and that
+    // handler folds the confirmed name into the snapshot and emits, which
+    // is what actually moves the nameplate.
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return
     const message: ClientMessage = { type: 'name', name }
     this.socket.send(JSON.stringify(message))
