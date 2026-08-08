@@ -182,6 +182,21 @@ const horns: Record<string, PartBuilder> = {
     return g
   },
 
+  // lift-knobs: blunt, mushroom headed, undercut so a hand locks on instead of
+  // sliding off. This is a handle that happened to grow on a head.
+  'horn.liftKnobs': ({ materials, side, rand }) => {
+    const g = new THREE.Group()
+    for (let i = 0; i < 2; i++) {
+      const stalk = put(new THREE.CylinderGeometry(0.07, 0.105, 0.19, 6), materials.keratin)
+      stalk.position.set(side * 0.03 * i, 0.095, -i * 0.23)
+      const head = orb(materials.keratin, 0.145 - i * 0.025, 1)
+      head.scale.set(1.3, 0.66, 1.3)
+      head.position.set(side * 0.03 * i, 0.2 + rand() * 0.02, -i * 0.23)
+      g.add(stalk, head)
+    }
+    return g
+  },
+
   // lantern horn: one forward horn carrying a light at the end of it.
   'horn.lanternHorn': ({ materials, side }) => {
     const g = new THREE.Group()
@@ -202,6 +217,37 @@ const horns: Record<string, PartBuilder> = {
     lamp.position.y = -0.09
     hook.add(cage, lamp)
     g.add(c.root)
+    return g
+  },
+
+  // tally horns: a plain pair, cut across at intervals. Somebody in the group
+  // is keeping score of something, and the horn is where they keep it.
+  'horn.tallyHorns': ({ materials, side, rand }) => {
+    const g = new THREE.Group()
+    for (let i = 0; i < 2; i++) {
+      const baseR = 0.085 - i * 0.02
+      const c = chain(materials.keratin, {
+        segments: 4,
+        len: 0.72 - i * 0.24,
+        baseR,
+        tipR: 0.03,
+        curve: 0.3,
+        twist: 0,
+        radial: 6,
+      })
+      c.root.position.set(side * i * 0.05, 0, -i * 0.19)
+      c.root.rotation.z = side * (0.1 + i * 0.18)
+      // The marks sit on their own joint rather than all on the root, so they
+      // follow the horn round its bend instead of walking off the side of it.
+      for (let j = 0; j < 5 - i * 2; j++) {
+        const w = lerp(baseR, 0.03, j / 4) * 2.4
+        const mark = put(new THREE.BoxGeometry(w, 0.016, w), materials.keratin)
+        mark.position.y = 0.09
+        mark.rotation.y = j * 0.6 + rand() * 0.15
+        c.joints[j].add(mark)
+      }
+      g.add(c.root)
+    }
     return g
   },
 
@@ -368,6 +414,25 @@ const ears: Record<string, PartBuilder> = {
     return g
   },
 
+  // butter lobes: too thick to hold themselves up, so the top of each one lies
+  // over on itself. The ear of an animal that has never once gone hungry.
+  'ear.butterLobes': ({ materials, side }) => {
+    const g = new THREE.Group()
+    const lobe = orb(materials.flesh, 0.24, 1)
+    lobe.scale.set(0.62, 1.05, 0.5)
+    lobe.position.y = 0.04
+    const fold = put(
+      patch(5, 2, (u, v, out) => {
+        const a = u * Math.PI
+        out.set(Math.cos(a) * 0.155, 0.24 - v * 0.17, Math.sin(a) * 0.1 + v * 0.11)
+      }),
+      materials.flesh,
+    )
+    g.add(lobe, fold)
+    g.rotation.z = side * 0.32
+    return g
+  },
+
   // a notched pair: a plain triangular ear with a bite out of the back edge.
   'ear.notchedPair': ({ materials, side }) => {
     const g = new THREE.Group()
@@ -383,6 +448,58 @@ const ears: Record<string, PartBuilder> = {
     rib.position.set(-0.12, 0.25, 0.02)
     rib.rotation.z = 0.12
     g.add(e, rib)
+    return g
+  },
+
+  // shell ears: a whorl that opens as it winds out, and then stays exactly
+  // where it was put. The listening is done by the shape, not by aiming it.
+  'ear.shellEars': ({ materials, side }) => {
+    const g = new THREE.Group()
+    const whorl = put(
+      patch(20, 2, (u, v, out) => {
+        // A ribbon wound up a cone: tight and narrow at the head, wide and
+        // open at the far end, which is the way round a shell actually goes.
+        const a = u * Math.PI * 4.2
+        const r = 0.05 + 0.24 * u * u
+        const s = (v - 0.5) * lerp(0.03, 0.19, u)
+        out.set(Math.cos(a) * (r + s), 0.03 + u * 0.3 + s * 0.6, Math.sin(a) * (r + s))
+      }),
+      materials.flesh,
+    )
+    const collar = orb(materials.keratin, 0.085, 0)
+    collar.scale.y = 0.45
+    g.add(whorl, collar)
+    g.rotation.y = side * 0.45
+    return g
+  },
+
+  // wick-tips: a plain ear ending in a twist of cord, and the last thread of
+  // it lit. Somebody made this, which is the only reason it burns.
+  'ear.wickTips': ({ materials, side, rand }) => {
+    const g = new THREE.Group()
+    g.add(blade(materials.flesh, 0.22, 0.44, 0.05, 0.16, side * -0.14))
+    const cord = chain(materials.keratin, {
+      segments: 3,
+      len: 0.2,
+      baseR: 0.018,
+      tipR: 0.006,
+      curve: 0.5,
+      twist: side * 1.6,
+      radial: 3,
+    })
+    cord.root.position.y = 0.41
+    const end = cord.joints[cord.joints.length - 1]
+    // Frayed, because a wick that ends in a clean point is just a small spike.
+    for (let i = 0; i < 3; i++) {
+      const hair = put(new THREE.CylinderGeometry(0.003, 0.008, 0.07, 3), materials.keratin)
+      hair.position.set((rand() - 0.5) * 0.03, 0.03, (rand() - 0.5) * 0.03)
+      hair.rotation.set((rand() - 0.5) * 0.8, 0, (rand() - 0.5) * 0.8)
+      end.add(hair)
+    }
+    const lit = orb(materials.glow, 0.026)
+    lit.castShadow = false
+    end.add(lit)
+    g.add(cord.root)
     return g
   },
 
@@ -409,6 +526,29 @@ const ears: Record<string, PartBuilder> = {
     g.add(cup, lining)
     g.rotation.y = side * 0.3
     g.rotation.z = side * -0.2
+    return g
+  },
+
+  // folded tin: a flat sheet creased twice, hemmed along the top and riveted
+  // on. Made by hand out of something that used to be part of something else.
+  'ear.foldedTin': ({ materials, side }) => {
+    const g = new THREE.Group()
+    const sheet = put(
+      patch(6, 3, (u, v, out) => {
+        // The creases are what hold it up. A single flat panel of this size
+        // would read as a sheet of cardboard, which is a different animal.
+        const crease = Math.abs(((u * 3) % 1) - 0.5) * 0.1
+        out.set((u - 0.5) * 0.34 * lerp(1, 0.55, v), v * 0.48, crease - v * 0.05)
+      }),
+      materials.chitin,
+    )
+    const hem = put(new THREE.CylinderGeometry(0.021, 0.021, 0.2, 5), materials.chitin)
+    hem.position.set(0, 0.48, 0.01)
+    hem.rotation.z = Math.PI / 2
+    const rivet = orb(materials.keratin, 0.034, 0)
+    rivet.position.set(0, 0.07, 0.06)
+    g.add(sheet, hem, rivet)
+    g.rotation.z = side * -0.22
     return g
   },
 
@@ -581,6 +721,34 @@ const wings: Record<string, PartBuilder> = {
     return g
   },
 
+  // harvest folds: not a flying wing at all. A gathered sheet with weight
+  // sitting in the bottom of it, the way an apron is once it has been used.
+  'wing.harvestFolds': ({ materials, side }) => {
+    const g = new THREE.Group()
+    const cloth = put(
+      patch(14, 4, (u, v, out) => {
+        // The pleats only open toward the hem. A sheet pleated all the way to
+        // the shoulder reads as a curtain rather than as something carrying.
+        const pleat = Math.sin(u * Math.PI * 5) * 0.05 * v
+        out.set(u * 0.86, -v * v * 0.42 - u * 0.1, -v * 0.5 + pleat)
+      }),
+      materials.membrane,
+    )
+    cloth.castShadow = false
+    g.add(cloth)
+    for (let i = 0; i < 3; i++) {
+      const load = orb(materials.flesh, 0.085 + i * 0.012, 1)
+      load.position.set(0.22 + i * 0.23, -0.42, -0.4)
+      g.add(load)
+    }
+    const cord = put(new THREE.CylinderGeometry(0.012, 0.012, 0.88, 4), materials.keratin)
+    cord.position.set(0.43, -0.06, -0.02)
+    cord.rotation.z = Math.PI / 2 - 0.13
+    g.add(cord)
+    g.rotation.y = side * 0.3
+    return g
+  },
+
   // paper kites: flat angular panels on stiff struts, no curve anywhere.
   'wing.paperKites': ({ materials, side }) => {
     const g = new THREE.Group()
@@ -603,6 +771,38 @@ const wings: Record<string, PartBuilder> = {
     return g
   },
 
+  // a roost cloak: a wing that is never open. It comes forward and round, and
+  // there is room under it for somebody who is not the creature.
+  'wing.roostCloak': ({ materials, side }) => {
+    const g = new THREE.Group()
+    // Wrapped around an upright axis instead of spread along a flat one, which
+    // is the whole difference between a cloak and a sail.
+    const sweep = (u: number) => -0.15 + u * 1.9
+    const cloak = put(
+      patch(12, 4, (u, v, out) => {
+        const a = sweep(u)
+        const r = lerp(0.42, 0.66, v)
+        out.set(Math.sin(a) * r, 0.32 - v * 0.84, Math.cos(a) * r - 0.42)
+      }),
+      materials.membrane,
+    )
+    cloak.castShadow = false
+    const hem = put(
+      patch(12, 1, (u, v, out) => {
+        const a = sweep(u)
+        const r = 0.66 + v * 0.045
+        out.set(Math.sin(a) * r, -0.52 - v * 0.06, Math.cos(a) * r - 0.42)
+      }),
+      materials.keratin,
+    )
+    const shoulder = put(new THREE.CylinderGeometry(0.02, 0.045, 0.42, 5), materials.keratin)
+    shoulder.position.set(0.1, 0.28, -0.16)
+    shoulder.rotation.z = -0.9
+    g.add(cloak, hem, shoulder)
+    g.rotation.y = side * 0.25
+    return g
+  },
+
   // beetle shells: hard covers, closed, with the real wing implied underneath.
   'wing.beetleShells': ({ materials, side }) => {
     const g = new THREE.Group()
@@ -619,6 +819,53 @@ const wings: Record<string, PartBuilder> = {
     seam.rotation.z = Math.PI / 2
     g.add(shell, seam)
     g.rotation.y = side * 0.16
+    return g
+  },
+
+  // oar spans: two shafts with a flat blade on the end of each. Built to pull
+  // air rather than to rest on it, and it costs the animal every beat.
+  'wing.oarSpans': ({ materials, side }) => {
+    const g = new THREE.Group()
+    for (let i = 0; i < 2; i++) {
+      const arm = new THREE.Group()
+      const len = 1.15 - i * 0.3
+      const shaft = put(new THREE.CylinderGeometry(0.024, 0.052, len, 5), materials.keratin)
+      shaft.position.y = len * 0.5
+      // Taper above 1, so the blade is wider at the far end than at the loom.
+      // That one number is the difference between an oar and a fin.
+      const paddle = blade(materials.membrane, 0.16, 0.46, 0.035, 2.1, 0)
+      paddle.position.y = len - 0.02
+      arm.add(shaft, paddle)
+      arm.rotation.z = -Math.PI / 2 + (0.3 - i * 0.5)
+      arm.position.set(0.04, 0.1 - i * 0.2, -i * 0.17)
+      g.add(arm)
+    }
+    g.rotation.y = side * 0.22
+    return g
+  },
+
+  // cleaver wings: short, broad, and all the weight along the front edge. A
+  // wing in the same sense that a cleaver is a knife.
+  'wing.cleaverWings': ({ materials, side }) => {
+    const g = span(materials.membrane, materials.chitin, 3, 1.05, 0.78, 0.12, 0.05)
+    const edge = put(new THREE.BoxGeometry(1.08, 0.07, 0.12), materials.chitin)
+    edge.position.set(0.54, -0.05, 0.03)
+    edge.rotation.z = -0.1
+    g.add(edge)
+    for (let i = 0; i < 3; i++) {
+      const tooth = blade(materials.keratin, 0.1, 0.19, 0.02, 0.06, 0)
+      tooth.position.set(0.3 + i * 0.3, -0.05 - i * 0.03, 0.07)
+      // Tipped forward rather than up: these face whatever the wing is swung
+      // at, which is the only reason to put teeth on a wing.
+      tooth.rotation.x = -1.4
+      g.add(tooth)
+    }
+    // Squared off at the tip. Nothing that ends in a point ever reads as heavy.
+    const squared = put(new THREE.BoxGeometry(0.11, 0.46, 0.17), materials.chitin)
+    squared.position.set(1.04, -0.26, -0.19)
+    squared.rotation.z = -0.22
+    g.add(squared)
+    g.rotation.y = side * 0.2
     return g
   },
 
@@ -704,6 +951,59 @@ const tails: Record<string, PartBuilder> = {
     return g
   },
 
+  // a lap curl: thick and soft, and it ends up in a coil wherever it is put
+  // down. Slightly more than one full turn, so it closes rather than bends.
+  'tail.lapCurl': ({ materials }) => {
+    const g = new THREE.Group()
+    const c = chain(materials.flesh, {
+      segments: 9,
+      len: 1.5,
+      baseR: 0.21,
+      tipR: 0.05,
+      curve: 7.4,
+      twist: 0.3,
+      radial: 6,
+    })
+    const tuck = orb(materials.flesh, 0.075, 1)
+    c.joints[c.joints.length - 1].add(tuck)
+    g.add(c.root)
+    return g
+  },
+
+  // a dust banner: a thin tail flying a torn streamer, and the streamer is
+  // always half a beat behind wherever the group last went.
+  'tail.dustBanner': ({ materials, rand }) => {
+    const g = new THREE.Group()
+    const c = chain(materials.flesh, {
+      segments: 5,
+      len: 1.05,
+      baseR: 0.14,
+      tipR: 0.03,
+      curve: 0.4,
+      twist: 0,
+      radial: 5,
+    })
+    const flag = put(
+      patch(12, 3, (u, v, out) => {
+        // A wave along its length and a torn end, because a clean rectangle of
+        // membrane reads as an unfinished asset at any size.
+        const tear = 1 - Math.max(0, u - 0.68) * 1.5 * (0.4 + v * 0.6)
+        out.set(Math.sin(u * 4.2) * 0.1, u * 0.9, (v - 0.5) * 0.42 * tear)
+      }),
+      materials.membrane,
+    )
+    flag.castShadow = false
+    c.joints[2].add(flag)
+    for (let i = 0; i < 3; i++) {
+      const mote = orb(materials.glow, 0.015 + rand() * 0.01)
+      mote.castShadow = false
+      mote.position.set((rand() - 0.5) * 0.34, 0.5 + rand() * 0.6, -0.28 - rand() * 0.34)
+      g.add(mote)
+    }
+    g.add(c.root)
+    return g
+  },
+
   // a whipcord tail: thin, long, and always trailing a beat behind.
   'tail.whipcord': ({ materials }) => {
     const c = chain(materials.flesh, {
@@ -741,6 +1041,42 @@ const tails: Record<string, PartBuilder> = {
       tie.position.y = 0.25 + i * 0.4
       g.add(tie)
     }
+    return g
+  },
+
+  // a club tail: carried up rather than hanging, and the mass on the end of it
+  // is angular. The anchor tail is heavy; this one is aimed.
+  'tail.clubTail': ({ materials }) => {
+    const g = new THREE.Group()
+    const c = chain(materials.flesh, {
+      segments: 4,
+      len: 1.0,
+      baseR: 0.2,
+      tipR: 0.09,
+      curve: -0.4,
+      twist: 0,
+      radial: 6,
+    })
+    const tip = c.joints[c.joints.length - 1]
+    const head = put(new THREE.BoxGeometry(0.3, 0.34, 0.24), materials.chitin)
+    head.position.y = 0.12
+    head.rotation.y = 0.3
+    tip.add(head)
+    for (const s of [-1, 1]) {
+      const spike = chain(materials.keratin, {
+        segments: 2,
+        len: 0.26,
+        baseR: 0.05,
+        tipR: 0.008,
+        curve: 0.3,
+        twist: 0,
+        radial: 4,
+      })
+      spike.root.position.set(s * 0.13, 0.17, 0)
+      spike.root.rotation.z = s * 1.2
+      tip.add(spike.root)
+    }
+    g.add(c.root)
     return g
   },
 
@@ -895,6 +1231,48 @@ const spines: Record<string, PartBuilder> = {
       tuft.rotation.set((rand() - 0.5) * 0.6, 0, (rand() - 0.5) * 0.6)
       g.add(tuft)
     }
+    return g
+  },
+
+  // a larder hump: fat put by, biggest over the middle of the back and gone by
+  // the hips. The one trait that is larger for the group having done nothing.
+  'spine.larderHump': ({ materials, index, count, rand }) => {
+    const g = new THREE.Group()
+    const t = alongSpine(index, count)
+    const store = orb(materials.flesh, 0.3 * t, 1)
+    store.scale.set(1.15, 0.88, 1.3)
+    store.position.y = 0.03
+    // Leaning off centre, because a full store does not sit square and a row
+    // of matched domes down a back reads as packing material.
+    const over = orb(materials.flesh, 0.16 * t, 1)
+    over.scale.set(1.2, 0.7, 1.1)
+    over.position.set((rand() - 0.5) * 0.17, 0.15 * t, -0.05)
+    const tie = put(new THREE.TorusGeometry(0.27 * t, 0.022, 3, 10), materials.keratin)
+    tie.rotation.x = Math.PI / 2
+    tie.position.y = -0.03
+    g.add(store, over, tie)
+    return g
+  },
+
+  // handholds: a rung over each vertebra, polished where hands land. Somebody
+  // is getting on, which is not a thing done to an animal nobody trusts.
+  'spine.handholds': ({ materials, index, count }) => {
+    const g = new THREE.Group()
+    const h = 0.3 * alongSpine(index, count)
+    for (const s of [-1, 1]) {
+      const post = put(new THREE.CylinderGeometry(0.034, 0.05, h, 5), materials.keratin)
+      post.position.set(0, h * 0.5, s * 0.13)
+      g.add(post)
+    }
+    const rung = put(new THREE.CylinderGeometry(0.042, 0.042, 0.3, 6), materials.keratin)
+    rung.position.y = h
+    rung.rotation.x = Math.PI / 2
+    // A short darker sleeve in the middle of the rung, so the wear is where a
+    // hand actually goes rather than evenly along the whole bar.
+    const worn = put(new THREE.CylinderGeometry(0.047, 0.047, 0.11, 6), materials.chitin)
+    worn.position.y = h
+    worn.rotation.x = Math.PI / 2
+    g.add(rung, worn)
     return g
   },
 
@@ -1079,6 +1457,80 @@ const eyes: Record<string, PartBuilder> = {
     const veil = put(new THREE.IcosahedronGeometry(0.52, 1), materials.membrane)
     veil.castShadow = false
     g.add(ball, veil)
+    return g
+  },
+
+  // honey rings: warm bands through the iris, laid down one at a time. Slow,
+  // and there is no way at all to hurry them.
+  'eye.honeyRings': ({ materials }) => {
+    const g = new THREE.Group()
+    g.add(eyeball(materials.eye, 0.5))
+    for (let i = 0; i < 3; i++) {
+      const r = 0.14 + i * 0.12
+      const ring = put(new THREE.TorusGeometry(r, 0.022, 3, 14), materials.keratin)
+      // Sat on the ball at the height the sphere is that wide, so the bands
+      // curve with the eye instead of floating in front of it as a decal.
+      ring.position.y = Math.sqrt(Math.max(0, 0.25 - r * r))
+      ring.rotation.x = Math.PI / 2
+      ring.castShadow = false
+      g.add(ring)
+    }
+    const centre = orb(materials.pupil, 0.095, 0)
+    centre.position.y = 0.47
+    centre.castShadow = false
+    g.add(centre)
+    return g
+  },
+
+  // quick whites: a small pupil in a lot of white, already looking at the next
+  // thing. The glance follows `side`, so a pair of them never quite stares.
+  'eye.quickWhites': ({ materials, side, rand }) => {
+    const g = new THREE.Group()
+    g.add(eyeball(materials.keratin, 0.48))
+    const look = new THREE.Vector3(side * 0.2 + (rand() - 0.5) * 0.12, 0.42, 0.19)
+    const iris = orb(materials.eye, 0.16, 1)
+    iris.position.copy(look)
+    iris.castShadow = false
+    const pupil = orb(materials.pupil, 0.085, 0)
+    pupil.position.copy(look).multiplyScalar(1.12)
+    pupil.castShadow = false
+    // One lid, held high and clear of the iris. Without it the eye reads as
+    // simply pale rather than as white showing where it should not.
+    const lid = put(
+      patch(5, 1, (u, v, out) => {
+        const a = u * Math.PI
+        out.set(Math.cos(a) * 0.52, 0.26 - v * 0.26, Math.sin(a) * 0.3 + 0.24 + v * 0.1)
+      }),
+      materials.flesh,
+    )
+    lid.castShadow = false
+    g.add(iris, pupil, lid)
+    return g
+  },
+
+  // weather eyes: a bar pupil, and a pale band riding across the eye like a
+  // horizon sitting in it. Made for the far side of somewhere.
+  'eye.weatherEyes': ({ materials }) => {
+    const g = new THREE.Group()
+    g.add(eyeball(materials.eye, 0.5))
+    // Long across the face of the eye and thin the other way. A round pupil
+    // here would lose the one thing the allele is named for.
+    const bar = put(new THREE.BoxGeometry(0.11, 0.2, 0.56), materials.pupil)
+    bar.position.y = 0.44
+    bar.castShadow = false
+    const band = put(
+      patch(6, 1, (u, v, out) => {
+        const x = 0.18 + v * 0.2
+        const r = Math.sqrt(Math.max(0, 0.26 - x * x))
+        // Kept to the outward face of the ball. Swept any further and the band
+        // carries on round into the skull, where it is doing nobody any good.
+        const a = (u - 0.5) * 2.2
+        out.set(x, Math.cos(a) * r, Math.sin(a) * r)
+      }),
+      materials.keratin,
+    )
+    band.castShadow = false
+    g.add(bar, band)
     return g
   },
 
@@ -1356,6 +1808,43 @@ function buildAura(kind: Aura, opts: PartOpts): THREE.Object3D {
   return g
 }
 
+// Two aura alleles that the shared Aura kinds in materials.ts do not name, so
+// they are built here by id instead of by kind. Folding them into one of the
+// nine existing kinds would mean two groups whose auras are described in
+// different words are looking at the same particles in the same colour, and
+// the aura is the layer people screenshot. They still use the AURA_NODES names
+// so view.ts drives them like any other aura.
+const extraAuras: Record<string, PartBuilder> = {
+  // the feeling of somebody arriving: a wide ring low down, like a door open
+  // somewhere out of frame, and what it stirs up drifting in rather than off.
+  'aura.someoneComing': ({ alleleId, palette, rand }) => {
+    const g = new THREE.Group()
+    g.name = `aura:${alleleId}`
+    const c = palette.glow
+    for (let i = 0; i < 2; i++) {
+      const r = ringOf(c, 1.45 - i * 0.5, 0.011 + i * 0.005, 32)
+      r.rotation.x = Math.PI / 2
+      r.position.y = 0.04 + i * 0.02
+      g.add(r)
+    }
+    g.add(moteField(c, 30, 1.3, 0.03, rand))
+    return g
+  },
+
+  // cold air coming off it: nothing rises. A still shell sitting low and wider
+  // than it is tall, and frost catching the rim light and losing it again.
+  'aura.coldAirOffIt': ({ alleleId, palette, rand }) => {
+    const g = new THREE.Group()
+    g.name = `aura:${alleleId}`
+    const c = palette.glow
+    const chill = shell(c, 1.75, 0.03, false)
+    chill.scale.y = 0.6
+    g.add(chill)
+    g.add(moteField(c, 54, 1.5, 0.022, rand))
+    return g
+  },
+}
+
 // ---------------------------------------------------------------------------
 // Registration
 // ---------------------------------------------------------------------------
@@ -1370,6 +1859,8 @@ const HIDE_IDS: AlleleId[] = [
   'hide.lacquerCase',
   'hide.scarLattice',
   'hide.travelCoat',
+  'hide.deepFelt',
+  'hide.drumHide',
 ]
 
 const AURA_IDS: AlleleId[] = [
@@ -1412,6 +1903,10 @@ export function registerPlaceholderParts(): void {
   for (const id of AURA_IDS) {
     PART.register(id, (opts) => buildAura(auraFor(opts.alleleId), opts))
   }
+
+  // The auras with no kind of their own, registered last so that giving one of
+  // them a kind in materials.ts later is a deletion here and nothing else.
+  for (const id of Object.keys(extraAuras)) PART.register(id, extraAuras[id])
 }
 
 // Which loci this module has builders for, so a caller can tell a missing part
