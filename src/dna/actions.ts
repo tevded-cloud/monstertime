@@ -20,6 +20,16 @@
 // whatever the catalogue happened to over-supply. Balanced here means a group
 // that does a bit of everything genuinely reads as a group that does a bit of
 // everything, and grows the plain things.
+//
+// The balance that matters is the balance of the pool that is actually on
+// screen, not of the catalogue on paper. Four variants are held back to stage
+// two, and stage two is eighteen actions in, so for the whole of the egg and
+// the hatchling a group is drawing from the other thirty two. Both pools have
+// to be even or the first traits, which are also the traits that get stickiness
+// protecting them, lock in against a tilted background. So the four that are
+// held back are chosen to be a fair slice of the whole rather than a themed
+// one: they cover all eight axes between them, and taking them out leaves the
+// early thirty two within four and a half percent of even.
 
 import type { ActionVariant } from '../core/types'
 
@@ -52,6 +62,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'honeycomb',
     blurb: 'Sticky, and it will not share.',
     push: { nourish: 2.5, bond: 1.5, stillness: 1 },
+    minStage: 2,
   },
   {
     id: 'feed.saltedFish',
@@ -155,7 +166,6 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'the burned wood',
     blurb: 'Black trunks, new green underneath.',
     push: { roam: 1.5, ferocity: 2, craft: 1.5 },
-    minStage: 2,
   },
 
   // --- sing ---------------------------------------------------------------
@@ -179,6 +189,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'say its name, over and over',
     blurb: 'Until it turns its head.',
     push: { resonance: 2.5, bond: 2, stillness: 0.5 },
+    minStage: 2,
   },
   {
     id: 'sing.whistleFar',
@@ -289,7 +300,6 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'check its teeth',
     blurb: 'Both hands. Be quick about it.',
     push: { ferocity: 2, bond: 1.5, vigor: 1.5 },
-    minStage: 2,
   },
 ]
 

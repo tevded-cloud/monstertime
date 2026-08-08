@@ -32,13 +32,20 @@
 // on actor id, never on object key order, because two screens disagreeing about
 // whose horns those are is the worst bug this app could have.
 //
-// Everything here is pure. No clock, no randomness, no ambient state: the
-// action timestamps come from the log, and the log comes from the server. The
-// client and the Durable Object run this same function over the same inputs
-// and must agree, so the only arithmetic used in any decision that affects
-// traits is addition, multiplication and square root, all of which are exact
-// under IEEE 754. The morphs use a rational curve rather than an exponential
-// for the same reason.
+// Body proportions are the genome's side of the same reading. The same lean
+// lands differently on two creatures, because each seed draws its own bias and
+// stretch for every proportion, so two groups who fell into the same habit
+// still get animals that stand differently. Behaviour still decides which way
+// a proportion goes; the seed decides how far, and from where.
+//
+// Everything here is pure. No clock, no ambient state, and the only draws are
+// from the group's own seed through the same generator the genome came from:
+// the action timestamps come from the log, and the log comes from the server.
+// The client and the Durable Object run this same function over the same
+// inputs and must agree, so the only arithmetic used in any decision that
+// affects traits is addition, multiplication and square root, all of which are
+// exact under IEEE 754. The morphs use a rational curve rather than an
+// exponential for the same reason.
 
 import { LOCI, MORPHS, PRESSURE_AXES, STAGES } from '../core/types'
 import type {
@@ -60,6 +67,7 @@ import type {
 } from '../core/types'
 import { VARIANT_MEMORY, variantById } from './actions'
 import { alleleById } from './alleles'
+import { makeRng } from './rng'
 
 // ---------------------------------------------------------------------------
 // Tuning
@@ -91,7 +99,10 @@ const TENURE_CAP = 0.15
 // the plain version that got there first. A challenger that asks for
 // substantially more than the incumbent, and has already been paid for, is
 // allowed to win on an equal match. That is not a trait flickering, it is a
-// creature growing into what it already was.
+// creature growing into what it already was. Only on an equal match, though,
+// and only against an incumbent that is itself still in the running: see
+// resolveLoci, which will not spend this on a trait the group has stopped
+// supporting.
 const ESCALATION_MAX = 0.45
 
 // A locus stays bare rather than lock in something the group's behaviour does
@@ -103,6 +114,22 @@ const FIRST_LOCK_MIN = 0.04
 // Share of the credited lean that the named people have to account for.
 const CREDIT_SHARE = 0.6
 const CREDIT_MAX = 3
+
+// What it takes to be in the running for a name on a trait at all. A lean on
+// its own is not enough: when three or four regulars split the work evenly
+// their leans all sit near zero, so the entire positive-lean mass can be one
+// specialised click from somebody who turned up once, and that person then
+// takes the horns off the people who raised the thing. So a name also costs
+// presence: more than a single action, and at least half of what an even share
+// of the group's effort would have been by the time the trait locked. Anyone
+// below that was a visitor, and putting a visitor's name on a trait makes every
+// other name on every other trait worth less.
+const CREDIT_MIN_ACTIONS = 2
+const CREDIT_MIN_SHARE = 0.5
+
+// Actions before somebody can be said to have kept doing something. The
+// memories are written about habits, and two clicks is not a habit.
+const KEPT_MIN_ACTIONS = 3
 
 // Actions before the morphs reach full swing, so an egg is round and neutral
 // and the body drifts as behaviour piles up.
@@ -202,19 +229,33 @@ function affinityLoad(pressures: Pressures, allele: Allele): number {
 // accumulates, so given a long enough group every allele eventually clears
 // every threshold and rarity stops meaning anything.
 //
-// So the threshold also sets a pace. An allele that wants 85 by the stage a
-// group normally reaches at 48 actions is really asking for about 1.8 per
-// action, sustained. A group that presses every button evenly runs at about
-// 1.3 on any pair of axes, which is why an even group grows the plain things
-// and never the striking ones: not because it did too little, but because it
-// never committed to anything. Doing everything is a shape, and this is where
-// the shape gets read.
+// So the threshold also sets a pace: a rate that has to hold for the life of
+// the creature, not just be reached once. The rate is read off the threshold
+// and nothing else, which is the only way the ladder can be trusted. The
+// earlier version divided the threshold by the action count of the allele's
+// own minimum stage, and since that count is five for anything available at
+// hatchling, a stage one uncommon asking for twelve was really asking for 2.4
+// per action forever, which is more than any striking allele in the catalogue
+// asks for. The rarity ladder ran backwards at every locus. Reading the pace
+// off the threshold makes it monotone by construction: something that wants
+// more in total also wants it faster, so nothing can be both cheaper and
+// harder than the thing above it.
+//
+// The curve is square root rather than straight so the bottom of the ladder
+// stays generous. A group that presses every button evenly runs at about 1.3
+// on any pair of axes, which puts the plain things well inside reach, the rare
+// ones at the edge of it and the striking ones out of it: not because an even
+// group did too little, but because it never committed to anything. Doing
+// everything is a shape, and this is where the shape gets read.
+const PACE_BASE = 0.38
+const PACE_SLOPE = 0.114
+
 function hasEarned(pressures: Pressures, allele: Allele, count: number): boolean {
   const load = affinityLoad(pressures, allele)
   if (load < allele.threshold) return false
-  const expected = STAGE_ACTIONS[allele.minStage] ?? 0
-  if (expected <= 0 || count <= expected) return true
-  return load * expected >= allele.threshold * count
+  if (count <= 0) return true
+  const rate = PACE_BASE + PACE_SLOPE * Math.sqrt(allele.threshold)
+  return load >= rate * count
 }
 
 // Affinity as weights summing to one, used for splitting credit.
@@ -298,10 +339,16 @@ function orderedActors(actors: Map<string, ActorStat>): ActorStat[] {
 // pushed anything else. The list stops once the people on it account for most
 // of that gap, and ties break on actor id so the answer can never depend on
 // which order a Map happened to be built in.
+//
+// The gap alone is not enough, though, which is the thing this got wrong for a
+// long time. A lean is a ratio, and a ratio is loudest when the denominator is
+// small, so somebody who turned up once and pressed one specialised button had
+// the largest lean in the group by a distance and walked off with the horns.
+// So the gap is only read among people who were actually there, and everybody
+// else is dropped before any of it is measured.
 function creditFor(allele: Allele, actors: Map<string, ActorStat>): string[] {
   const weights = affinityWeights(allele)
   const scored: { id: string; score: number; actions: number }[] = []
-  let pressureTotal = 0
   let actionTotal = 0
   for (const actor of orderedActors(actors)) {
     let score = 0
@@ -309,23 +356,46 @@ function creditFor(allele: Allele, actors: Map<string, ActorStat>): string[] {
       if (weights[axis] > 0) score += weights[axis] * actor.contribution[axis]
     }
     scored.push({ id: actor.actorId, score, actions: actor.actions })
-    pressureTotal += score
     actionTotal += actor.actions
   }
-  if (scored.length === 0 || pressureTotal <= 0 || actionTotal <= 0) return []
+  if (scored.length === 0 || actionTotal <= 0) return []
 
-  const leaning = scored
+  // Multiplied out rather than divided so the floor is exact arithmetic on
+  // both engines: actions / count >= share / people.
+  const present = scored.filter(
+    (entry) =>
+      entry.actions >= CREDIT_MIN_ACTIONS &&
+      entry.actions * scored.length >= actionTotal * CREDIT_MIN_SHARE,
+  )
+  // A group where nobody clears the floor is a group in its first evening.
+  // Everybody is a visitor then, so fall back to reading the whole room.
+  const pool = present.length > 0 ? present : scored
+
+  // Leans are measured inside the pool, not against the whole log, so the
+  // question is who among the people who were actually here pushed these axes
+  // hardest. That is also what fixes the mirror case: somebody carrying nine
+  // tenths of the group on their own is the only one in the pool, so the lean
+  // that used to read as zero now resolves to them.
+  let pressureTotal = 0
+  let poolActions = 0
+  for (const entry of pool) {
+    pressureTotal += entry.score
+    poolActions += entry.actions
+  }
+  if (pressureTotal <= 0 || poolActions <= 0) return []
+
+  const leaning = pool
     .map((entry) => ({
       id: entry.id,
-      lean: entry.score / pressureTotal - entry.actions / actionTotal,
+      lean: entry.score / pressureTotal - entry.actions / poolActions,
     }))
     .filter((entry) => entry.lean > 0)
 
   if (leaning.length === 0) {
     // One person on their own, or a group so evenly spread that nobody leaned.
     // The trait belongs to whoever put the most into it, and to nobody else.
-    let best = scored[0]
-    for (const entry of scored) {
+    let best = pool[0]
+    for (const entry of pool) {
       if (entry.score > best.score) best = entry
     }
     return best.score > 0 ? [best.id] : []
@@ -348,12 +418,32 @@ function creditFor(allele: Allele, actors: Map<string, ActorStat>): string[] {
 
 // The thing the credited people kept doing that pushed on this allele's axes.
 // Used to make a memory specific instead of decorative.
+//
+// Two things have to be true before an action gets named. It has to push the
+// axis the allele actually leads on, not merely touch one of its minor ones:
+// any relevance above zero was enough before, which is how the app came to say
+// it grew milestone rings because somebody kept splitting ember-fruit, when
+// milestone rings are roam and ember-fruit pushes no roam whatsoever. And the
+// people being quoted have to have been around long enough for "kept" to be
+// true of them. When either one fails there is no phrase at all, and the memory
+// falls back to the plainer sentence, which is better than a specific lie.
 function signatureVariant(
   allele: Allele,
   credited: string[],
   actors: Map<string, ActorStat>,
 ): string | null {
+  // Everybody about to be named has to clear the bar, not just whoever
+  // happens to supply the winning variant: the sentence says all of them kept
+  // doing it, so one name in the list that did not makes the sentence false.
+  for (const actorId of credited) {
+    const actor = actors.get(actorId)
+    if (actor === undefined || actor.actions < KEPT_MIN_ACTIONS) return null
+  }
   const weights = affinityWeights(allele)
+  let lead = 0
+  for (const axis of PRESSURE_AXES) {
+    if (weights[axis] > lead) lead = weights[axis]
+  }
   const tally = new Map<string, number>()
   for (const actorId of credited) {
     const actor = actors.get(actorId)
@@ -362,11 +452,14 @@ function signatureVariant(
       const variant = variantById(variantId)
       if (variant === undefined) continue
       let relevance = 0
+      let onLead = false
       for (const axis of PRESSURE_AXES) {
         const push = variant.push[axis]
-        if (push !== undefined && weights[axis] > 0) relevance += weights[axis] * push
+        if (push === undefined || push <= 0 || weights[axis] <= 0) continue
+        relevance += weights[axis] * push
+        if (weights[axis] === lead) onLead = true
       }
-      if (relevance <= 0) continue
+      if (!onLead || relevance <= 0) continue
       tally.set(variantId, (tally.get(variantId) ?? 0) + relevance * count)
     }
   }
@@ -482,8 +575,46 @@ function softStep(x: number): number {
   return 0.5 + 0.5 * (scaled / (1 + magnitude))
 }
 
-function deriveMorphs(pressures: Pressures, count: number): Morphs {
+// How far a seed is allowed to move a proportion on its own, and how much it
+// is allowed to stretch or damp the group's lean on that proportion. Sized
+// against the leans real behaviour produces, which run to about four tenths:
+// enough that two groups who did the same thing still stand differently, small
+// enough that behaviour keeps deciding the direction. A group that feeds
+// heavily is heavy on every seed, it is just heavy in its own way.
+const MORPH_BIAS = 0.2
+const MORPH_GAIN_MIN = 0.68
+const MORPH_GAIN_SPAN = 0.72
+
+interface MorphTuning {
+  bias: number
+  gain: number
+}
+
+// The body's share of the genome.
+//
+// Body shape used to be a pure function of what a group did, which meant it
+// carried no identity at all: two groups with different seeds and the same
+// habit came out with a body identical to six decimal places, so the thing
+// that was supposed to separate groups who behave alike separated nothing.
+// Drawing a bias and a gain per proportion from the seed makes the body a
+// reading of behaviour through a particular animal, which is what it was
+// always described as. Same seeded generator as the genome draw, so it stays
+// integer arithmetic and the client and the Durable Object agree exactly.
+function morphTuning(seed: string): Record<Morph, MorphTuning> {
+  const rng = makeRng(`morph:${seed}`)
+  const tuning = {} as Record<Morph, MorphTuning>
+  for (const morph of MORPHS) {
+    tuning[morph] = {
+      bias: (rng.next() * 2 - 1) * MORPH_BIAS,
+      gain: MORPH_GAIN_MIN + rng.next() * MORPH_GAIN_SPAN,
+    }
+  }
+  return tuning
+}
+
+function deriveMorphs(genome: Genome, pressures: Pressures, count: number): Morphs {
   const shape = pressureShape(pressures)
+  const tuning = morphTuning(genome.seed)
   const warmth = count >= MORPH_WARMUP ? 1 : count / MORPH_WARMUP
   const morphs = {} as Morphs
   for (const morph of MORPHS) {
@@ -491,7 +622,9 @@ function deriveMorphs(pressures: Pressures, count: number): Morphs {
     let lean = 0
     for (const axis of spec.up) lean += shape[AXIS_INDEX[axis]]
     for (const axis of spec.down) lean -= shape[AXIS_INDEX[axis]]
-    const settled = softStep(lean)
+    // Bias sits inside the curve, so it shifts where the creature settles
+    // without ever pushing a proportion outside its own range.
+    const settled = softStep(lean * tuning[morph].gain + tuning[morph].bias)
     morphs[morph] = 0.5 + (settled - 0.5) * warmth
   }
   return morphs
@@ -539,12 +672,17 @@ function resolveLoci(
 
     const carried = genome.carried[locus] ?? []
     const candidates: { allele: Allele; score: number }[] = []
+    // Whether the trait sitting here is still something the group's behaviour
+    // supports. It matters below: the escalation exception is only ever meant
+    // to settle a tie between two live answers to the same lean.
+    let heldIsLive = false
     for (const id of carried) {
       const allele = alleleById(id)
       if (allele === undefined) continue
       if (allele.minStage > stage) continue
       if (!hasEarned(pressures, allele, count)) continue
       if (allele.id !== current?.allele && history.past.has(allele.id)) continue
+      if (allele.id === current?.allele) heldIsLive = true
       candidates.push({ allele, score: cosine(shape, affinityShape(allele)) })
     }
     if (candidates.length === 0) continue
@@ -573,8 +711,13 @@ function resolveLoci(
     const held = alleleById(current.allele)
     const heldScore = held === undefined ? -1 : cosine(shape, affinityShape(held))
     const earned = Math.min(TENURE_CAP, TENURE_BONUS * history.tenure)
+    // Only when the incumbent is still a live candidate, which is the case the
+    // exception was written for. If it has dropped out of the running the
+    // challenger is not growing into what the creature already was, it is
+    // replacing something the group stopped supporting, and there is no reason
+    // to let it do that on a worse match than the one it is displacing.
     const escalation =
-      held !== undefined && best.allele.threshold > held.threshold
+      heldIsLive && held !== undefined && best.allele.threshold > held.threshold
         ? ESCALATION_MAX *
           Math.min(1, (best.allele.threshold - held.threshold) / held.threshold)
         : 0
@@ -766,7 +909,7 @@ export function deriveCreature(
     stageProgress: progressFor(count),
     pressures,
     traits: expressed,
-    morphs: deriveMorphs(pressures, count),
+    morphs: deriveMorphs(genome, pressures, count),
     bonds,
     memories,
     actionCount: count,

@@ -14,9 +14,17 @@
 // ferocity, roam and stillness). Those are the ones worth talking about,
 // because a group only reaches them by genuinely mixed behaviour, not by
 // picking one button and leaning on it.
+//
+// Every locus answers to every axis. That is a rule, not an accident: a locus
+// with nothing that responds to, say, craft is a locus that stays bare forever
+// for a group whose whole habit is bringing the creature things, and being
+// permanently bald in one place is not a reading of a group's behaviour, it is
+// a hole in this file. The bare hide was the worst of them, because a hide
+// with nothing on it renders as plain, so the group that sang the most got the
+// dullest skin on the biggest surface of the animal.
 
-import { LOCI } from '../core/types'
-import type { Allele, AlleleId, Genome, Locus } from '../core/types'
+import { LOCI, PRESSURE_AXES } from '../core/types'
+import type { Allele, AlleleId, Genome, Locus, PressureAxis } from '../core/types'
 import { makeRng } from './rng'
 
 // The draw weight is not part of the shared contract, because nothing outside
@@ -54,10 +62,28 @@ const DRAFTS: AlleleDraft[] = [
     weight: COMMON,
   },
   {
+    id: 'horn.liftKnobs',
+    locus: 'horn',
+    label: 'lift-knobs',
+    affinity: { vigor: 2, bond: 1.5 },
+    threshold: 9,
+    minStage: 1,
+    weight: UNCOMMON,
+  },
+  {
     id: 'horn.lanternHorn',
     locus: 'horn',
     label: 'lantern horn',
     affinity: { resonance: 2, craft: 1.5 },
+    threshold: 10,
+    minStage: 1,
+    weight: UNCOMMON,
+  },
+  {
+    id: 'horn.tallyHorns',
+    locus: 'horn',
+    label: 'tally horns',
+    affinity: { bond: 2, craft: 1.5 },
     threshold: 10,
     minStage: 1,
     weight: UNCOMMON,
@@ -128,6 +154,15 @@ const DRAFTS: AlleleDraft[] = [
     weight: COMMON,
   },
   {
+    id: 'ear.butterLobes',
+    locus: 'ear',
+    label: 'butter lobes',
+    affinity: { nourish: 2, bond: 1 },
+    threshold: 4,
+    minStage: 1,
+    weight: COMMON,
+  },
+  {
     id: 'ear.notchedPair',
     locus: 'ear',
     label: 'a notched pair',
@@ -137,10 +172,37 @@ const DRAFTS: AlleleDraft[] = [
     weight: COMMON,
   },
   {
+    id: 'ear.shellEars',
+    locus: 'ear',
+    label: 'shell ears',
+    affinity: { resonance: 2, stillness: 1 },
+    threshold: 5,
+    minStage: 1,
+    weight: COMMON,
+  },
+  {
+    id: 'ear.wickTips',
+    locus: 'ear',
+    label: 'wick-tips',
+    affinity: { craft: 2, resonance: 1 },
+    threshold: 5,
+    minStage: 1,
+    weight: COMMON,
+  },
+  {
     id: 'ear.bellCups',
     locus: 'ear',
     label: 'bell cups',
     affinity: { resonance: 2, roam: 1.5 },
+    threshold: 10,
+    minStage: 1,
+    weight: UNCOMMON,
+  },
+  {
+    id: 'ear.foldedTin',
+    locus: 'ear',
+    label: 'folded tin',
+    affinity: { craft: 2, bond: 1 },
     threshold: 10,
     minStage: 1,
     weight: UNCOMMON,
@@ -211,11 +273,29 @@ const DRAFTS: AlleleDraft[] = [
     weight: COMMON,
   },
   {
+    id: 'wing.harvestFolds',
+    locus: 'wing',
+    label: 'harvest folds',
+    affinity: { nourish: 2, bond: 1.5 },
+    threshold: 6,
+    minStage: 1,
+    weight: COMMON,
+  },
+  {
     id: 'wing.paperKites',
     locus: 'wing',
     label: 'paper kites',
     affinity: { craft: 2, roam: 1.5 },
     threshold: 9,
+    minStage: 1,
+    weight: UNCOMMON,
+  },
+  {
+    id: 'wing.roostCloak',
+    locus: 'wing',
+    label: 'a roost cloak',
+    affinity: { bond: 2, stillness: 1.5 },
+    threshold: 10,
     minStage: 1,
     weight: UNCOMMON,
   },
@@ -226,6 +306,24 @@ const DRAFTS: AlleleDraft[] = [
     affinity: { roam: 2, ferocity: 1.5 },
     threshold: 11,
     minStage: 1,
+    weight: UNCOMMON,
+  },
+  {
+    id: 'wing.oarSpans',
+    locus: 'wing',
+    label: 'oar spans',
+    affinity: { vigor: 2, roam: 1.5 },
+    threshold: 11,
+    minStage: 1,
+    weight: UNCOMMON,
+  },
+  {
+    id: 'wing.cleaverWings',
+    locus: 'wing',
+    label: 'cleaver wings',
+    affinity: { ferocity: 2, vigor: 1.5 },
+    threshold: 24,
+    minStage: 2,
     weight: UNCOMMON,
   },
   {
@@ -276,6 +374,15 @@ const DRAFTS: AlleleDraft[] = [
     weight: COMMON,
   },
   {
+    id: 'tail.lapCurl',
+    locus: 'tail',
+    label: 'a lap curl',
+    affinity: { bond: 2, stillness: 1.5 },
+    threshold: 4,
+    minStage: 1,
+    weight: COMMON,
+  },
+  {
     id: 'tail.whipcord',
     locus: 'tail',
     label: 'a whipcord tail',
@@ -290,6 +397,24 @@ const DRAFTS: AlleleDraft[] = [
     label: 'a braided tail',
     affinity: { craft: 2, bond: 1.5 },
     threshold: 10,
+    minStage: 1,
+    weight: UNCOMMON,
+  },
+  {
+    id: 'tail.dustBanner',
+    locus: 'tail',
+    label: 'a dust banner',
+    affinity: { roam: 2, vigor: 1 },
+    threshold: 6,
+    minStage: 1,
+    weight: COMMON,
+  },
+  {
+    id: 'tail.clubTail',
+    locus: 'tail',
+    label: 'a club tail',
+    affinity: { ferocity: 2, bond: 1 },
+    threshold: 11,
     minStage: 1,
     weight: UNCOMMON,
   },
@@ -350,6 +475,15 @@ const DRAFTS: AlleleDraft[] = [
     weight: COMMON,
   },
   {
+    id: 'spine.larderHump',
+    locus: 'spine',
+    label: 'a larder hump',
+    affinity: { nourish: 2, stillness: 1 },
+    threshold: 4,
+    minStage: 1,
+    weight: COMMON,
+  },
+  {
     id: 'spine.travelKnuckles',
     locus: 'spine',
     label: 'travel knuckles',
@@ -364,6 +498,15 @@ const DRAFTS: AlleleDraft[] = [
     label: 'a song comb',
     affinity: { resonance: 2, bond: 1.5 },
     threshold: 9,
+    minStage: 1,
+    weight: UNCOMMON,
+  },
+  {
+    id: 'spine.handholds',
+    locus: 'spine',
+    label: 'handholds',
+    affinity: { bond: 2, vigor: 1.5 },
+    threshold: 10,
     minStage: 1,
     weight: UNCOMMON,
   },
@@ -429,6 +572,24 @@ const DRAFTS: AlleleDraft[] = [
     label: 'a tallow gloss',
     affinity: { nourish: 2, stillness: 1.5 },
     threshold: 3,
+    minStage: 1,
+    weight: COMMON,
+  },
+  {
+    id: 'hide.deepFelt',
+    locus: 'hide',
+    label: 'a deep felt',
+    affinity: { stillness: 2, bond: 1 },
+    threshold: 5,
+    minStage: 1,
+    weight: COMMON,
+  },
+  {
+    id: 'hide.drumHide',
+    locus: 'hide',
+    label: 'a drum hide',
+    affinity: { resonance: 2, vigor: 1 },
+    threshold: 6,
     minStage: 1,
     weight: COMMON,
   },
@@ -516,6 +677,15 @@ const DRAFTS: AlleleDraft[] = [
     weight: COMMON,
   },
   {
+    id: 'eye.honeyRings',
+    locus: 'eye',
+    label: 'honey rings',
+    affinity: { nourish: 2, stillness: 1.5 },
+    threshold: 4,
+    minStage: 1,
+    weight: COMMON,
+  },
+  {
     id: 'eye.coalPins',
     locus: 'eye',
     label: 'coal pins',
@@ -534,11 +704,29 @@ const DRAFTS: AlleleDraft[] = [
     weight: UNCOMMON,
   },
   {
+    id: 'eye.quickWhites',
+    locus: 'eye',
+    label: 'quick whites',
+    affinity: { vigor: 2, bond: 1 },
+    threshold: 10,
+    minStage: 1,
+    weight: UNCOMMON,
+  },
+  {
     id: 'eye.workbenchEyes',
     locus: 'eye',
     label: 'workbench eyes',
     affinity: { craft: 2, bond: 1.5 },
     threshold: 11,
+    minStage: 1,
+    weight: UNCOMMON,
+  },
+  {
+    id: 'eye.weatherEyes',
+    locus: 'eye',
+    label: 'weather eyes',
+    affinity: { roam: 2, resonance: 1 },
+    threshold: 10,
     minStage: 1,
     weight: UNCOMMON,
   },
@@ -599,11 +787,29 @@ const DRAFTS: AlleleDraft[] = [
     weight: COMMON,
   },
   {
+    id: 'aura.someoneComing',
+    locus: 'aura',
+    label: 'the feeling of somebody arriving',
+    affinity: { bond: 2, nourish: 1.5 },
+    threshold: 5,
+    minStage: 1,
+    weight: COMMON,
+  },
+  {
     id: 'aura.stormSmell',
     locus: 'aura',
     label: 'the smell of a coming storm',
     affinity: { vigor: 2, ferocity: 1.5 },
     threshold: 5,
+    minStage: 1,
+    weight: COMMON,
+  },
+  {
+    id: 'aura.coldAirOffIt',
+    locus: 'aura',
+    label: 'cold air coming off it',
+    affinity: { roam: 2, vigor: 1 },
+    threshold: 6,
     minStage: 1,
     weight: COMMON,
   },
@@ -694,14 +900,49 @@ function weightOf(allele: Allele): number {
   return WEIGHTS.get(allele.id) ?? RARE
 }
 
+// How much the draw discounts an allele that answers the same thing as one
+// already taken at this locus. Not zero, because two answers to the same lean
+// is a real genome and sometimes the second one is the striking version of the
+// first, but low enough that a locus is usually a spread rather than three
+// variations on a theme. Without it, widening the catalogue makes each group
+// narrower: more alleles per locus, same few carried, so the odds that a group
+// carries anything answering to what it actually does go down.
+const SAME_ANSWER = 0.2
+
+// The axes an allele leads on. Ties are kept, because several alleles are
+// deliberately balanced between two axes and lead on both.
+function topAxes(allele: Allele): PressureAxis[] {
+  let top = 0
+  for (const axis of PRESSURE_AXES) {
+    const weight = allele.affinity[axis]
+    if (weight !== undefined && weight > top) top = weight
+  }
+  const axes: PressureAxis[] = []
+  for (const axis of PRESSURE_AXES) {
+    if (allele.affinity[axis] === top) axes.push(axis)
+  }
+  return axes
+}
+
 // Draw the creature's potential. This runs once per group, at creation, and
 // the result is the only thing besides the action log that the server keeps.
 //
-// Two rules matter here. Every locus gets at least one allele that can express
-// at hatchling, so no slot is guaranteed to stay bare through the whole early
-// game. And the draw is weighted, so the striking alleles are genuinely scarce:
-// a group that ends up carrying a war saddle still has to earn it with the
-// right behaviour, and most groups never carried it in the first place.
+// Three rules matter here. Every locus gets at least one allele that can
+// express at hatchling, so no slot is guaranteed to stay bare through the whole
+// early game. The draw is weighted, so the striking alleles are genuinely
+// scarce: a group that ends up carrying a war saddle still has to earn it with
+// the right behaviour, and most groups never carried it in the first place.
+// And the draw spreads: each pick after the first is discounted if it answers
+// to something already answered at this locus, so what a group carries at a
+// slot tends to be several different answers rather than one answer three
+// times. That last rule is what decides whether a group that settles into one
+// habit finds anything at all that responds to it.
+//
+// How many are carried is a share of the locus (a third of it, plus up to two
+// more) rather than a fixed count, so adding alleles widens the pool instead of
+// quietly thinning what every group has to work with. A count that does not
+// track the catalogue is a slow leak: every allele added makes every group's
+// potential a smaller slice of it, and the loci go bare again.
 export function rollGenome(seed: string): Genome {
   const rng = makeRng(seed)
   const carried = {} as Record<Locus, AlleleId[]>
@@ -709,16 +950,25 @@ export function rollGenome(seed: string): Genome {
   for (const locus of LOCI) {
     const pool = ALLELES.filter((allele) => allele.locus === locus)
     const early = pool.filter((allele) => allele.minStage <= 1)
-    const wanted = 2 + rng.int(3)
+    const wanted = Math.max(2, Math.round(pool.length / 3) + rng.int(3))
 
     const chosen: Allele[] = []
     const firstIndex = rng.weighted(early.map(weightOf))
     chosen.push(early[firstIndex])
+    const answered = new Set<PressureAxis>(topAxes(chosen[0]))
 
     const rest = pool.filter((allele) => allele.id !== chosen[0].id)
     while (chosen.length < wanted && rest.length > 0) {
-      const index = rng.weighted(rest.map(weightOf))
-      chosen.push(rest[index])
+      const index = rng.weighted(
+        rest.map((allele) => {
+          const axes = topAxes(allele)
+          const fresh = axes.some((axis) => !answered.has(axis))
+          return weightOf(allele) * (fresh ? 1 : SAME_ANSWER)
+        }),
+      )
+      const picked = rest[index]
+      chosen.push(picked)
+      for (const axis of topAxes(picked)) answered.add(axis)
       rest.splice(index, 1)
     }
 
