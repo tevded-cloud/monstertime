@@ -2,10 +2,99 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <!-- viewport-fit=cover is load bearing, not decoration: without it every
+         env(safe-area-inset-*) in src/index.css resolves to 0 and the whole
+         inset scheme there becomes dead code. -->
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>MonsterTime</title>
     <meta name="description" content="A friend group raises one creature together. What it becomes depends on all of you." />
-    <link rel="icon" href="/monstertime/favicon.svg" />
+    <meta name="color-scheme" content="dark" />
+    <!-- One value, no light variant: the app declares color-scheme: dark and
+         has no light palette to follow. Matches --ground in src/index.css so
+         the browser chrome, the install splash and the first painted frame are
+         the same near-black. -->
+    <meta name="theme-color" content="#0a0c0d" />
+    <link rel="manifest" href="/monstertime/manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="/monstertime/icons/icon.svg" />
+    <link rel="apple-touch-icon" href="/monstertime/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="MonsterTime" />
+    <!-- black, not black-translucent. Translucent would hand the app the strip
+         under the notch, which suits a full bleed dark stage, but it only looks
+         right if every element that touches the top edge adds the inset, and
+         .notice and .ticker in src/index.css currently do not. An opaque bar
+         against a near-black ground costs nothing visually and cannot land text
+         under the clock. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <script>
+      // Registered here rather than from the app bundle because it must not
+      // wait on React, three.js or a socket. This is also the only place it can
+      // live: src/ belongs to other work, and a registration is four lines of
+      // browser API with no build step of its own.
+      ;(function () {
+        if (!('serviceWorker' in navigator)) return
+        // A worker will not register over plain http at all, apart from the
+        // browser's own exemption for localhost while developing.
+        var host = location.hostname
+        if (location.protocol !== 'https:' && host !== 'localhost' && host !== '127.0.0.1') return
+
+        var base = '/monstertime/'
+        // A worker already controlling this page means any later handover is a
+        // new generation taking over. Without this, the very first visit sees
+        // the first install claim the page and mistakes it for an update.
+        var hadController = !!navigator.serviceWorker.controller
+        var reg = null
+        var lastCheck = 0
+        var pendingReload = false
+
+        navigator.serviceWorker.register(base + 'sw.js', { scope: base }).then(
+          function (r) {
+            reg = r
+            lastCheck = Date.now()
+          },
+          function () {
+            // Best effort. A failed registration leaves the app exactly as it
+            // would be with no worker at all: it needs a connection, and it
+            // still works with one. Nothing about the creature depends on this,
+            // because the creature has never lived on this device.
+          }
+        )
+
+        // The new worker calls skipWaiting as it installs, so it takes control
+        // while the old page is still running: that page now holds last
+        // generation's script. Reloading fixes it, but not mid check-in. This
+        // app is a live socket and a WebGL scene, and pulling either out from
+        // under somebody watching their creature is worse than being one
+        // version behind for another minute. Nothing is lost by waiting: the
+        // creature is derived from the server's action list, not from anything
+        // held in this tab.
+        navigator.serviceWorker.addEventListener('controllerchange', function () {
+          if (!hadController) return
+          if (document.visibilityState === 'hidden') location.reload()
+          else pendingReload = true
+        })
+
+        document.addEventListener('visibilitychange', function () {
+          if (document.visibilityState === 'hidden') {
+            if (pendingReload) location.reload()
+            return
+          }
+          // Coming back is the only moment an app opened from a home screen
+          // reliably gets to ask whether anything has been published since. It
+          // can run for weeks without a full page load otherwise. Once every
+          // five minutes is plenty.
+          if (!reg || Date.now() - lastCheck < 300000) return
+          lastCheck = Date.now()
+          try {
+            var updating = reg.update()
+            if (updating && updating.catch) updating.catch(function () {})
+          } catch (e) {
+            // Offline, or the host is unreachable. Nothing broken.
+          }
+        })
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

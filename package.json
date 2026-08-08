@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && tsc -p tsconfig.worker.json && vite build",
+    "build": "tsc -b && tsc -p tsconfig.worker.json && vite build && node scripts/build-sw.mjs",
     "check": "tsc -b && tsc -p tsconfig.worker.json",
+    "icons": "node scripts/make-icons.mjs",
     "stage": "node scripts/deploy.mjs",
     "preview": "vite preview"
   },
