@@ -22,16 +22,23 @@
 // connected, NOTHING that matters may live in an instance variable: the seed,
 // the name and the log live in SQLite, and the one per connection thing that is
 // needed (who is on the other end) lives in the socket's own attachment, which
-// survives eviction. The two in-memory things below are both throttles, and
-// both are correct precisely because eviction only happens when the object has
-// been idle, which is the one moment a throttle has nothing to remember.
+// survives eviction. The in-memory things below are throttles and one cached
+// yes-or-no, and all of them are correct precisely because eviction only
+// happens when the object has been idle: an idle connection has no flood to
+// remember, and a question re-asked after an eviction is one query.
+//
+// A brake that a client can pick its own bucket for is not a brake. The actor
+// id is whatever the client says it is, so the id is bound to the connection
+// the first time it is given and never moved after that, and the limits that
+// have to hold against somebody deliberately trying are the ones read back out
+// of the log for the whole group, which no client can re-key.
 //
 // This module is imported by the tevded.com site Worker. It answers under
 // /api/monstertime/ and returns null for everything else, so the rest of the
 // domain keeps being answered by the asset server exactly as it was before
 // this existed. See worker/README.md for what the site has to add.
 import { DurableObject } from 'cloudflare:workers'
-import { rollGenome, variantById } from '../src/dna/index'
+import { deriveCreature, rollGenome, variantById } from '../src/dna/index'
 import type {
   ActionRecord,
   ClientMessage,
@@ -85,8 +92,20 @@ const NAMELESS = 'Someone'
  * The lifetime cap on the action log. A group going for a year is a few
  * thousand short records, so this is far beyond any real use, and it is here
  * because a log with no bound is a bill with no bound.
+ *
+ * Reaching it ends the creature's life, and that is not reversible: the log IS
+ * the animal, so there is nothing that could be removed to make room without
+ * making it a different animal. Everything below that guards this number is
+ * really guarding that one fact.
  */
 const MAX_ACTIONS = 5000
+
+/**
+ * How many actions before the cap everybody is told it is coming, once. A group
+ * finding out that their creature is finished by pressing a button and being
+ * refused is the worst possible way to learn it.
+ */
+const CAP_WARNING = 100
 
 const MINUTE_MS = 60_000
 const HOUR_MS = 60 * MINUTE_MS
@@ -105,6 +124,40 @@ const ACT_COOLDOWN_MS = 10_000
 const ACTS_PER_MINUTE = 4
 const ACTS_PER_HOUR = 40
 
+/**
+ * The same brake for the group as a whole, and this is the one that has to hold
+ * against somebody who is actually trying.
+ *
+ * The per person caps above are per ACTOR ID, and an actor id is a string the
+ * client made up. Binding it to the connection stops one socket from being
+ * several people, but nothing stops somebody opening a second socket and being
+ * somebody new, so on its own the per person cap bounds only the polite. This
+ * one is counted across every row in the window regardless of whose it is, so
+ * there is no bucket to pick and no id to rotate into.
+ *
+ * The number is three people acting flat out at once, which no real evening
+ * looks like and which is still the difference between filling the log in forty
+ * minutes and filling it in a day and a half of unbroken effort.
+ */
+const GROUP_ACTS_PER_MINUTE = 12
+const GROUP_ACTS_PER_HOUR = 120
+
+/**
+ * How many different people may ever act in one group. A friend group is not
+ * fifty people, and without a bound here a script can mint a fresh actor id per
+ * action: the bond list is keyed by actor id, so that ends with a creature
+ * whose closest relationships are with five thousand strangers who each did one
+ * thing. Generous enough that phones, laptops and cleared browser storage are
+ * never the reason somebody is turned away.
+ */
+const MAX_ACTORS = 48
+
+/**
+ * Sockets one group may hold open at once. The flood guard is per connection,
+ * so without this the way round it is simply more connections.
+ */
+const MAX_SOCKETS = 64
+
 /** How long the creature's name is left alone after somebody changes it. Held
  *  in memory on purpose: renaming in a loop needs an open socket, and an open
  *  socket is the one state in which this object is certainly not hibernating. */
@@ -112,11 +165,12 @@ const RENAME_COOLDOWN_MS = 5_000
 
 /**
  * The flood guard, in messages per window per connection. This exists to keep a
- * broken or hostile client from reaching the SQL underneath: the per actor
- * limits above are the real rule, but they cost a query to evaluate, and a
- * client sending a thousand messages a second would spend the whole day's read
- * allowance being told no. Counted per connection rather than per actor because
- * the actor id is whatever the client says it is and can be rotated.
+ * broken or hostile client from reaching the SQL underneath: the caps above are
+ * what decide whether an action happens, but they cost a query to evaluate, and
+ * a client sending a thousand messages a second would spend the whole day's
+ * read allowance being told no. Counted per connection because that is the only
+ * thing here that is not a name the client chose, and bounded overall by
+ * MAX_SOCKETS, without which opening another connection is a fresh budget.
  */
 const FLOOD_WINDOW_MS = 10_000
 const FLOOD_MAX = 40
@@ -325,21 +379,19 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
   /** When the creature was last renamed. In memory for the same reason. */
   private renamedAt = 0
 
+  /**
+   * Whether this group was ever really made, cached once it has been asked.
+   *
+   * Only ever goes from unknown to an answer, and from false to true when
+   * create() runs, never the other way, because nothing here deletes a group.
+   * An eviction throws the answer away and it costs one query to get it back.
+   */
+  private made: boolean | null = null
+
   constructor(ctx: DurableObjectState, env: MonsterEnv) {
     super(ctx, env)
-    // Synchronous, so every table exists before any handler can run and there
-    // is no reason to block concurrency on anything. `meta` holds the seed, the
-    // name and the birthday; tables rather than variables because a variable is
-    // gone the moment this object hibernates.
-    ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT NOT NULL)')
-    ctx.storage.sql.exec(
-      'CREATE TABLE IF NOT EXISTS actions(n INTEGER PRIMARY KEY, id TEXT NOT NULL,' +
-        ' variantId TEXT NOT NULL, actorId TEXT NOT NULL, actorName TEXT NOT NULL, at INTEGER NOT NULL)',
-    )
-    // The per person brake is read straight back out of the log rather than
-    // kept anywhere, which is what makes it survive hibernation for free. This
-    // index is what keeps that read to the handful of rows it should be.
-    ctx.storage.sql.exec('CREATE INDEX IF NOT EXISTS actions_by_actor ON actions(actorId, at)')
+    // Set here rather than beside the socket it serves because the constructor
+    // is the one thing that runs again on every wake, and this costs nothing.
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(PING, PONG))
   }
 
@@ -352,12 +404,68 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
    * disaster for them.
    */
   async create(groupId: string, seed: string): Promise<void> {
+    this.schema()
     if (this.metaValue('seed') !== null) return
     // No await between the three, so they land as one transaction. A group with
     // an id and no seed would be a group that exists and cannot hatch.
     this.ctx.storage.sql.exec("INSERT INTO meta(k, v) VALUES('groupId', ?)", groupId)
     this.ctx.storage.sql.exec("INSERT INTO meta(k, v) VALUES('seed', ?)", seed)
     this.ctx.storage.sql.exec("INSERT INTO meta(k, v) VALUES('createdAt', ?)", String(Date.now()))
+  }
+
+  /**
+   * The tables. Made here and not in the constructor, and that is the whole
+   * point of the method existing.
+   *
+   * A Durable Object comes into being the moment somebody asks about it, and
+   * an id arriving off the open internet is nearly always an id nobody ever
+   * minted. With this in the constructor, every probe of a group that does not
+   * exist wrote three statements to a brand new object and only then worked out
+   * that the answer was 404, so a stranger with a loop could make this app
+   * write storage as fast as it could ask. The allowance being spent is shared
+   * with everything else on the domain, so that was not only our own problem.
+   * Nothing writes until create() runs, and create() is only reachable from the
+   * endpoint that minted the id.
+   */
+  private schema(): void {
+    // Synchronous, so all three land before the inserts that follow and there
+    // is no reason to block concurrency on anything. `meta` holds the seed, the
+    // name and the birthday; tables rather than variables because a variable is
+    // gone the moment this object hibernates.
+    this.ctx.storage.sql.exec(
+      'CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT NOT NULL)',
+    )
+    this.ctx.storage.sql.exec(
+      'CREATE TABLE IF NOT EXISTS actions(n INTEGER PRIMARY KEY, id TEXT NOT NULL,' +
+        ' variantId TEXT NOT NULL, actorId TEXT NOT NULL, actorName TEXT NOT NULL, at INTEGER NOT NULL)',
+    )
+    // The per person brake is read straight back out of the log rather than
+    // kept anywhere, which is what makes it survive hibernation for free. This
+    // index is what keeps that read to the handful of rows it should be.
+    this.ctx.storage.sql.exec(
+      'CREATE INDEX IF NOT EXISTS actions_by_actor ON actions(actorId, at)',
+    )
+    this.made = true
+  }
+
+  /**
+   * Whether there is anything here at all. Asked before every read, because the
+   * tables do not exist until create() has run and a query against a table that
+   * is not there throws rather than coming back empty. The try is the test
+   * itself, which is not elegant, and the alternative was making the table so
+   * that asking about it would work.
+   */
+  private exists(): boolean {
+    if (this.made !== null) return this.made
+    let found: boolean
+    try {
+      this.ctx.storage.sql.exec('SELECT 1 AS ok FROM meta LIMIT 1').toArray()
+      found = true
+    } catch {
+      found = false
+    }
+    this.made = found
+    return found
   }
 
   /** The whole group as a plain object, or null if nothing was ever made under
@@ -375,6 +483,12 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
   override async fetch(): Promise<Response> {
     const snapshot = this.readSnapshot()
     if (snapshot === null) return json({ error: 'No such group.' }, 404)
+    // Far more than a group of friends on every device they own, so anything
+    // that reaches this is opening connections on purpose, and the reason it
+    // matters is that the message allowance below is per connection.
+    if (this.ctx.getWebSockets().length >= MAX_SOCKETS) {
+      return json({ error: 'Too many connections are open to this group.' }, 503)
+    }
 
     const pair = new WebSocketPair()
     const client = pair[0]
@@ -438,14 +552,37 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
 
   // -- the three things a person can do --------------------------------------
 
+  /**
+   * Somebody saying who they are, which a connection may do once and once only.
+   *
+   * The id is settable and then immovable for the life of this socket. It used
+   * to be settable on every message, and since every per person brake is a
+   * query against that id, that meant a client could pick which bucket it was
+   * billed against immediately before each action: three limits, carefully
+   * shaped, enforcing nothing at all. There is still no proof that the id is
+   * whose it says it is, because there are no accounts and cannot be, but one
+   * connection is now one person for as long as it is open, which is the least
+   * a per person limit needs in order to mean anything.
+   *
+   * The same id again is allowed through, because it is how somebody changes
+   * the name they are showing under and it moves nobody into anybody else's
+   * bucket.
+   */
   private hello(ws: WebSocket, actorId: string, actorName: string): void {
     const seat = this.seatOf(ws)
     if (seat === null) return
-    ws.serializeAttachment({
-      sid: seat.sid,
-      actorId,
-      actorName: actorName === '' ? NAMELESS : actorName,
-    })
+    if (seat.actorId !== null && seat.actorId !== actorId) {
+      this.tell(ws, {
+        type: 'error',
+        message:
+          'This connection already belongs to somebody. Open another one to join as anybody else.',
+      })
+      return
+    }
+    const named = actorName === '' ? NAMELESS : actorName
+    // A hello that says nothing new is not news for anybody else either.
+    if (seat.actorId === actorId && seat.actorName === named) return
+    ws.serializeAttachment({ sid: seat.sid, actorId, actorName: named })
     this.broadcast({ type: 'present', present: this.present(null) })
   }
 
@@ -458,26 +595,37 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     // Checked against the real catalogue, not against a shape. An id that is
     // not a thing anybody can do is a rejected message, never a stored one:
     // once it is in the log it is part of the animal forever.
-    if (variantById(variantId) === undefined) {
+    const variant = variantById(variantId)
+    if (variant === undefined) {
       this.tell(ws, { type: 'error', message: 'That is not something anybody can do.' })
       return
     }
 
+    const now = Date.now()
     // Rows are only ever added here and never removed, so the highest row id is
-    // also how many there are, and reading the last row answers both the cap
-    // and the clock question in one seek.
-    const tail = this.ctx.storage.sql
-      .exec<{ n: number; at: number }>('SELECT n, at FROM actions ORDER BY n DESC LIMIT 1')
+    // also how many there are, and one read answers the cap, the clock and the
+    // whole group's recent history at once. Descending row order is descending
+    // time order because the timestamp below is clamped so it can never go
+    // backwards, and a read of the last GROUP_ACTS_PER_HOUR rows is an exact
+    // answer for the hour rather than a sample, because that limit is precisely
+    // what stops a hundred and twenty first row being written inside one.
+    const recent = this.ctx.storage.sql
+      .exec<{ n: number; at: number }>(
+        'SELECT n, at FROM actions ORDER BY n DESC LIMIT ?',
+        GROUP_ACTS_PER_HOUR,
+      )
       .toArray()
-    if (tail.length > 0 && tail[0].n >= MAX_ACTIONS) {
+    const tail = recent.length > 0 ? recent[0] : null
+    if (tail !== null && tail.n >= MAX_ACTIONS) {
       this.tell(ws, {
         type: 'error',
-        message: 'This creature has a full life behind it. Nothing more can be added.',
+        message:
+          'This creature has a full life behind it. Nothing more can be added,' +
+          ' but all of it stays exactly as it is, and a new group starts a new one.',
       })
       return
     }
 
-    const now = Date.now()
     // One scan of this actor's last hour answers all three brakes. SUM over no
     // rows is null, which is why it is read as a nullable number.
     const spent = this.ctx.storage.sql
@@ -506,10 +654,51 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
       return
     }
 
+    // The same two windows again for everybody together. Counted in here rather
+    // than in SQL because the rows are already read: there is no index on `at`
+    // alone, and a WHERE on it would be a scan of the whole log every time.
+    let groupMinute = 0
+    let groupHour = 0
+    for (const row of recent) {
+      if (row.at > now - HOUR_MS) groupHour += 1
+      if (row.at > now - MINUTE_MS) groupMinute += 1
+    }
+    if (groupMinute >= GROUP_ACTS_PER_MINUTE) {
+      this.tell(ws, { type: 'error', message: 'A lot is happening at once. Let it catch up.' })
+      return
+    }
+    if (groupHour >= GROUP_ACTS_PER_HOUR) {
+      this.tell(ws, {
+        type: 'error',
+        message: 'It has had a very full hour. Come back to it in a while.',
+      })
+      return
+    }
+
+    // Somebody who has never acted here before is a new name in the bond list
+    // forever, so there is a bound on how many of those a group can collect.
+    const returning = this.hasActed(seat.actorId)
+    if (!returning && this.actorCount() >= MAX_ACTORS) {
+      this.tell(ws, {
+        type: 'error',
+        message: 'This group already has as many people in it as it can hold.',
+      })
+      return
+    }
+
+    // Last, because it is the only check here that can cost a read of the whole
+    // log, and by this point the message has already had to get past every
+    // cheap reason to refuse it.
+    const minStage = variant.minStage ?? 0
+    if (minStage > 0 && !this.grownTo(minStage)) {
+      this.tell(ws, { type: 'error', message: 'It is not ready for that yet.' })
+      return
+    }
+
     // Never allowed to go backwards. The order of the log is the order of the
     // array and nothing else, but a timestamp that ran backwards after a clock
     // correction would show a creature whose life happened out of order.
-    const at = tail.length > 0 && tail[0].at > now ? tail[0].at : now
+    const at = tail !== null && tail.at > now ? tail.at : now
     const action: ActionRecord = {
       id: crypto.randomUUID(),
       variantId,
@@ -528,11 +717,27 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
       action.actorName,
       action.at,
     )
+    // Kept as a number rather than counted, because the honest question is a
+    // scan of the index and it would be asked on every action. Correct because
+    // it is written here, in the one place a person can become a new one.
+    if (!returning) this.setMeta('actors', String(this.actorCount() + 1))
     // Told to everybody including the person who did it, which is the opposite
     // of what a chat room would do and is right here: the creature is the
     // ORDER, so the actor must take its place in the log from the server like
     // everyone else rather than guess at it locally and be subtly wrong.
     this.broadcast({ type: 'action', action })
+
+    // Said to the whole group, once, on the way past. The cap is the end of
+    // this creature's life and it cannot be undone, so the one thing that must
+    // not happen is a group discovering it by pressing a button one day and
+    // being told no.
+    const used = tail === null ? 1 : tail.n + 1
+    if (used === MAX_ACTIONS - CAP_WARNING) {
+      this.broadcast({
+        type: 'error',
+        message: `There is room for ${CAP_WARNING} more things, and then its life is complete.`,
+      })
+    }
   }
 
   private rename(ws: WebSocket, name: string): void {
@@ -554,10 +759,7 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
       return
     }
     this.renamedAt = now
-    this.ctx.storage.sql.exec(
-      "INSERT INTO meta(k, v) VALUES('name', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v",
-      name,
-    )
+    this.setMeta('name', name)
     this.broadcast({ type: 'named', name })
   }
 
@@ -578,6 +780,73 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     return rows.length > 0 ? rows[0].v : null
   }
 
+  private setMeta(key: string, value: string): void {
+    this.ctx.storage.sql.exec(
+      'INSERT INTO meta(k, v) VALUES(?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v',
+      key,
+      value,
+    )
+  }
+
+  /** Whether this actor has ever acted here. One row off the index, which is
+   *  the reason the index has actorId first. */
+  private hasActed(actorId: string): boolean {
+    return (
+      this.ctx.storage.sql
+        .exec<{ ok: number }>('SELECT 1 AS ok FROM actions WHERE actorId = ? LIMIT 1', actorId)
+        .toArray().length > 0
+    )
+  }
+
+  /**
+   * How many different people have ever acted here.
+   *
+   * Kept in `meta` and added to as they arrive, because the honest question is
+   * a scan of the whole index and this is asked on the way in. It cannot drift:
+   * rows are never deleted, so the number only ever goes up and only ever by
+   * one, at the one place that inserts. A group whose log predates this counter
+   * works it out the once and writes it down.
+   */
+  private actorCount(): number {
+    const stored = this.metaValue('actors')
+    if (stored !== null) return Number(stored)
+    const counted = this.ctx.storage.sql
+      .exec<{ actors: number }>(
+        'SELECT COUNT(*) AS actors FROM (SELECT DISTINCT actorId FROM actions)',
+      )
+      .one().actors
+    this.setMeta('actors', String(counted))
+    return counted
+  }
+
+  /**
+   * Whether the creature has grown to a given stage, which some of the things a
+   * person can do are gated behind.
+   *
+   * The client only ever offers what the creature is old enough for, but the
+   * client is not the only thing that can send a message, and an action stored
+   * out of its stage is a pressure the design says the animal cannot feel yet,
+   * sitting in the log permanently. So the server has to know the stage, and it
+   * works it out by deriving the creature from its own log with the same code
+   * every screen uses. There is no second copy of the genetics here and there
+   * must never be one.
+   *
+   * Deriving costs a read of the whole log, which is why the answer is written
+   * down. It is not a cache and cannot go stale: the stage is a function of how
+   * many actions there are, that number only goes up, so a stage once reached
+   * is reached forever. The only time this really runs is the handful of
+   * occasions a group is growing into the gated half of the catalogue.
+   */
+  private grownTo(stage: number): boolean {
+    const reached = Number(this.metaValue('stage') ?? '0')
+    if (reached >= stage) return true
+    const snapshot = this.readSnapshot()
+    if (snapshot === null) return false
+    const grown = deriveCreature(snapshot.genome, snapshot.actions, snapshot.name).stage
+    if (grown > reached) this.setMeta('stage', String(grown))
+    return grown >= stage
+  }
+
   /**
    * The group as everybody sees it. The genome is rolled from the seed on every
    * read rather than stored, which is the point: there is one copy of the
@@ -586,6 +855,7 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
    * to go stale.
    */
   private readSnapshot(): GroupSnapshot | null {
+    if (!this.exists()) return null
     const seed = this.metaValue('seed')
     if (seed === null) return null
     return {
