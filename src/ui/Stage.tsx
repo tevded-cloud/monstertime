@@ -1,0 +1,244 @@
+// Stage.tsx: the creature, and the smallest amount of chrome that can sit on
+// top of it without competing. Everything here is either the animal, the one
+// thing you need to know about it right now, or the link that brings somebody
+// else in.
+
+import { useEffect, useRef, useState } from 'react'
+import type { JSX } from 'react'
+import type { ActionKind, ActionRecord, Creature, Genome, PresentActor } from '../core/types'
+import { variantById } from '../dna'
+import { CreatureView } from '../forge'
+import type { ConnectionStatus } from '../net'
+import { groupLink, useCopy } from './useGroup'
+
+const KIND_VERB: Record<ActionKind, string> = {
+  feed: 'fed it',
+  train: 'worked it',
+  explore: 'took it out',
+  sing: 'sang to it',
+  give: 'gave it something',
+  tend: 'tended to it',
+}
+
+interface StageProps {
+  creature: Creature | null
+  genome: Genome | null
+  actions: ActionRecord[]
+  present: PresentActor[]
+  status: ConnectionStatus
+  // The socket is gone but we still have an animal on screen. Blanking it
+  // would be a lie in the other direction: the creature did not stop existing.
+  stale: boolean
+  groupId: string
+  actorId: string
+  onRename: (name: string) => void
+  onOpenGroup: (() => void) | null
+}
+
+export default function Stage(props: StageProps): JSX.Element {
+  const { creature, genome, actions, present, status, stale, groupId, actorId, onRename, onOpenGroup } = props
+
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const viewRef = useRef<CreatureView | null>(null)
+  const seen = useRef(-1)
+  const [ticker, setTicker] = useState<{ id: string; text: string } | null>(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const view = new CreatureView(canvas)
+    viewRef.current = view
+    const observer = new ResizeObserver(() => view.resize())
+    observer.observe(canvas)
+    return () => {
+      observer.disconnect()
+      view.dispose()
+      viewRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    if (creature && genome) viewRef.current?.setCreature(creature, genome)
+  }, [creature, genome])
+
+  // A new action means somebody is on the other end of this right now, which is
+  // the feeling the whole app runs on. The first snapshot is skipped: replaying
+  // a year of reactions on load would be noise, not presence.
+  useEffect(() => {
+    const count = actions.length
+    if (seen.current < 0 || count <= seen.current) {
+      seen.current = count
+      return
+    }
+    seen.current = count
+    const last = actions[count - 1]
+    const variant = variantById(last.variantId)
+    if (variant) viewRef.current?.pulse(variant.kind)
+    const who = last.actorId === actorId ? 'You' : last.actorName
+    const said = variant ? `${KIND_VERB[variant.kind]}. ${variant.label}.` : 'did something.'
+    setTicker({ id: last.id, text: `${who} ${said}` })
+  }, [actions, actions.length, actorId])
+
+  useEffect(() => {
+    if (!ticker) return
+    const t = window.setTimeout(() => setTicker(null), 4200)
+    return () => window.clearTimeout(t)
+  }, [ticker])
+
+  return (
+    <div className="stage">
+      <canvas className="stage-canvas" ref={canvasRef} />
+      <div className="frame" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+        <span />
+      </div>
+
+      <div className="topbar">
+        <div className="ident">
+          <NamePlate name={creature ? creature.name : null} onRename={onRename} />
+          <div className="stage-line">
+            <span className="label">{creature ? creature.stageName : 'waiting'}</span>
+            <span className="meter" aria-hidden="true">
+              <i style={{ transform: `scaleX(${creature ? creature.stageProgress : 0})` }} />
+            </span>
+          </div>
+        </div>
+
+        <div className="topbar-tools">
+          <Status status={status} here={present.length} />
+          <ShareButton groupId={groupId} />
+          {onOpenGroup && (
+            <button type="button" className="icon-btn" onClick={onOpenGroup} aria-label="Open the group and the chronicle">
+              <PeopleIcon />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {stale && (
+        <div className="notice" role="status">
+          <span>Connection lost. This is the last thing we saw of it.</span>
+          <button type="button" className="btn" onClick={() => location.reload()}>
+            Try again
+          </button>
+        </div>
+      )}
+
+      {ticker && !stale && (
+        <p className="ticker" key={ticker.id}>
+          {ticker.text}
+        </p>
+      )}
+      <p className="sr" role="status" aria-live="polite">
+        {ticker ? ticker.text : ''}
+      </p>
+    </div>
+  )
+}
+
+function NamePlate({ name, onRename }: { name: string | null; onRename: (name: string) => void }): JSX.Element {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+
+  function commit(): void {
+    const clean = draft.trim().replace(/\s+/g, ' ').slice(0, 28)
+    if (clean) onRename(clean)
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <input
+        className="name-input"
+        autoFocus
+        maxLength={28}
+        value={draft}
+        aria-label="Name the creature"
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit()
+          if (e.key === 'Escape') setEditing(false)
+        }}
+      />
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      className="creature-name"
+      onClick={() => {
+        setDraft(name ?? '')
+        setEditing(true)
+      }}
+    >
+      {name ?? <span className="name-unset">Give it a name</span>}
+    </button>
+  )
+}
+
+function Status({ status, here }: { status: ConnectionStatus; here: number }): JSX.Element {
+  const live = status === 'open'
+  const text = live
+    ? here > 1
+      ? `${here} here`
+      : 'only you here'
+    : status === 'connecting'
+      ? 'finding it'
+      : 'offline'
+  return (
+    <span className="status" role="status">
+      <span className={live ? 'dot dot-live' : 'dot'} />
+      <span className="status-text">{text}</span>
+    </span>
+  )
+}
+
+function ShareButton({ groupId }: { groupId: string }): JSX.Element {
+  const { copied, copy } = useCopy()
+  return (
+    <button
+      type="button"
+      className={copied ? 'btn is-copied' : 'btn'}
+      onClick={() => copy(groupLink(groupId))}
+    >
+      {copied ? <CheckIcon /> : <LinkIcon />}
+      {copied ? 'Link copied' : 'Share'}
+    </button>
+  )
+}
+
+function LinkIcon(): JSX.Element {
+  return (
+    <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <g stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+        <path d="M8.6 11.4a3 3 0 0 0 4.3 0l2-2a3 3 0 0 0-4.2-4.3l-.8.8" />
+        <path d="M11.4 8.6a3 3 0 0 0-4.3 0l-2 2a3 3 0 0 0 4.2 4.3l.8-.8" />
+      </g>
+    </svg>
+  )
+}
+
+function CheckIcon(): JSX.Element {
+  return (
+    <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <path d="M4.5 10.4 8 14l7.5-8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function PeopleIcon(): JSX.Element {
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <g stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+        <circle cx="7.6" cy="7.6" r="2.6" />
+        <path d="M3.2 16c.7-2.4 2.4-3.6 4.4-3.6S11.3 13.6 12 16" />
+        <circle cx="14.2" cy="7.2" r="2" />
+        <path d="M13.4 12.5c1.9.2 3.1 1.3 3.6 3.5" />
+      </g>
+    </svg>
+  )
+}
