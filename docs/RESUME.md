@@ -27,9 +27,24 @@ Repo: `D:\Programs\monstertime`
 
 | Gate | Command | Result |
 |---|---|---|
-| App typecheck | `npx tsc -b` | exit 0, clean |
-| Worker typecheck | `npx tsc -p tsconfig.worker.json` | exit 0, clean |
-| Production build | `npm run build` | exit 0, 803 kB JS (221 kB gzip) |
+| App and worker typecheck | `npm run check` | exit 0, clean |
+| Production build plus service worker | `npm run build` | exit 0, precache 10 files, 834 kB |
+| Icon generation | `npm run icons` | exit 0, zero dependencies |
+
+Measured in a real browser, after the review fixes:
+
+- Part coverage reconciles: **91 alleles, 91 registered builders**, 0 missing,
+  0 orphans.
+- Uniqueness: 5000 groups with different seeds and one identical action log give
+  **5000 distinct creatures**, largest identical cohort 1. The largest identical
+  trait-only cohort under one-button play is 93 (was 279).
+- Committed groups no longer go bald: 8 percent at worst (was 59.5 percent).
+- Touch targets on a 375 by 812 phone: all three landing controls clear 44 px of
+  hit region, via invisible pads rather than redrawn chrome.
+- Renderer caps pixel ratio at 1.5 on coarse pointers (measured: device 2,
+  renderer 1.5, buffer 585x900 not 780x1200).
+- No raw `vh` anywhere, 5 `dvh` rules, so the iOS address bar cannot clip the
+  layout. No horizontal overflow.
 
 **Verified live in a browser** against the dev server, not inferred:
 
@@ -92,27 +107,31 @@ docs/RESEARCH-READING-LIST.md   239 selected reports (see section 6)
 
 ## 5. What is NOT done
 
-**Blocked by the cap, never ran.** Ten agents died mid-flight:
+Since the first draft of this file, all four skeptic passes ran, their findings
+were fixed, an adversarial re-measure confirmed the fixes, and the PWA and mobile
+layers landed. Reports are in `docs/reviews/`. What remains:
 
-- Four read-only skeptic passes: determinism/math, originality/convergence,
-  worker + transport security, and contract/house-style reconciliation. I ran
-  the determinism spot check and the part-coverage reconciliation by hand (see
-  section 2), so those two are partly covered. The **worker and transport
-  review has had no coverage at all** and is the highest remaining risk, because
-  a fault in the fallthrough takes down all of tevded.com, not just this app.
-- Five research-requirement extracts. The reading list was selected but never
-  turned into concrete requirements.
-
-**Never started:**
-
-- PWA: `manifest.webmanifest`, `sw.js`, `scripts/build-sw.mjs`,
-  `scripts/make-icons.mjs`, icon set, `index.html` head tags.
-- Mobile and tablet responsive work, grounded in the reading list.
-- `tsconfig.json` does not yet reference `tsconfig.worker.json`, so
-  `npm run check` does not cover the worker. Run it separately for now.
-- No git repository, no tests.
-- Bundle is a single 803 kB chunk. three.js should be split out so the landing
-  screen does not pull the whole renderer on a phone.
+- **No tests.** Everything here was measured by throwaway harnesses in scratchpad
+  folders that are now gone. The genetics module has been wrong twice while
+  claiming it was right, so the measurements in `docs/reviews/` should become
+  real test files. This is the highest-value remaining work.
+- **The research reading list is only partly consumed.** 239 reports were
+  selected; the mobile and accessibility clusters were read and applied. The
+  `creature-anatomy-and-motion`, `social-async-and-retention` and
+  `installable-app-and-onboarding` clusters have not been.
+- **Bundle is a single 834 kB chunk.** three.js should be split out so the
+  landing screen does not pull the whole renderer on a phone.
+- **The app has never been exercised end to end against a real server.** The API
+  needs `wrangler dev` in `tevded-site`, which was held by another session, so
+  the genetics, the forge and the UI were verified directly through the dev
+  server's module graph instead. Nobody has yet created a group, acted, and
+  watched a trait lock in over a live socket.
+- **One residual by design:** `actorId` is self-asserted, so a member can post as
+  another member within a group. There are no accounts by design. It is stated in
+  `worker/README.md`.
+- Landing content is 871 px tall on an 812 px phone, so the join affordance sits
+  just below the fold at first paint. It scrolls and its tap region measures
+  correctly at 44 px; only discoverability is affected.
 
 ---
 
