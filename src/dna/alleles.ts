@@ -2,10 +2,13 @@
 // that decides which slice of it a particular group is allowed to grow.
 //
 // The catalogue is deliberately much larger than any one creature can express.
-// A group carries two to four alleles per locus out of seven or eight, so
-// "what my creature became" is a real draw from a real pool rather than a
-// dressed up switch on a stat. Two groups who behave identically still end up
-// with different animals, because they were never offered the same options.
+// A group carries a slice of each locus rather than all of it, so "what my
+// creature became" is a real draw from a real pool rather than a dressed up
+// switch on a stat. Two groups who behave identically still end up with
+// different animals, because they were never offered the same options. How big
+// that slice is is not stated anywhere in this file's prose, because it is the
+// single most delicate number in the module and prose goes stale: see rollGenome
+// for what the draw actually does and why each part of it is the size it is.
 //
 // Each allele answers to a pressure shape. The shapes are meant to read as
 // obvious in hindsight and invisible in advance: heavy ornament grows on a
@@ -24,7 +27,8 @@
 // dullest skin on the biggest surface of the animal.
 
 import { LOCI, PRESSURE_AXES } from '../core/types'
-import type { Allele, AlleleId, Genome, Locus, PressureAxis } from '../core/types'
+import type { Allele, AlleleId, Genome, Locus, PressureDelta } from '../core/types'
+import { ACTION_VARIANTS } from './actions'
 import { makeRng } from './rng'
 
 // The draw weight is not part of the shared contract, because nothing outside
@@ -900,49 +904,181 @@ function weightOf(allele: Allele): number {
   return WEIGHTS.get(allele.id) ?? RARE
 }
 
-// How much the draw discounts an allele that answers the same thing as one
-// already taken at this locus. Not zero, because two answers to the same lean
-// is a real genome and sometimes the second one is the striking version of the
-// first, but low enough that a locus is usually a spread rather than three
-// variations on a theme. Without it, widening the catalogue makes each group
-// narrower: more alleles per locus, same few carried, so the odds that a group
-// carries anything answering to what it actually does go down.
-const SAME_ANSWER = 0.2
+// ---------------------------------------------------------------------------
+// Shape maths
+// ---------------------------------------------------------------------------
 
-// The axes an allele leads on. Ties are kept, because several alleles are
-// deliberately balanced between two axes and lead on both.
-function topAxes(allele: Allele): PressureAxis[] {
-  let top = 0
-  for (const axis of PRESSURE_AXES) {
-    const weight = allele.affinity[axis]
-    if (weight !== undefined && weight > top) top = weight
+// This lives here rather than in express.ts, where reading a creature happens,
+// because the draw and the reading have to use the identical comparison. The
+// draw below promises that a genome holds an answer to whatever its group turns
+// into. That promise is worth nothing unless "answers" means exactly what
+// expression means by it, and two copies of this arithmetic would drift. The
+// drift would surface as a creature that is bare in a place nobody can explain.
+
+const EVEN_SHARE = 1 / PRESSURE_AXES.length
+
+// Centred shares: how far each axis sits above or below an even spread. This is
+// what makes every comparison in the module a lean rather than a volume, and it
+// is why a group that presses every button equally reads as having no
+// preference at all.
+export function centredShape(values: number[]): number[] {
+  let total = 0
+  for (let i = 0; i < values.length; i++) total += values[i]
+  const shape = new Array<number>(values.length)
+  if (total <= 0) {
+    for (let i = 0; i < values.length; i++) shape[i] = 0
+    return shape
   }
-  const axes: PressureAxis[] = []
-  for (const axis of PRESSURE_AXES) {
-    if (allele.affinity[axis] === top) axes.push(axis)
-  }
-  return axes
+  for (let i = 0; i < values.length; i++) shape[i] = values[i] / total - EVEN_SHARE
+  return shape
 }
 
-// Draw the creature's potential. This runs once per group, at creation, and
-// the result is the only thing besides the action log that the server keeps.
+export function shapeOfDelta(delta: PressureDelta): number[] {
+  const values = new Array<number>(PRESSURE_AXES.length)
+  for (let i = 0; i < PRESSURE_AXES.length; i++) values[i] = delta[PRESSURE_AXES[i]] ?? 0
+  return centredShape(values)
+}
+
+export function cosine(a: number[], b: number[]): number {
+  let dot = 0
+  let aa = 0
+  let bb = 0
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i]
+    aa += a[i] * a[i]
+    bb += b[i] * b[i]
+  }
+  if (aa <= 0 || bb <= 0) return 0
+  return dot / (Math.sqrt(aa) * Math.sqrt(bb))
+}
+
+// Affinity shapes never change, so they are built once. Lazily rather than at
+// module load, so importing an allele id from the Worker does not cost the
+// whole catalogue's worth of arithmetic on a cold start.
+const AFFINITY_SHAPES = new Map<AlleleId, number[]>()
+
+export function affinityShape(allele: Allele): number[] {
+  let shape = AFFINITY_SHAPES.get(allele.id)
+  if (shape === undefined) {
+    shape = shapeOfDelta(allele.affinity)
+    AFFINITY_SHAPES.set(allele.id, shape)
+  }
+  return shape
+}
+
+// ---------------------------------------------------------------------------
+// The draw
+// ---------------------------------------------------------------------------
+
+// The directions a group can actually end up pointing.
 //
-// Three rules matter here. Every locus gets at least one allele that can
-// express at hatchling, so no slot is guaranteed to stay bare through the whole
-// early game. The draw is weighted, so the striking alleles are genuinely
-// scarce: a group that ends up carrying a war saddle still has to earn it with
-// the right behaviour, and most groups never carried it in the first place.
-// And the draw spreads: each pick after the first is discounted if it answers
-// to something already answered at this locus, so what a group carries at a
-// slot tends to be several different answers rather than one answer three
-// times. That last rule is what decides whether a group that settles into one
-// habit finds anything at all that responds to it.
+// A genome has to hold an answer to the group it belongs to, and what a group
+// can become is not this file's to decide: it is decided by the buttons. So the
+// habit directions are summed off the action catalogue rather than written down
+// here, and a variant added there widens what a genome has to answer to without
+// anybody having to remember to come back and edit a list. A group that leans on
+// one kind of action for months points very close to one of these; a group that
+// mixes points somewhere between them, where the answers to both sides still
+// apply. Genomes are drawn once and stored, so changing the catalogue never
+// reshapes a creature that already exists.
+const HABIT_SHAPES: number[][] = (() => {
+  const totals = new Map<string, PressureDelta>()
+  for (const variant of ACTION_VARIANTS) {
+    const total: PressureDelta = totals.get(variant.kind) ?? {}
+    for (const axis of PRESSURE_AXES) {
+      const push = variant.push[axis]
+      if (push !== undefined) total[axis] = (total[axis] ?? 0) + push
+    }
+    totals.set(variant.kind, total)
+  }
+  return [...totals.values()].map(shapeOfDelta)
+})()
+
+// How close an allele has to sit to a habit before it counts as an answer to
+// it. Comfortably above the mark where expression stops calling something an
+// answer at all, and far enough above the way this space behaves at rest: the
+// median allele scores -0.14 against a habit picked at random, because centred
+// shapes make unrelated things negative rather than zero.
+const COVER_MIN = 0.12
+
+const COVERAGE = new Map<AlleleId, boolean[]>()
+
+function habitsAnswered(allele: Allele): boolean[] {
+  let answered = COVERAGE.get(allele.id)
+  if (answered === undefined) {
+    const shape = affinityShape(allele)
+    answered = HABIT_SHAPES.map((habit) => cosine(habit, shape) >= COVER_MIN)
+    COVERAGE.set(allele.id, answered)
+  }
+  return answered
+}
+
+// How many alleles the core of a locus is drawn at, before anything is added to
+// close a gap. Small on purpose. Every extra one raises the odds that a group
+// happens to carry the single best answer to whatever it becomes, and the best
+// answer always wins its locus, so a fat draw is what makes two committed groups
+// grow the same eight traits.
+const CORE_MIN = 2
+const CORE_SPAN = 2
+
+// The ceiling on core plus gap-filling. This is the knob the whole thing turns
+// on, and it was measured rather than picked. Holding everything else here as
+// it is, and counting groups that spend nine actions in ten on one kind of
+// action: at three, 35% of them still have a locus that never grows anything,
+// and the largest identical set of eight traits across 5000 one-button groups
+// is 15. At four, 8% and 93. At five, under 1% and 257. Five buys the last of
+// the bare loci by handing every committed group the same eight traits, which
+// is the trade that was made last time and had to be undone. Four is where both
+// numbers are good at once.
+const CARRIED_CAP = 4
+
+// Anything already answered by something carried is discounted to this, rather
+// than to nothing: two answers to the same lean is a real genome, and sometimes
+// the second is the demanding version of the first that the group grows into
+// years later.
+const SPREAD_FLOOR = 0.2
+
+// How much of the locus a candidate has left unanswered, as a draw multiplier.
+// A pick that points somewhere nothing carried points is worth its full weight;
+// one that points where the genome already points is worth the floor.
+function spreadFactor(allele: Allele, chosen: Allele[]): number {
+  const shape = affinityShape(allele)
+  let nearest = 0
+  for (const taken of chosen) {
+    const overlap = cosine(shape, affinityShape(taken))
+    if (overlap > nearest) nearest = overlap
+  }
+  const spread = 1 - nearest
+  return spread > SPREAD_FLOOR ? spread : SPREAD_FLOOR
+}
+
+// Draw the creature's potential. This runs once per group, at creation, and the
+// result is the only thing besides the action log that the server keeps.
 //
-// How many are carried is a share of the locus (a third of it, plus up to two
-// more) rather than a fixed count, so adding alleles widens the pool instead of
-// quietly thinning what every group has to work with. A count that does not
-// track the catalogue is a slow leak: every allele added makes every group's
-// potential a smaller slice of it, and the loci go bare again.
+// Three passes, each answering a different question.
+//
+// The core is a small spread draw: one allele that can express at hatchling so
+// no slot is guaranteed bare through the early game, then a couple more, each
+// discounted if it points where the genome already points. Small is the whole
+// point. The best match at a locus wins that locus outright, so the odds two
+// groups grow the same trait are the odds they both carry that one allele, and
+// a wide draw hands it to nearly everybody.
+//
+// The second pass closes gaps. For each habit a group could fall into, in an
+// order this genome shuffles for itself, if nothing carried answers it the draw
+// reaches for something that does. That is what stops a group being permanently
+// bare somewhere for the crime of committing to one thing. Two details in it
+// matter more than they look. It reaches only into what can express at
+// hatchling, so the answer it hands over is one the group can actually reach
+// rather than a striking allele they will never pay for. And it picks flat
+// among the alleles that answer, ignoring how common they are, because
+// weighting it would hand every group the same common answer and put the
+// convergence straight back. The pass is capped, so it fills gaps rather than
+// filling the locus.
+//
+// The last is one allele the creature cannot grow yet. Without it a genome made
+// mostly of gap-filling is all hatchling parts, and a group that keeps going
+// for a year has nothing left to become.
 export function rollGenome(seed: string): Genome {
   const rng = makeRng(seed)
   const carried = {} as Record<Locus, AlleleId[]>
@@ -950,26 +1086,56 @@ export function rollGenome(seed: string): Genome {
   for (const locus of LOCI) {
     const pool = ALLELES.filter((allele) => allele.locus === locus)
     const early = pool.filter((allele) => allele.minStage <= 1)
-    const wanted = Math.max(2, Math.round(pool.length / 3) + rng.int(3))
+    const core = CORE_MIN + rng.int(CORE_SPAN)
 
     const chosen: Allele[] = []
-    const firstIndex = rng.weighted(early.map(weightOf))
-    chosen.push(early[firstIndex])
-    const answered = new Set<PressureAxis>(topAxes(chosen[0]))
-
+    chosen.push(early[rng.weighted(early.map(weightOf))])
     const rest = pool.filter((allele) => allele.id !== chosen[0].id)
-    while (chosen.length < wanted && rest.length > 0) {
+
+    while (chosen.length < core && rest.length > 0) {
       const index = rng.weighted(
-        rest.map((allele) => {
-          const axes = topAxes(allele)
-          const fresh = axes.some((axis) => !answered.has(axis))
-          return weightOf(allele) * (fresh ? 1 : SAME_ANSWER)
-        }),
+        rest.map((allele) => weightOf(allele) * spreadFactor(allele, chosen)),
       )
-      const picked = rest[index]
-      chosen.push(picked)
-      for (const axis of topAxes(picked)) answered.add(axis)
+      chosen.push(rest[index])
       rest.splice(index, 1)
+    }
+
+    const order: number[] = []
+    for (let i = 0; i < HABIT_SHAPES.length; i++) order.push(i)
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = rng.int(i + 1)
+      const held = order[i]
+      order[i] = order[j]
+      order[j] = held
+    }
+    for (const habit of order) {
+      if (chosen.length >= CARRIED_CAP) break
+      let answered = false
+      for (const taken of chosen) {
+        if (habitsAnswered(taken)[habit]) {
+          answered = true
+          break
+        }
+      }
+      if (answered) continue
+      const answers = rest.filter(
+        (allele) => allele.minStage <= 1 && habitsAnswered(allele)[habit],
+      )
+      if (answers.length === 0) continue
+      // Flat weights on purpose, and drawn through weighted rather than int so
+      // that a locus with a single answer still spends the same draw and the
+      // sequence does not depend on how the catalogue happens to be shaped.
+      const picked = answers[rng.weighted(answers.map(() => 1))]
+      chosen.push(picked)
+      rest.splice(rest.indexOf(picked), 1)
+    }
+
+    const later = rest.filter((allele) => allele.minStage >= 2)
+    if (later.length > 0) {
+      const index = rng.weighted(
+        later.map((allele) => weightOf(allele) * spreadFactor(allele, chosen)),
+      )
+      chosen.push(later[index])
     }
 
     // Sorted so the stored genome is canonical: draw order carries no

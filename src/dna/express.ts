@@ -42,10 +42,15 @@
 // from the group's own seed through the same generator the genome came from:
 // the action timestamps come from the log, and the log comes from the server.
 // The client and the Durable Object run this same function over the same
-// inputs and must agree, so the only arithmetic used in any decision that
-// affects traits is addition, multiplication and square root, all of which are
-// exact under IEEE 754. The morphs use a rational curve rather than an
-// exponential for the same reason.
+// inputs and must agree, so every decision that affects a trait is built from
+// addition, multiplication, division and square root and nothing else. Those
+// four are the operations IEEE 754 requires to be correctly rounded, which is
+// the property that matters: each one returns the same bits on every engine.
+// Division is in that list and is used all over this file, in centring a shape,
+// in the cosine, in stage progress. The operations that genuinely do differ
+// between engines are the transcendentals, because the standard never required
+// them to agree, which is why nothing here calls exp, pow, log or a trig
+// function and why the morphs use a rational curve rather than an exponential.
 
 import { LOCI, MORPHS, PRESSURE_AXES, STAGES } from '../core/types'
 import type {
@@ -66,7 +71,7 @@ import type {
   StageName,
 } from '../core/types'
 import { VARIANT_MEMORY, variantById } from './actions'
-import { alleleById } from './alleles'
+import { affinityShape, alleleById, centredShape, cosine } from './alleles'
 import { makeRng } from './rng'
 
 // ---------------------------------------------------------------------------
@@ -105,11 +110,24 @@ const TENURE_CAP = 0.15
 // supporting.
 const ESCALATION_MAX = 0.45
 
-// A locus stays bare rather than lock in something the group's behaviour does
-// not actually point at. Deliberately low: the pace gate in hasEarned does the
-// work of keeping striking traits rare, and this only catches the case where a
-// group's lean points the opposite way from everything it carries.
-const FIRST_LOCK_MIN = 0.04
+// A locus stays bare rather than lock in something the group's behaviour points
+// away from. The pace gate in hasEarned does the work of keeping striking traits
+// rare; this only has to catch the case where a lean points the opposite way
+// from everything a genome carries.
+//
+// The number is geometry, not taste, and getting it wrong here was expensive.
+// Shapes are centred on an even spread, so two things with nothing to do with
+// each other do not score zero against each other, they score below it: two
+// single axis directions sit at exactly -1/(axes-1), and the median allele
+// scores -0.14 against a habit picked at random. A floor of +0.04, which is
+// what this was, therefore vetoed everything merely unrelated rather than
+// everything opposed, and that veto was almost the whole of the permanent
+// baldness. Measured at 470 actions, 56% of groups that gave nine times out of
+// ten had a locus that never grew anything, and in 246 of 249 such cases that
+// locus was carrying an allele that had been earned and was sitting just under
+// the floor at -0.09. Set at the unrelated mark, a locus stays bare only while
+// everything it carries points further away than two unrelated things do.
+const FIRST_LOCK_MIN = -1 / (PRESSURE_AXES.length - 1)
 
 // Share of the credited lean that the named people have to account for.
 const CREDIT_SHARE = 0.6
@@ -138,8 +156,6 @@ const MORPH_WARMUP = 12
 const AXIS_INDEX = {} as Record<PressureAxis, number>
 for (let i = 0; i < PRESSURE_AXES.length; i++) AXIS_INDEX[PRESSURE_AXES[i]] = i
 
-const EVEN_SHARE = 1 / PRESSURE_AXES.length
-
 // ---------------------------------------------------------------------------
 // Pressure maths
 // ---------------------------------------------------------------------------
@@ -157,58 +173,14 @@ function addDelta(target: Pressures, delta: PressureDelta): void {
   }
 }
 
-// Centred shares: how far each axis sits above or below an even spread. This
-// is what makes the comparison a lean rather than a volume, and it is why a
-// group that presses every button equally reads as having no preference at all.
-function centredShape(values: number[]): number[] {
-  let total = 0
-  for (let i = 0; i < values.length; i++) total += values[i]
-  const shape = new Array<number>(values.length)
-  if (total <= 0) {
-    for (let i = 0; i < values.length; i++) shape[i] = 0
-    return shape
-  }
-  for (let i = 0; i < values.length; i++) shape[i] = values[i] / total - EVEN_SHARE
-  return shape
-}
-
+// Centring, the cosine and an allele's own shape all live in alleles.ts, next
+// to the draw that has to agree with them: the genome is dealt on a promise
+// about what a group will find an answer to, and the promise only holds while
+// both halves measure "answers" the same way.
 function pressureShape(pressures: Pressures): number[] {
   const values = new Array<number>(PRESSURE_AXES.length)
   for (let i = 0; i < PRESSURE_AXES.length; i++) values[i] = pressures[PRESSURE_AXES[i]]
   return centredShape(values)
-}
-
-function deltaValues(delta: PressureDelta): number[] {
-  const values = new Array<number>(PRESSURE_AXES.length)
-  for (let i = 0; i < PRESSURE_AXES.length; i++) values[i] = delta[PRESSURE_AXES[i]] ?? 0
-  return values
-}
-
-function cosine(a: number[], b: number[]): number {
-  let dot = 0
-  let aa = 0
-  let bb = 0
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i]
-    aa += a[i] * a[i]
-    bb += b[i] * b[i]
-  }
-  if (aa <= 0 || bb <= 0) return 0
-  return dot / (Math.sqrt(aa) * Math.sqrt(bb))
-}
-
-// Affinity shapes never change, so they are built once. Doing this lazily
-// rather than at module load keeps the genetics importable from the Worker
-// without dragging the whole catalogue into every cold start.
-const AFFINITY_SHAPES = new Map<AlleleId, number[]>()
-
-function affinityShape(allele: Allele): number[] {
-  let shape = AFFINITY_SHAPES.get(allele.id)
-  if (shape === undefined) {
-    shape = centredShape(deltaValues(allele.affinity))
-    AFFINITY_SHAPES.set(allele.id, shape)
-  }
-  return shape
 }
 
 // Raw accumulated pressure on the axes this allele answers to.
@@ -242,8 +214,8 @@ function affinityLoad(pressures: Pressures, allele: Allele): number {
 // harder than the thing above it.
 //
 // The curve is square root rather than straight so the bottom of the ladder
-// stays generous. A group that presses every button evenly runs at about 1.3
-// on any pair of axes, which puts the plain things well inside reach, the rare
+// stays generous. A group that presses every button evenly runs at 1.26 on any
+// pair of axes, which puts the plain things well inside reach, the rare
 // ones at the edge of it and the striking ones out of it: not because an even
 // group did too little, but because it never committed to anything. Doing
 // everything is a shape, and this is where the shape gets read.

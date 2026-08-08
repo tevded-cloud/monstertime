@@ -97,12 +97,19 @@ export interface Allele {
 }
 
 export interface Genome {
-  // Hex string, crypto-random per group, never sent to the client in full
-  // until the creature is adult. It is the thing that makes two groups'
-  // creatures incomparable.
+  // Hex string, crypto-random per group. It is the thing that makes two groups'
+  // creatures incomparable, and it is sent to every viewer on connect: the
+  // renderer keys the whole world rebuild on it and derives the group's colours
+  // and body proportions from it. An earlier version of this comment claimed the
+  // seed stayed hidden until adulthood. That was never true, and it is recorded
+  // here because somebody was one step away from building a hidden-roll feature
+  // on an invariant that does not hold.
   seed: string
   // The alleles this creature carries at each locus: its potential, not its
-  // appearance. Typically 2-4 per locus out of a much larger pool.
+  // appearance. How many are drawn is tuned in alleles.ts and trades off against
+  // itself, so no count is quoted here: drawing too few leaves committed groups
+  // permanently bare at a locus, and drawing too many hands every group the same
+  // best answer and collapses two creatures into one.
   carried: Record<Locus, AlleleId[]>
 }
 
