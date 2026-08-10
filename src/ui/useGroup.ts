@@ -41,6 +41,139 @@ export function groupLink(id: string): string {
   return `${location.origin}${location.pathname}#${id}`
 }
 
+// ---------------------------------------------------------------------------
+// The last group, and the last thing we saw of it
+// ---------------------------------------------------------------------------
+
+// An installed copy launches at start_url, and start_url cannot carry a hash:
+// the manifest is one static file shared by everybody, while the group is per
+// person. So a home screen launch always arrives with an empty hash, App reads
+// that as "no group", and the person who installed this because they have a
+// creature is asked to start a brand new one. Every launch, forever. These two
+// keys are what close that, and they are the only reason either exists.
+const GROUP_KEY = 'monstertime.group'
+const SNAPSHOT_KEY = 'monstertime.snapshot'
+
+// How long the snapshot write waits for the log to stop moving. Actions arrive
+// in bursts when a group is together, and the log is the whole creature, so
+// this coalesces a flurry into one write rather than serialising a few hundred
+// KB per button press.
+const SAVE_DELAY_MS = 2000
+
+function readKey(key: string): string | null {
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
+function dropKey(key: string): void {
+  try {
+    localStorage.removeItem(key)
+  } catch {
+    // Nothing to do about it, and nothing depends on it having worked.
+  }
+}
+
+/** The display modes a launcher uses when the app is not in a browser tab. */
+const INSTALLED_MODES = ['standalone', 'fullscreen', 'minimal-ui', 'window-controls-overlay']
+
+function launchedInstalled(): boolean {
+  try {
+    for (const mode of INSTALLED_MODES) {
+      if (matchMedia(`(display-mode: ${mode})`).matches) return true
+    }
+  } catch {
+    // matchMedia with an unknown feature throws in some engines rather than
+    // returning a non-matching list. Fall through to the iOS check.
+  }
+  // iOS Safari never implemented display-mode, and this non-standard flag is
+  // still the only signal a home screen launch gives there.
+  return (navigator as { standalone?: boolean }).standalone === true
+}
+
+export function rememberGroup(id: string): void {
+  try {
+    localStorage.setItem(GROUP_KEY, id)
+  } catch {
+    // Private mode. The person still plays, the install just opens cold.
+  }
+}
+
+/**
+ * Deliberately leaving a group. Both keys go, because the cached snapshot is
+ * the last thing we saw of exactly the group being left, and keeping it would
+ * mean a later launch could paint a creature the person walked away from.
+ */
+export function forgetGroup(): void {
+  dropKey(GROUP_KEY)
+  dropKey(SNAPSHOT_KEY)
+}
+
+/**
+ * Called once, before the first render, from main.tsx.
+ *
+ * Restores only for an installed launch. A browser tab is deliberately left
+ * alone: in a browser the empty-hash screen is the ONLY route to starting or
+ * joining a different creature (App renders it whenever there is no hash, and
+ * nothing else links to it), so restoring there would take that door away and
+ * leave the error screen as the only way back to it.
+ */
+export function restoreGroupOnLaunch(): void {
+  if (readGroupIdFromHash() !== null) return
+  if (!launchedInstalled()) return
+  const id = readKey(GROUP_KEY)
+  if (id === null || !ID_SHAPE.test(id)) return
+  // replaceState, not `location.hash = id`: this should look like where the
+  // launch landed rather than a navigation somebody made, so there must be no
+  // empty-hash entry sitting behind it for Back to fall into. It also fires no
+  // hashchange, which is fine because nothing has subscribed or rendered yet.
+  history.replaceState(null, '', `#${id}`)
+}
+
+export interface CachedSnapshot {
+  savedAt: number
+  snapshot: GroupSnapshot
+}
+
+/**
+ * The last snapshot seen for this group, or null. Exactly one is kept, with
+ * its own groupId inside it rather than in the key, so opening a second group
+ * replaces the cache instead of accumulating one full action log per group
+ * this browser has ever visited.
+ */
+export function readCachedSnapshot(groupId: string): CachedSnapshot | null {
+  const raw = readKey(SNAPSHOT_KEY)
+  if (raw === null) return null
+  try {
+    const parsed = JSON.parse(raw) as Partial<CachedSnapshot>
+    if (typeof parsed.savedAt !== 'number') return null
+    const snapshot = parsed.snapshot
+    if (!snapshot || snapshot.groupId !== groupId) return null
+    if (!snapshot.genome || !Array.isArray(snapshot.actions)) return null
+    return { savedAt: parsed.savedAt, snapshot }
+  } catch {
+    return null
+  }
+}
+
+let cacheRefused = false
+
+function writeCachedSnapshot(snapshot: GroupSnapshot, savedAt: number): void {
+  if (cacheRefused) return
+  try {
+    localStorage.setItem(SNAPSHOT_KEY, JSON.stringify({ savedAt, snapshot }))
+  } catch {
+    // A creature at its lifetime cap is a few hundred KB, out of a budget this
+    // origin shares with every other app on tevded.com. If it will not fit,
+    // drop it and stop trying: half a log is not a smaller creature, it is a
+    // different one, and showing that would be worse than showing nothing.
+    cacheRefused = true
+    dropKey(SNAPSHOT_KEY)
+  }
+}
+
 function subscribeHash(fn: () => void): () => void {
   addEventListener('hashchange', fn)
   return () => removeEventListener('hashchange', fn)
@@ -113,6 +246,11 @@ export interface GroupHandle {
   // bad link, a failure after it is a dropped socket, and the two need very
   // different words on screen.
   everConnected: boolean
+  // True when the creature on screen was derived from the stored snapshot
+  // because the live one has not arrived. The animal is real and is the
+  // group's own, it is just as of `cachedAt` rather than as of now.
+  offline: boolean
+  cachedAt: number | null
   act: (variantId: string) => void
   rename: (name: string) => void
 }
@@ -154,15 +292,53 @@ export function useGroup(): GroupHandle {
     }
   }, [groupId, isNamed, actor])
 
+  // Read synchronously on the very first render rather than in an effect, so a
+  // launch with no signal paints the animal immediately instead of painting a
+  // spinner, waiting out the patience timer and then admitting failure.
+  const cached = useMemo(() => (groupId ? readCachedSnapshot(groupId) : null), [groupId])
+
+  // The live snapshot always wins. The cache is only ever a stand-in for one
+  // that has not arrived, never merged with one that has: the log is ordered
+  // and the order is the creature, so there is nothing sensible to merge.
+  const shown = snapshot ?? (cached ? cached.snapshot : null)
+  const offline = snapshot === null && cached !== null
+
+  // Once the group has actually answered, this id is worth reopening. Written
+  // on everConnected rather than on the id resolving, so a mistyped or dead
+  // link never becomes the thing every future launch opens.
+  useEffect(() => {
+    if (groupId && everConnected) rememberGroup(groupId)
+  }, [groupId, everConnected])
+
+  // Keeping the log is what makes an installed copy worth opening with no
+  // signal at all.
+  useEffect(() => {
+    if (!snapshot) return
+    const save = (): void => writeCachedSnapshot(snapshot, Date.now())
+    const timer = window.setTimeout(save, SAVE_DELAY_MS)
+    // A phone is not always given time to run a timer before the tab goes
+    // away, and pagehide is the last moment storage is still reliable.
+    const onHidden = (): void => {
+      if (document.visibilityState === 'hidden') save()
+    }
+    addEventListener('pagehide', save)
+    document.addEventListener('visibilitychange', onHidden)
+    return () => {
+      window.clearTimeout(timer)
+      removeEventListener('pagehide', save)
+      document.removeEventListener('visibilitychange', onHidden)
+    }
+  }, [snapshot])
+
   // Derivation is the expensive call in the app. Both the snapshot identity and
   // the action count are watched because net may hand back a fresh object per
   // message or push onto the array it already gave us, and either way a rebuild
   // must happen exactly once per real change.
-  const actionCount = snapshot ? snapshot.actions.length : -1
-  const givenName = snapshot ? snapshot.name : null
+  const actionCount = shown ? shown.actions.length : -1
+  const givenName = shown ? shown.name : null
   const creature = useMemo(
-    () => (snapshot ? deriveCreature(snapshot.genome, snapshot.actions, snapshot.name) : null),
-    [snapshot, actionCount, givenName],
+    () => (shown ? deriveCreature(shown.genome, shown.actions, shown.name) : null),
+    [shown, actionCount, givenName],
   )
 
   const act = useCallback((variantId: string) => {
@@ -177,11 +353,13 @@ export function useGroup(): GroupHandle {
     groupId,
     actor,
     status,
-    snapshot,
+    snapshot: shown,
     present,
     creature,
-    genome: snapshot ? snapshot.genome : null,
+    genome: shown ? shown.genome : null,
     everConnected,
+    offline,
+    cachedAt: cached ? cached.savedAt : null,
     act,
     rename,
   }

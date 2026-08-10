@@ -29,6 +29,10 @@ interface StageProps {
   // The socket is gone but we still have an animal on screen. Blanking it
   // would be a lie in the other direction: the creature did not stop existing.
   stale: boolean
+  // When the creature on screen is the stored one and the socket never opened:
+  // the moment it was last seen, or null when this is the live animal. Distinct
+  // from `stale`, which is a group we did reach and then lost.
+  offlineSince: number | null
   groupId: string
   actorId: string
   // Renames the CREATURE, not the caller. The person's own display name is a
@@ -38,7 +42,8 @@ interface StageProps {
 }
 
 export default function Stage(props: StageProps): JSX.Element {
-  const { creature, genome, actions, present, status, stale, groupId, actorId, onRename, onOpenGroup } = props
+  const { creature, genome, actions, present, status, stale, offlineSince, groupId, actorId, onRename, onOpenGroup } =
+    props
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const viewRef = useRef<CreatureView | null>(null)
@@ -141,10 +146,19 @@ export default function Stage(props: StageProps): JSX.Element {
         </div>
       )}
 
+      {offlineSince !== null && !stale && (
+        <div className="notice" role="status">
+          <span>Offline. This is your creature {asOf(offlineSince)}.</span>
+          <button type="button" className="btn" onClick={() => location.reload()}>
+            Try again
+          </button>
+        </div>
+      )}
+
       {/* The live region below is the screen reader's copy of this line. Without
           hiding the visible one a reader gets the same sentence twice, once
           announced and once when it walks the page. */}
-      {ticker && !stale && (
+      {ticker && !stale && offlineSince === null && (
         <p className="ticker" key={ticker.id} aria-hidden="true">
           {ticker.text}
         </p>
@@ -154,6 +168,22 @@ export default function Stage(props: StageProps): JSX.Element {
       </p>
     </div>
   )
+}
+
+// When the stored creature was last seen. Phrased as a point in time rather
+// than a duration, because "as of this morning" is what somebody needs in order
+// to know whether anything has happened since, and a bare "2h ago" reads as how
+// stale the app is rather than how old the animal is.
+function asOf(at: number): string {
+  const seconds = Math.max(0, Math.round((Date.now() - at) / 1000))
+  if (seconds < 90) return 'as of a moment ago'
+  const minutes = Math.round(seconds / 60)
+  if (minutes < 60) return `as of ${minutes} minutes ago`
+  const sameDay = new Date(at).toDateString() === new Date().toDateString()
+  const clock = new Date(at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+  if (sameDay) return `as of ${clock}`
+  const day = new Date(at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+  return `as of ${day}, ${clock}`
 }
 
 // Renders and edits the CREATURE's name. This is not the visitor's own name:

@@ -12,7 +12,7 @@ import Chronicle from './Chronicle'
 import Crowd from './Crowd'
 import Landing, { Sigil } from './Landing'
 import Stage from './Stage'
-import { useGroup, useMediaQuery, useNamed } from './useGroup'
+import { forgetGroup, useGroup, useMediaQuery, useNamed } from './useGroup'
 
 // How long a group is given to answer before we stop saying "finding it" and
 // admit something is wrong. Long enough to cover a slow handshake on a phone.
@@ -39,12 +39,22 @@ export default function App(): JSX.Element {
   // A socket that opened and then said nothing for eight seconds is as broken as
   // one that never opened, so the status is not consulted here. If the snapshot
   // does turn up late this screen replaces itself with the creature.
-  if (!group.everConnected && waited) {
+  //
+  // Not reached when there is a stored snapshot for this group: the creature is
+  // already on screen, marked as of when it was last seen, and telling somebody
+  // holding a perfectly good copy of their animal that we could not find it
+  // would be false as well as unhelpful.
+  if (!group.everConnected && waited && !group.offline) {
     return <Lost groupId={groupId} />
   }
 
   const actions = group.snapshot ? group.snapshot.actions : NO_ACTIONS
   const stale = group.everConnected && (group.status === 'closed' || group.status === 'error')
+  // Held back until the socket has actually given up. While it is still
+  // connecting the status pill already says so, and announcing a creature as
+  // offline half a second before it goes live would be its own small lie.
+  const offlineSince =
+    group.offline && (group.status === 'closed' || group.status === 'error') ? group.cachedAt : null
 
   const panels = (
     <>
@@ -63,6 +73,7 @@ export default function App(): JSX.Element {
           present={group.present}
           status={group.status}
           stale={stale}
+          offlineSince={offlineSince}
           groupId={groupId}
           actorId={group.actor.id}
           onRename={group.rename}
@@ -144,6 +155,10 @@ function Lost({ groupId }: { groupId: string }): JSX.Element {
           type="button"
           className="btn-text"
           onClick={() => {
+            // Forget first. This is the one place somebody says they are done
+            // with a group, and without it an installed copy would restore the
+            // link they just walked away from on the very next launch.
+            forgetGroup()
             location.hash = ''
           }}
         >

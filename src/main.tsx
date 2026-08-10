@@ -1,6 +1,13 @@
 import { createRoot } from 'react-dom/client'
 import App from './ui/App'
+import { restoreGroupOnLaunch } from './ui/useGroup'
 import './index.css'
+
+// Before the first render, deliberately. Routing reads location.hash, so
+// putting the group back after mounting would paint the new-group screen and
+// then replace it, which is a visible flash of the wrong answer on exactly the
+// launch this exists to fix. It is a no-op in a browser tab.
+restoreGroupOnLaunch()
 
 const host = document.getElementById('root')
 if (!host) throw new Error('MonsterTime needs a #root element to mount into.')
