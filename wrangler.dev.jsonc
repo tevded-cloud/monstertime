@@ -1,0 +1,37 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+
+  // LOCAL ONLY. This config exists so MonsterTime can be run and tested against
+  // a real Durable Object without going anywhere near tevded-site, which is the
+  // shared deploy surface for fifteen other apps and is dirty most of the time.
+  //
+  // It is deliberately NOT the production config. In production MonsterTime is
+  // a passenger on the tevded.com Worker: worker/index.ts there imports
+  // handleMonsterTime and re-exports MonsterGroup, and the binding sits next to
+  // ColorTime's existing ROOMS binding. See worker/README.md for that patch.
+  //
+  // What this file DOES rehearse, exactly as production will have it: the
+  // binding name MONSTER_GROUP, the class name MonsterGroup, a SQLite backend,
+  // and the compatibility date the site is pinned to. What it deliberately does
+  // NOT rehearse is the migration TAG. Here MonsterGroup is the first and only
+  // class so it is v1; on tevded.com the tag must be v2, because v1 there is
+  // already spent on ColorTime's Room and editing a spent tag is how live rooms
+  // get broken. That one difference is the thing to carry across by hand.
+  //
+  //   npm run dev:api     this, on 127.0.0.1:8787
+  //   npm run dev         the UI on 5196, proxying /api/monstertime to it
+  //
+  // There is no `routes` and no `workers_dev` key: nothing here can deploy.
+  "name": "monstertime-dev",
+  "main": "./worker/dev-entry.ts",
+  "compatibility_date": "2025-06-01",
+
+  "durable_objects": {
+    "bindings": [{ "name": "MONSTER_GROUP", "class_name": "MonsterGroup" }]
+  },
+
+  "migrations": [
+    // SQLite backed, which is what puts a group on the free plan.
+    { "tag": "v1", "new_sqlite_classes": ["MonsterGroup"] }
+  ]
+}
