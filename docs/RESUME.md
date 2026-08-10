@@ -27,9 +27,11 @@ Repo: `D:\Programs\monstertime`
 
 | Gate | Command | Result |
 |---|---|---|
-| App and worker typecheck | `npm run check` | exit 0, clean |
-| Production build plus service worker | `npm run build` | exit 0, precache 10 files, 834 kB |
+| App, worker and test typecheck | `npm run check` | exit 0, clean |
+| Genetics and forge tests | `npm test` | exit 0, 58 passed, under 1s |
+| Production build plus service worker | `npm run build` | exit 0, precache 10 files, 836 kB |
 | Icon generation | `npm run icons` | exit 0, zero dependencies |
+| A real Durable Object | `npm run dev:api` | serves `/api/monstertime/*` on 8787 |
 
 Measured in a real browser, after the review fixes:
 
@@ -93,6 +95,10 @@ empty registry. That is a real trap for a future test file.
 
 ```
 src/core/types.ts        the shared contract; everything compiles against it
+test/                    58 tests: determinism, purity, uniqueness, catalogue,
+                         credit, bareness, part coverage
+wrangler.dev.jsonc       LOCAL ONLY host for the worker; never deploys
+worker/dev-entry.ts      the smallest stand-in for the tevded.com worker
 src/dna/                 rng, alleles (69), actions (36), express, index
 src/forge/               registry, body, parts, materials, view, index
 src/ui/                  main/App/Stage/ActionBar/Crowd/Chronicle/Landing/useGroup
@@ -108,30 +114,65 @@ docs/RESEARCH-READING-LIST.md   239 selected reports (see section 6)
 ## 5. What is NOT done
 
 Since the first draft of this file, all four skeptic passes ran, their findings
-were fixed, an adversarial re-measure confirmed the fixes, and the PWA and mobile
-layers landed. Reports are in `docs/reviews/`. What remains:
+were fixed, an adversarial re-measure confirmed the fixes, the PWA and mobile
+layers landed, and then (2026-08-10) the app was run against a real Durable
+Object for the first time. What remains:
 
-- **No tests.** Everything here was measured by throwaway harnesses in scratchpad
-  folders that are now gone. The genetics module has been wrong twice while
-  claiming it was right, so the measurements in `docs/reviews/` should become
-  real test files. This is the highest-value remaining work.
+- **The tevded-site integration, which is the only thing between this and
+  being live.** See section 7. It is a decision to make, not a wait.
 - **The research reading list is only partly consumed.** 239 reports were
   selected; the mobile and accessibility clusters were read and applied. The
   `creature-anatomy-and-motion`, `social-async-and-retention` and
   `installable-app-and-onboarding` clusters have not been.
-- **Bundle is a single 834 kB chunk.** three.js should be split out so the
+- **Bundle is a single 817 kB chunk.** three.js should be split out so the
   landing screen does not pull the whole renderer on a phone.
-- **The app has never been exercised end to end against a real server.** The API
-  needs `wrangler dev` in `tevded-site`, which was held by another session, so
-  the genetics, the forge and the UI were verified directly through the dev
-  server's module graph instead. Nobody has yet created a group, acted, and
-  watched a trait lock in over a live socket.
+- **Worker tests.** The genetics and the forge are covered (58 tests); the
+  Durable Object is not. `wrangler.dev.jsonc` and
+  `@cloudflare/vitest-pool-workers` are both already in place for it, so the
+  limits, the stage gating and the 404-writes-nothing rule are the next suite.
 - **One residual by design:** `actorId` is self-asserted, so a member can post as
   another member within a group. There are no accounts by design. It is stated in
   `worker/README.md`.
 - Landing content is 871 px tall on an 812 px phone, so the join affordance sits
   just below the fold at first paint. It scrolls and its tap region measures
   correctly at 44 px; only discoverability is affected.
+
+### Settled on 2026-08-10
+
+- **There is a git remote.** `tevded-cloud/monstertime`, private. Before this,
+  every commit existed on exactly one disk with no deployed bundle as a second
+  copy.
+- **Two clients derive the same creature from the same log.** This was the
+  load-bearing untested assumption: state is derived and never stored, so
+  client agreement is what everything else rests on, and the app had never
+  spoken to a live server at all. Two browsers on one group, three actions
+  taken in the first: the second's rendered trait list matched allele for
+  allele from its own socket stream, and a creature derived independently in
+  each tab hashed identically (SHA-256 `a0b4d123...384ed0`, 3907 bytes), as did
+  the snapshot each was working from. Both tabs share one JS engine, so what is
+  proven is client agreement and live socket convergence, not cross-engine
+  float agreement; that is what `test/dna/purity.test.ts` guards instead.
+- **The two PWA product gaps are fixed** (the dead install entry point and the
+  missing offline view). See the commit for what was decided and why.
+- **There are tests.** 58, seeded and exact, and sabotage-proved rather than
+  assumed. They independently reproduce the recorded figures rather than
+  inheriting them: 91 alleles, 5000 of 5000 distinct, 1845 distinct trait sets
+  against the reports' 1853, worst bareness 5.0 percent against their 7.2.
+
+### Two things in the older docs that are stale, and must not be acted on
+
+1. `docs/reviews/wave3/wave3-mobile.md` says the device pixel ratio cap is not
+   in `view.ts`. It is, at `pixelRatioCap()` line 71, applied at lines 199 and
+   282. The review predates the fix.
+2. This file used to say the tevded-site work was blocked until another
+   session's work settled. That will never clear on its own: that repo has been
+   dirty across a dozen apps for days and everything staged in it is already
+   deployed. Section 7 is a decision, not a queue.
+3. "0.00 drive-by credit" is stale wherever it appears as a current figure.
+   `wave3-genome.md` records a 3-click visitor moving to 0.210 after the genome
+   rewrite and says the reviewer's 0.00 did not reproduce even on the baseline.
+   The invariant that survived, and that `test/dna/credit.test.ts` asserts, is
+   that a ONE-click visitor takes sole credit on nothing.
 
 ---
 
@@ -174,11 +215,45 @@ MonsterTime needs, in `D:\Programs\tevded-site`:
 4. `public/_headers`: add the manifest content-type and `sw.js` no-cache plus
    `Service-Worker-Allowed: /monstertime/` entries, matching the symptime block.
 
-**This was deliberately not applied.** At the time of writing another Claude
-session was actively working in `tevded-site` (uncommitted worker, vitest being
-added). Two sessions editing one repo is how work gets silently overwritten.
-Apply this only once that repo is quiet, and re-read the files first, because
-they were changing under observation.
+**Still not applied, and the reason has changed.** The original reason was that
+another session held the repo. That is no longer a thing to wait for: it has
+been dirty across a dozen apps for days and everything staged in it is already
+deployed. This is now a decision about a production migration.
+
+What makes it one, confirmed against the files on 2026-08-10:
+
+- `wrangler.jsonc` has exactly one binding (`ROOMS`/`Room`), one migration
+  (`v1`), and `run_worker_first` scoped to `/colortime/room/*` with a comment
+  saying that is deliberately the only path. The patch adds a second Durable
+  Object binding and a `v2` migration tag to the SAME worker backing ColorTime's
+  live shared rooms with real SQLite DO state. `v1` must not be edited.
+- `test/site/routing.test.ts` in that repo exists specifically to assert that
+  the site with the script and the site without answer identically. Adding a
+  MonsterTime branch to `worker/index.ts` needs that test extended, and
+  `npm test` there green before and after.
+- The cross-repo import `../../monstertime/worker/monstertime` pulls this
+  repo's `src/dna` into tevded-site's `tsc -b`, which `npm run deploy` runs. It
+  also means a clone of tevded-site cannot build without monstertime sitting
+  beside it. `worker/README.md` rules out copying the genetics, so this needs a
+  real answer: submodule, or a vendoring step in the build.
+
+**The deploy surface is the hazard, not the patch.** `npm run deploy` there
+publishes FILESYSTEM STATE, not git: vite copies all of `public/` into `dist/`,
+untracked folders included, so `git status` in that repo describes neither what
+is live nor what is not. `public/` currently holds 15 app folders. Among them
+`public/titime` is fully staged and wired into `_headers` and `_redirects`,
+while titime's own `docs/VERIFICATION.md` says it must not be published. Any
+deploy, for any reason, publishes it. Use `wrangler versions upload` for a
+preview URL rather than promoting blind.
+
+Judging whether something is live: every path returns 200, because a missing
+file under a `_headers` rule returns the site fallback wearing the right
+Content-Type. Judge by `<title>` and byte size, never the status code. The
+fallback was 1251 bytes and is now 892; both are titled `tevded`, so the title
+is the reliable tell and the size is not. Send `Cache-Control: no-cache`, since
+edge caches keep serving the old fallback after a real file lands. A deploy can
+also fail once with a Cloudflare API error and succeed on retry with nothing
+changed, so retry before believing it.
 
 See `worker/README.md` for the exact patch text.
 
