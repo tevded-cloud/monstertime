@@ -76,7 +76,7 @@ describe('joining a group', () => {
   it('refuses to act before anybody has said who they are', async () => {
     const wire = await open(await makeGroup())
     await wire.next('snapshot')
-    wire.send({ type: 'act', variantId: 'feed.emberfruit' })
+    wire.send({ type: 'act', variantId: 'sing.humDusk' })
     await wire.next('error')
     expect(wire.all().some((m) => m.type === 'action')).toBe(false)
     wire.close()
@@ -112,7 +112,7 @@ describe('a connection is bound to one actor', () => {
     wire.send({ type: 'hello', actorId: 'someone-else', actorName: 'Mallory' })
     await wire.next('error')
 
-    wire.send({ type: 'act', variantId: 'feed.emberfruit' })
+    wire.send({ type: 'act', variantId: 'sing.humDusk' })
     const action = (await wire.next('action')) as { action: { actorId: string } }
     expect(action.action.actorId).toBe('ann')
     wire.close()
@@ -130,10 +130,10 @@ describe('what gets written', () => {
     await hello(ann, 'ann')
     await hello(bo, 'bo')
 
-    ann.send({ type: 'act', variantId: 'feed.emberfruit' })
+    ann.send({ type: 'act', variantId: 'sing.humDusk' })
     const mine = (await ann.next('action')) as { action: { variantId: string; actorId: string } }
     const theirs = (await bo.next('action')) as { action: { variantId: string; actorId: string } }
-    expect(mine.action.variantId).toBe('feed.emberfruit')
+    expect(mine.action.variantId).toBe('sing.humDusk')
     expect(theirs.action).toEqual(mine.action)
     ann.close()
     bo.close()
@@ -143,7 +143,7 @@ describe('what gets written', () => {
     const groupId = await makeGroup()
     const wire = await open(groupId)
     await hello(wire, 'ann')
-    wire.send({ type: 'act', variantId: 'feed.emberfruit', id: 'chosen', at: 5, actorName: 'Not Ann' })
+    wire.send({ type: 'act', variantId: 'sing.humDusk', id: 'chosen', at: 5, actorName: 'Not Ann' })
     const { action } = (await wire.next('action')) as { action: { id: string; at: number; actorName: string } }
     expect(action.id).not.toBe('chosen')
     expect(action.at).toBeGreaterThan(1_600_000_000_000)
@@ -155,7 +155,7 @@ describe('what gets written', () => {
     const groupId = await makeGroup()
     const wire = await open(groupId)
     await hello(wire, 'ann')
-    wire.send({ type: 'act', variantId: 'feed.notARealThing' })
+    wire.send({ type: 'act', variantId: 'sing.notARealThing' })
     await wire.next('error')
     const snapshot = (await (await SELF.fetch(`https://x/api/monstertime/groups/${groupId}`)).json()) as {
       actions: unknown[]
@@ -164,11 +164,32 @@ describe('what gets written', () => {
     wire.close()
   })
 
+  it('refuses to let an egg be fed, chased or taken to the market', async () => {
+    // An egg cannot be on the receiving end of most of the catalogue, and
+    // offering all of it made the tray read as nonsense. Twenty variants are
+    // held to the hatchling; what an egg is left with is singing to it, leaving
+    // things beside it, and sitting with it.
+    const groupId = await makeGroup()
+    const wire = await open(groupId)
+    await hello(wire, 'ann')
+    for (const tooSoon of ['feed.emberfruit', 'train.chaseYard', 'explore.market', 'tend.trimClaws']) {
+      wire.send({ type: 'act', variantId: tooSoon })
+      const error = (await wire.next('error')) as { message: string }
+      expect(error.message).toMatch(/ready/i)
+    }
+    const snapshot = (await (await SELF.fetch(`https://x/api/monstertime/groups/${groupId}`)).json()) as {
+      actions: unknown[]
+    }
+    expect(snapshot.actions).toEqual([])
+    wire.close()
+  })
+
   it('refuses an action the creature is too young for', async () => {
-    // Four variants carry a minStage and the server enforces it, because the
-    // client only OFFERS what the creature is old enough for and a hand-rolled
-    // client can send anything. An action stored out of its stage is a pressure
-    // the design says the animal cannot feel yet, sitting in the log forever.
+    // Four variants carry a minStage of two and the server enforces it, because
+    // the client only OFFERS what the creature is old enough for and a
+    // hand-rolled client can send anything. An action stored out of its stage is
+    // a pressure the design says the animal cannot feel yet, sitting in the log
+    // forever.
     const groupId = await makeGroup()
     const wire = await open(groupId)
     await hello(wire, 'ann')
@@ -191,9 +212,9 @@ describe('the brakes', () => {
     const groupId = await makeGroup()
     const wire = await open(groupId)
     await hello(wire, 'ann')
-    wire.send({ type: 'act', variantId: 'feed.emberfruit' })
+    wire.send({ type: 'act', variantId: 'sing.humDusk' })
     await wire.next('action')
-    wire.send({ type: 'act', variantId: 'feed.riverGreens' })
+    wire.send({ type: 'act', variantId: 'sing.clapRhythm' })
     await wire.next('error')
 
     const snapshot = (await (await SELF.fetch(`https://x/api/monstertime/groups/${groupId}`)).json()) as {
@@ -213,7 +234,7 @@ describe('the brakes', () => {
     for (let i = 0; i < 16; i++) {
       const wire = await open(groupId)
       await hello(wire, `made-up-${i}`)
-      wire.send({ type: 'act', variantId: 'feed.emberfruit' })
+      wire.send({ type: 'act', variantId: 'sing.humDusk' })
       await scheduler.wait(60)
       if (wire.all().some((m) => m.type === 'action')) stored += 1
       wires.push(wire)

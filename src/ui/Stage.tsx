@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import type { ActionKind, ActionRecord, Creature, Genome, PresentActor } from '../core/types'
-import { variantById } from '../dna'
+import { pastTense, variantById } from '../dna'
 import { CreatureView } from '../forge'
 import type { ConnectionStatus } from '../net'
 import { groupLink, useCopy } from './useGroup'
@@ -83,9 +83,13 @@ export default function Stage(props: StageProps): JSX.Element {
     const last = actions[count - 1]
     const variant = variantById(last.variantId)
     if (variant) viewRef.current?.pulse(variant.kind)
-    const who = last.actorId === actorId ? 'You' : last.actorName
-    const said = variant ? `${KIND_VERB[variant.kind]}. ${variant.label}.` : 'did something.'
-    setTicker({ id: last.id, text: `${who} ${said}` })
+    const mine = last.actorId === actorId
+    const who = mine ? 'You' : last.actorName
+    // One written sentence per variant rather than a verb glued to the button
+    // copy. The labels are not all the same part of speech, so gluing produced
+    // "Teddy gave it something. a marrow bone."
+    const said = pastTense(last.variantId, mine) ?? KIND_VERB[variant?.kind ?? 'tend']
+    setTicker({ id: last.id, text: `${who} ${said}.` })
   }, [actions, actions.length, actorId])
 
   useEffect(() => {

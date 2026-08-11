@@ -56,7 +56,7 @@ export function oneButtonLog(n: number, variantId: string, actors = ['ann', 'bo'
 
 /** Every variant of one kind, cycled, which is what a committed habit looks like. */
 export function habitLog(n: number, kind: string, actors = ['ann', 'bo', 'cy']): ActionRecord[] {
-  const pool = ACTION_VARIANTS.filter((v) => v.kind === kind && !v.minStage)
+  const pool = ACTION_VARIANTS.filter((v) => v.kind === kind)
   if (pool.length === 0) throw new Error(`no ungated variants for kind ${kind}`)
   const out: ActionRecord[] = []
   for (let i = 0; i < n; i++) out.push(action(i, pool[i % pool.length].id, actors[i % actors.length]))
@@ -70,8 +70,14 @@ export function habitLog(n: number, kind: string, actors = ['ann', 'bo', 'cy']):
  * end up with nothing to express.
  */
 export function committedLog(n: number, kind: string, share = 0.9): ActionRecord[] {
-  const habit = ACTION_VARIANTS.filter((v) => v.kind === kind && !v.minStage)
-  const rest = ACTION_VARIANTS.filter((v) => v.kind !== kind && !v.minStage)
+  // Not filtered by minStage. These fixtures exercise the DERIVATION, which
+  // reads a log and does not care when each action was allowed; the stage gate
+  // is the server's job and is tested against the server in test/worker. A
+  // filter here would also make the fixtures follow the gating rules around,
+  // so a change to what an egg may be offered would silently move every
+  // genetics measurement in the suite.
+  const habit = ACTION_VARIANTS.filter((v) => v.kind === kind)
+  const rest = ACTION_VARIANTS.filter((v) => v.kind !== kind)
   const actors = ['ann', 'bo', 'cy']
   const out: ActionRecord[] = []
   for (let i = 0; i < n; i++) {

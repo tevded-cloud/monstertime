@@ -23,13 +23,26 @@
 //
 // The balance that matters is the balance of the pool that is actually on
 // screen, not of the catalogue on paper. Four variants are held back to stage
-// two, and stage two is eighteen actions in, so for the whole of the egg and
-// the hatchling a group is drawing from the other thirty two. Both pools have
-// to be even or the first traits, which are also the traits that get stickiness
-// protecting them, lock in against a tilted background. So the four that are
-// held back are chosen to be a fair slice of the whole rather than a themed
-// one: they cover all eight axes between them, and taking them out leaves the
-// early thirty two within four and a half percent of even.
+// two, and they are chosen to be a fair slice rather than a themed one: they
+// cover all eight axes between them, so taking them out leaves the pool behind
+// them close to even. That matters because the first traits are also the ones
+// stickiness then protects, and they must not lock in against a tilted
+// background.
+//
+// The egg is the deliberate exception to that, and it is a exception made on
+// purpose. Twenty variants are held to stage one, because they are things you
+// cannot do to an egg: it cannot be fed, chased round a yard, walked to the
+// market or have its claws trimmed, and offering all of that to somebody
+// looking at an unhatched egg made the whole tray read as nonsense. What is
+// left is what you CAN do to an egg, which is sing to it, leave things beside
+// it, sit with it and keep it clean and warm, and that pool leans toward
+// resonance, craft, bond and stillness rather than sitting even.
+//
+// That lean is accepted rather than corrected. The egg is five actions long,
+// no trait can express before the first growth tick at five, and an animal
+// whose first week was singing and sitting SHOULD carry a little of that. The
+// balance argument above still governs every pool from the hatchling on, which
+// is where all but a handful of a creature's actions land.
 
 import type { ActionVariant } from '../core/types'
 
@@ -41,6 +54,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'ember-fruit',
     blurb: 'Split one open. It steams.',
     push: { nourish: 3, ferocity: 1, vigor: 1 },
+    minStage: 1,
   },
   {
     id: 'feed.riverGreens',
@@ -48,6 +62,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'river greens',
     blurb: 'Cold, and still dripping.',
     push: { nourish: 3, stillness: 1, roam: 1 },
+    minStage: 1,
   },
   {
     id: 'feed.marrowBone',
@@ -55,6 +70,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'a marrow bone',
     blurb: 'Heavy. It takes all evening.',
     push: { nourish: 3, ferocity: 1.5, stillness: 0.5 },
+    minStage: 1,
   },
   {
     id: 'feed.honeycomb',
@@ -70,6 +86,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'salted fish',
     blurb: 'Kept back from the long walk home.',
     push: { nourish: 3, roam: 1.5, craft: 0.5 },
+    minStage: 1,
   },
   {
     id: 'feed.fromYourHand',
@@ -77,6 +94,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'from your own hand',
     blurb: 'Slow. It has to lean in for it.',
     push: { nourish: 2.5, bond: 2, stillness: 0.5 },
+    minStage: 1,
   },
 
   // --- train --------------------------------------------------------------
@@ -86,6 +104,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'chase it round the yard',
     blurb: 'You will lose. Go anyway.',
     push: { vigor: 3, roam: 1.5, bond: 0.5 },
+    minStage: 1,
   },
   {
     id: 'train.liftStones',
@@ -93,6 +112,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'lift stones with it',
     blurb: 'Start with ones you can carry.',
     push: { vigor: 3, ferocity: 1.5, craft: 0.5 },
+    minStage: 1,
   },
   {
     id: 'train.sparPadded',
@@ -100,6 +120,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'spar with a padded arm',
     blurb: 'Let it win once. Not twice.',
     push: { ferocity: 3, vigor: 2, bond: 0.5 },
+    minStage: 1,
   },
   {
     id: 'train.holdStill',
@@ -107,6 +128,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'teach it to hold still',
     blurb: 'Count to ten out loud.',
     push: { stillness: 3, bond: 1, craft: 1 },
+    minStage: 1,
   },
   {
     id: 'train.climbRope',
@@ -114,6 +136,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'send it up the rope',
     blurb: 'It gets stuck halfway the first time.',
     push: { vigor: 2.5, roam: 1.5, craft: 1 },
+    minStage: 1,
   },
   {
     id: 'train.standGround',
@@ -131,6 +154,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'the riverbank',
     blurb: 'Follow it until the water turns.',
     push: { roam: 2.5, stillness: 1.5, resonance: 1 },
+    minStage: 1,
   },
   {
     id: 'explore.oldQuarry',
@@ -138,6 +162,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'the old quarry',
     blurb: 'Everything down there says itself twice.',
     push: { roam: 2, resonance: 2, craft: 1 },
+    minStage: 1,
   },
   {
     id: 'explore.nightField',
@@ -145,6 +170,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'the night field',
     blurb: 'Nothing to see. That is the point.',
     push: { roam: 2, stillness: 2, resonance: 1 },
+    minStage: 1,
   },
   {
     id: 'explore.market',
@@ -152,6 +178,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'the market',
     blurb: 'Crowds. It will not like it at first.',
     push: { roam: 1.5, bond: 1.5, ferocity: 2 },
+    minStage: 1,
   },
   {
     id: 'explore.ridgeline',
@@ -159,6 +186,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'the ridgeline',
     blurb: 'Two hours up, ten minutes at the top.',
     push: { roam: 2.5, vigor: 2.5 },
+    minStage: 1,
   },
   {
     id: 'explore.burnedWood',
@@ -166,6 +194,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'the burned wood',
     blurb: 'Black trunks, new green underneath.',
     push: { roam: 1.5, ferocity: 2, craft: 1.5 },
+    minStage: 1,
   },
 
   // --- sing ---------------------------------------------------------------
@@ -265,6 +294,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'brush it down',
     blurb: 'Long strokes, with the grain.',
     push: { bond: 2.5, stillness: 1.5, nourish: 1 },
+    minStage: 1,
   },
   {
     id: 'tend.cleanScrapes',
@@ -272,6 +302,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'clean its scrapes',
     blurb: 'It will pull away. Hold on.',
     push: { bond: 2, nourish: 1.5, ferocity: 1.5 },
+    minStage: 1,
   },
   {
     id: 'tend.sitNearby',
@@ -286,6 +317,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'trim its claws',
     blurb: 'Only the tips. You will know.',
     push: { craft: 2, bond: 1.5, ferocity: 1.5 },
+    minStage: 1,
   },
   {
     id: 'tend.freshBedding',
@@ -300,6 +332,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'check its teeth',
     blurb: 'Both hands. Be quick about it.',
     push: { ferocity: 2, bond: 1.5, vigor: 1.5 },
+    minStage: 1,
   },
 ]
 
@@ -362,4 +395,79 @@ export const VARIANT_MEMORY: Record<string, string> = {
   'tend.trimClaws': 'trimming its claws',
   'tend.freshBedding': 'changing its bedding',
   'tend.checkTeeth': 'checking its teeth',
+}
+
+/**
+ * One thing somebody just did, as a finished sentence.
+ *
+ * A third phrasing, and it earns its place. `label` is the button, written to
+ * the person about to press it, so it is a thing ("a marrow bone") or an
+ * instruction ("sit near it and do nothing"). VARIANT_MEMORY is written about
+ * weeks of behaviour, so it is a gerund ("leaving marrow bones out"). Neither
+ * is a sentence about one event, and pasting them into one gave the line that
+ * was actually on screen: "Teddy gave it something. a marrow bone." A verb per
+ * kind plus a label cannot fix that, because the labels are not all the same
+ * part of speech, so the verb is written out per variant.
+ *
+ * Past tense, no full stop, no name: the caller puts "Teddy" or "You" in front.
+ */
+export const VARIANT_PAST: Record<string, string> = {
+  'feed.emberfruit': 'split an ember-fruit for it',
+  'feed.riverGreens': 'brought it river greens',
+  'feed.marrowBone': 'left out a marrow bone',
+  'feed.honeycomb': 'fed it honeycomb',
+  'feed.saltedFish': 'carried salted fish back for it',
+  'feed.fromYourHand': 'fed it from their own hand',
+
+  'train.chaseYard': 'chased it round the yard',
+  'train.liftStones': 'got it lifting stones',
+  'train.sparPadded': 'sparred with it',
+  'train.holdStill': 'made it hold still',
+  'train.climbRope': 'sent it up the rope',
+  'train.standGround': 'made it stand its ground',
+
+  'explore.riverbank': 'walked it along the river',
+  'explore.oldQuarry': 'took it down to the quarry',
+  'explore.nightField': 'walked it out into the night field',
+  'explore.market': 'took it through the market',
+  'explore.ridgeline': 'hauled it up the ridge',
+  'explore.burnedWood': 'took it into the burned wood',
+
+  'sing.humDusk': 'hummed to it',
+  'sing.clapRhythm': 'clapped a rhythm at it',
+  'sing.sayItsName': 'said its name over and over',
+  'sing.whistleFar': 'whistled for it from across the field',
+  'sing.drumFloor': 'drummed on the floor for it',
+  'sing.readAloud': 'read to it',
+
+  'give.riverStone': 'brought it a river stone',
+  'give.crackedBell': 'left a cracked bell with it',
+  'give.knottedRope': 'gave it a knotted rope',
+  'give.shedSkin': 'brought it a shed skin',
+  'give.mirrorBit': 'left a bit of mirror with it',
+  'give.mapScrap': 'slipped it a scrap of a map',
+
+  'tend.brushDown': 'brushed it down',
+  'tend.cleanScrapes': 'cleaned its scrapes',
+  'tend.sitNearby': 'sat near it doing nothing',
+  'tend.trimClaws': 'trimmed its claws',
+  'tend.freshBedding': 'changed its bedding',
+  'tend.checkTeeth': 'checked its teeth',
+}
+
+/**
+ * The same thing, said to the person who did it. Only the handful of variants
+ * whose third person form carries "their" need their own line; everything else
+ * reads correctly after "You" already.
+ */
+const VARIANT_PAST_YOU: Record<string, string> = {
+  'feed.fromYourHand': 'fed it from your own hand',
+}
+
+export function pastTense(variantId: string, byYou: boolean): string | null {
+  if (byYou) {
+    const mine = VARIANT_PAST_YOU[variantId]
+    if (mine !== undefined) return mine
+  }
+  return VARIANT_PAST[variantId] ?? null
 }

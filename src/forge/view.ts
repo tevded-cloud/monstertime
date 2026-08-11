@@ -175,6 +175,22 @@ export class CreatureView {
   private observer: ResizeObserver | null = null
   private media: MediaQueryList | null = null
   private readonly onMedia = () => this.readMotionPreference()
+
+  // -- what the person looking has done to the camera -------------------------
+  //
+  // Held as offsets on top of the framing rather than as an absolute camera
+  // position, so the shot the art direction chose stays the shot: the creature
+  // is still centred and still filled to the same margin, and every stage and
+  // every growth spurt still reframes itself. Turning it round and coming
+  // closer are adjustments to that, not a replacement for it.
+  private orbit = 0
+  private tilt = 0
+  private zoom = 1
+  /** Once somebody has moved the camera the idle drift stops, because a shot
+   *  that keeps wandering away from where it was put is the camera arguing. */
+  private handled = false
+  private readonly pointers = new Map<number, { x: number; y: number }>()
+  private pinchGap = 0
   private disposed = false
 
   constructor(canvas: HTMLCanvasElement) {
@@ -217,6 +233,12 @@ export class CreatureView {
       this.observer = new ResizeObserver(() => this.resize())
       this.observer.observe(canvas)
     }
+    canvas.addEventListener('pointerdown', this.onPointerDown)
+    canvas.addEventListener('pointermove', this.onPointerMove)
+    canvas.addEventListener('pointerup', this.onPointerEnd)
+    canvas.addEventListener('pointercancel', this.onPointerEnd)
+    canvas.addEventListener('wheel', this.onWheel, { passive: false })
+    canvas.addEventListener('dblclick', this.onReset)
     this.resize()
 
     this.lastFrame = performance.now()
@@ -296,6 +318,14 @@ export class CreatureView {
     this.observer = null
     this.media?.removeEventListener('change', this.onMedia)
     this.media = null
+
+    this.canvas.removeEventListener('pointerdown', this.onPointerDown)
+    this.canvas.removeEventListener('pointermove', this.onPointerMove)
+    this.canvas.removeEventListener('pointerup', this.onPointerEnd)
+    this.canvas.removeEventListener('pointercancel', this.onPointerEnd)
+    this.canvas.removeEventListener('wheel', this.onWheel)
+    this.canvas.removeEventListener('dblclick', this.onReset)
+    this.pointers.clear()
 
     const keep = this.keep
     for (const g of this.grown.values()) {
@@ -943,6 +973,96 @@ export class CreatureView {
   }
 
   // -------------------------------------------------------------------------
+  // Turning it round and coming closer
+  // -------------------------------------------------------------------------
+
+  /** How far a drag across the whole canvas turns the creature. One width is a
+   *  little over half a turn, which is enough to get round the back of it in a
+   *  single gesture without a small correction becoming a spin. */
+  private static readonly TURN_PER_PX = 0.0075
+  private static readonly TILT_PER_PX = 0.005
+  /** How far the tilt may go. Stops short of the poles at both ends: looking
+   *  straight down at the top of a head, or up from under the plinth, are both
+   *  positions with no lighting behind them and nothing to see. */
+  private static readonly TILT_MIN = -0.42
+  private static readonly TILT_MAX = 0.95
+  /** Half as far away to twice as far. Closer than this clips into the body
+   *  with a 32 degree lens, and further just makes it small. */
+  private static readonly ZOOM_MIN = 0.5
+  private static readonly ZOOM_MAX = 2
+
+  private readonly onPointerDown = (e: PointerEvent): void => {
+    this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    // Captured so a turn that carries on past the edge of the canvas, which on
+    // a phone is most of them, keeps arriving instead of stopping dead.
+    try {
+      this.canvas.setPointerCapture(e.pointerId)
+    } catch {
+      // A refused capture costs a gesture that ends at the edge. Not fatal.
+    }
+    if (this.pointers.size === 2) this.pinchGap = this.gapBetweenPointers()
+  }
+
+  private readonly onPointerMove = (e: PointerEvent): void => {
+    const last = this.pointers.get(e.pointerId)
+    if (!last) return
+    const dx = e.clientX - last.x
+    const dy = e.clientY - last.y
+    this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+
+    if (this.pointers.size === 1) {
+      this.handled = true
+      this.orbit -= dx * CreatureView.TURN_PER_PX
+      this.tilt = clamp(
+        this.tilt + dy * CreatureView.TILT_PER_PX,
+        CreatureView.TILT_MIN,
+        CreatureView.TILT_MAX,
+      )
+      return
+    }
+
+    if (this.pointers.size === 2) {
+      const gap = this.gapBetweenPointers()
+      // Fingers apart means come closer, so the ratio is inverted against the
+      // distance the camera sits at.
+      if (this.pinchGap > 0 && gap > 0) this.setZoom(this.zoom * (this.pinchGap / gap))
+      this.pinchGap = gap
+    }
+  }
+
+  private readonly onPointerEnd = (e: PointerEvent): void => {
+    this.pointers.delete(e.pointerId)
+    this.pinchGap = 0
+  }
+
+  private readonly onWheel = (e: WheelEvent): void => {
+    // Taken off the page rather than shared with it: the creature fills the
+    // stage, so a scroll here is meant for the creature.
+    e.preventDefault()
+    this.setZoom(this.zoom * (e.deltaY > 0 ? 1.1 : 1 / 1.1))
+  }
+
+  /** Back to the shot the app chose. There is no visible control for this, so
+   *  it is the gesture people already try when a view has got away from them. */
+  private readonly onReset = (): void => {
+    this.orbit = 0
+    this.tilt = 0
+    this.zoom = 1
+    this.handled = false
+  }
+
+  private gapBetweenPointers(): number {
+    const both = [...this.pointers.values()]
+    if (both.length < 2) return 0
+    return Math.hypot(both[0].x - both[1].x, both[0].y - both[1].y)
+  }
+
+  private setZoom(next: number): void {
+    this.handled = true
+    this.zoom = clamp(next, CreatureView.ZOOM_MIN, CreatureView.ZOOM_MAX)
+  }
+
+  // -------------------------------------------------------------------------
   // Camera
   // -------------------------------------------------------------------------
 
@@ -974,12 +1094,20 @@ export class CreatureView {
 
     // A very slow drift around a fixed three quarter view. The lights never
     // move, so the creature keeps the same read while the frame stays alive.
-    const a = 0.62 + Math.sin(this.clock * 0.07) * 0.11 * this.motion
-    const el = 0.2 + Math.sin(this.clock * 0.05 + 1.7) * 0.035 * this.motion
+    // It stops the moment somebody takes hold of the camera: a shot that keeps
+    // wandering off the angle you just chose is the camera arguing with you.
+    const drift = this.handled ? 0 : this.motion
+    const a = 0.62 + Math.sin(this.clock * 0.07) * 0.11 * drift + this.orbit
+    const el = clamp(
+      0.2 + Math.sin(this.clock * 0.05 + 1.7) * 0.035 * drift + this.tilt,
+      CreatureView.TILT_MIN,
+      CreatureView.TILT_MAX,
+    )
+    const dist = this.camDist * this.zoom
     this.camera.position.set(
-      Math.sin(a) * Math.cos(el) * this.camDist,
-      this.camHeight + Math.sin(el) * this.camDist,
-      Math.cos(a) * Math.cos(el) * this.camDist,
+      Math.sin(a) * Math.cos(el) * dist,
+      this.camHeight + Math.sin(el) * dist,
+      Math.cos(a) * Math.cos(el) * dist,
     )
     this.camera.lookAt(0, this.camHeight, 0)
 

@@ -230,11 +230,16 @@ code {
   width: 100%;
   height: 100%;
   display: block;
-  /* manipulation, not none: the creature has no drag verb to protect, so the
-     only thing worth taking away is the double-tap zoom that would otherwise
-     jump the whole app when somebody taps the animal twice. Pinch zoom stays,
-     because it is how a low-vision reader gets a closer look. */
-  touch-action: manipulation;
+  /* none, because the creature now HAS a drag verb: one finger turns it round
+     and two change how close you are. Left as manipulation, the browser would
+     claim the vertical drag for the page and the pinch for its own zoom before
+     the renderer ever saw either.
+
+     What that gives up is the browser's pinch zoom over the stage, so the app
+     replaces it rather than removing it: pinching zooms the camera, which gets
+     a low-vision reader nearer the animal than page zoom ever did, and a double
+     tap puts the shot back. Every other surface in the app keeps page zoom. */
+  touch-action: none;
 }
 
 /* A 1px viewport frame with brighter corner ticks. It reads as a specimen
