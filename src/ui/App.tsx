@@ -116,6 +116,7 @@ const DRAG_TO_CLOSE_PX = 80
 function Sheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }): JSX.Element {
   const ref = useRef<HTMLDialogElement | null>(null)
   const from = useRef<number | null>(null)
+  const pulled = useRef(0)
   const [drag, setDrag] = useState(0)
 
   // A real <dialog> rather than a hand-rolled overlay, because it brings the
@@ -153,7 +154,16 @@ function Sheet({ open, onClose, children }: { open: boolean; onClose: () => void
   // started there would have to arbitrate between scrolling and dismissing on
   // every touch; the head never scrolls, so there is nothing to arbitrate.
   function onGrabStart(e: ReactPointerEvent<HTMLDivElement>): void {
+    // A press that began on a control belongs to that control, not to the
+    // sheet. This line is load bearing: capturing the pointer here retargets
+    // the pointerup to the head, so the browser computes the click on the head
+    // rather than on the button it started on, and the close button lights up
+    // under the finger and never fires. That is not a theory, it is what
+    // shipped.
+    if (e.target instanceof Element && e.target.closest('button') !== null) return
+
     from.current = e.clientY
+    pulled.current = 0
     try {
       // Keeps the move events coming if the finger leaves the head mid-pull.
       // Non-fatal on purpose: a refused capture costs a drag that ends early,
@@ -168,14 +178,31 @@ function Sheet({ open, onClose, children }: { open: boolean; onClose: () => void
   function onGrabMove(e: ReactPointerEvent<HTMLDivElement>): void {
     if (from.current === null) return
     // Downward only. Pulling up must not lift the sheet off the bottom edge.
-    setDrag(Math.max(0, e.clientY - from.current))
+    const dy = Math.max(0, e.clientY - from.current)
+    // Kept in a ref as well as in state because the decision below is made from
+    // it. Reading the state variable there means reading whatever the closure
+    // captured, which is a render behind whenever the last move and the release
+    // land in one task: the sheet is visibly pulled halfway down the screen and
+    // the release still measures it as barely moved, so it springs back.
+    pulled.current = dy
+    setDrag(dy)
   }
 
   function onGrabEnd(): void {
     if (from.current === null) return
     from.current = null
-    if (drag > DRAG_TO_CLOSE_PX) onClose()
+    const dy = pulled.current
+    pulled.current = 0
+    if (dy > DRAG_TO_CLOSE_PX) onClose()
     else setDrag(0)
+  }
+
+  // A cancelled pointer is the system taking the gesture away, not somebody
+  // letting go, so it always returns the sheet rather than dismissing it.
+  function onGrabCancel(): void {
+    from.current = null
+    pulled.current = 0
+    setDrag(0)
   }
 
   return (
@@ -193,7 +220,7 @@ function Sheet({ open, onClose, children }: { open: boolean; onClose: () => void
         onPointerDown={onGrabStart}
         onPointerMove={onGrabMove}
         onPointerUp={onGrabEnd}
-        onPointerCancel={onGrabEnd}
+        onPointerCancel={onGrabCancel}
       >
         <span className="sheet-grip" aria-hidden="true" />
         <span className="label">The group</span>
