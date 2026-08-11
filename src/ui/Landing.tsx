@@ -154,7 +154,7 @@ export default function Landing({ mode }: LandingProps): JSX.Element {
                     autoCapitalize="none"
                     autoCorrect="off"
                     spellCheck={false}
-                    placeholder="buttmcgee"
+                    placeholder="its name, or a pasted link"
                     value={link}
                     onChange={(e) => setLink(e.target.value)}
                     onKeyDown={(e) => {

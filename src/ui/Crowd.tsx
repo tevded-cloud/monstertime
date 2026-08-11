@@ -171,7 +171,7 @@ function HandleRow({ groupId, handle }: { groupId: string; handle: string | null
           autoCorrect="off"
           spellCheck={false}
           maxLength={32}
-          placeholder="buttmcgee"
+          placeholder="what you all call it"
           value={typed}
           onChange={(e) => setTyped(e.target.value)}
           onKeyDown={(e) => {

@@ -1033,6 +1033,20 @@ button.creature-name {
   padding-bottom: var(--inset-b);
 }
 
+/* Without this the sheet never closes, however correctly it is closed.
+
+   The browser's own stylesheet hides a dialog with `dialog:not([open])
+   { display: none }`, but that is a user agent rule and ANY author rule beats
+   it, so the `display: flex` above kept the panel painted over the app forever.
+   close() ran, the open attribute went, and the thing stayed on screen.
+
+   It hid for a long time because the obvious test is `expect(dialog.open).toBe
+   (false)`, and that was true the whole time: `open` is a property, not a
+   statement about whether anybody can still see it. */
+.sheet:not([open]) {
+  display: none;
+}
+
 .sheet::backdrop {
   background: rgba(5, 6, 7, 0.66);
 }
@@ -1079,6 +1093,25 @@ button.creature-name {
   min-height: 0;
   display: flex;
   flex-direction: column;
+  /* The sheet scrolls as one thing, which is what a phone expects of it and
+     what stops the panel inside from slicing a line of text in half.
+
+     The rail on a desktop keeps the split scroll it was designed with: there
+     the crowd taking its own scroll past halfway is what stops a group of
+     thirty people pushing the chronicle off the bottom. In a sheet that
+     arrangement gives two scrollable regions stacked in 600px, and the seam
+     between them looks like a rendering fault rather than a boundary. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.sheet-body .panel:not(.chronicle) {
+  max-height: none;
+  overflow-y: visible;
+}
+
+.sheet-body .panel.chronicle {
+  flex: none;
 }
 
 .icon-btn {
@@ -1165,8 +1198,11 @@ button.creature-name {
   font-size: 16px;
 }
 
+/* Dimmer than the rest of the muted text. At --ink-3 a placeholder in a 16px
+   field reads as something already typed in, and somebody who thinks the box is
+   filled in does not fill it in. */
 .text-input::placeholder {
-  color: var(--ink-3);
+  color: #5c6360;
 }
 
 .text-input:focus {
