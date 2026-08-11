@@ -1098,25 +1098,16 @@ button.creature-name {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  /* The sheet scrolls as one thing, which is what a phone expects of it and
-     what stops the panel inside from slicing a line of text in half.
+  /* The split scroll, and it stays. Making the sheet scroll as one thing looked
+     tidier and cost the chronicle: with the crowd uncapped, the invite box, the
+     name field and the way out pushed the first chronicle entry to 729px in a
+     604px sheet, so the payoff surface of the whole app started below the fold
+     and had to be hunted for.
 
-     The rail on a desktop keeps the split scroll it was designed with: there
-     the crowd taking its own scroll past halfway is what stops a group of
-     thirty people pushing the chronicle off the bottom. In a sheet that
-     arrangement gives two scrollable regions stacked in 600px, and the seam
-     between them looks like a rendering fault rather than a boundary. */
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.sheet-body .panel:not(.chronicle) {
-  max-height: none;
-  overflow-y: visible;
-}
-
-.sheet-body .panel.chronicle {
-  flex: none;
+     So the crowd keeps its cap and its own scroll. That is what guarantees the
+     chronicle a fixed share of the sheet no matter how many people are in the
+     group or how much sits in the invite box. The price is a line of text cut
+     at the crowd's boundary, which is what a scroll region looks like. */
 }
 
 .icon-btn {
