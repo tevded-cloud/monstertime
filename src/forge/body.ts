@@ -67,7 +67,7 @@ export interface Body {
 // Tube: the one geometry primitive the body is made of
 // ---------------------------------------------------------------------------
 
-interface RingOut {
+export interface RingOut {
   x: number
   y: number
   z: number
@@ -79,7 +79,7 @@ interface RingOut {
 // almost every part of an animal is a stretched ellipse travelling along a
 // line. Non indexed on purpose: each triangle owns its three vertices, which
 // is what lets a facet take one flat colour and push out on its own for scales.
-class Tube {
+export class Tube {
   readonly geo: THREE.BufferGeometry
   readonly mesh: THREE.Mesh
   private readonly R: number

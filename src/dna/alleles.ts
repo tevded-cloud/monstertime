@@ -26,7 +26,7 @@
 // with nothing on it renders as plain, so the group that sang the most got the
 // dullest skin on the biggest surface of the animal.
 
-import { LOCI, PRESSURE_AXES } from '../core/types'
+import { BUILDABLE_PLANS, LOCI, PRESSURE_AXES } from '../core/types'
 import type { Allele, AlleleId, Genome, Locus, PressureDelta } from '../core/types'
 import { ACTION_VARIANTS } from './actions'
 import { makeRng } from './rng'
@@ -1083,6 +1083,13 @@ export function rollGenome(seed: string): Genome {
   const rng = makeRng(seed)
   const carried = {} as Record<Locus, AlleleId[]>
 
+  // Drawn first, off its own stream rather than the shared one. Taking it from
+  // `rng` would mean adding a third plan later shifted every draw after it and
+  // silently rerolled every allele of every existing group; on its own stream
+  // the roster can grow and only the plan changes.
+  const planRng = makeRng('plan:' + seed)
+  const plan = BUILDABLE_PLANS[planRng.int(BUILDABLE_PLANS.length)]
+
   for (const locus of LOCI) {
     const pool = ALLELES.filter((allele) => allele.locus === locus)
     const early = pool.filter((allele) => allele.minStage <= 1)
@@ -1145,5 +1152,5 @@ export function rollGenome(seed: string): Genome {
     carried[locus] = chosen.map((allele) => allele.id)
   }
 
-  return { seed, carried }
+  return { seed, plan, carried }
 }

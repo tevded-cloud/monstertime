@@ -96,6 +96,32 @@ export interface Allele {
   minStage: number
 }
 
+/**
+ * The shape of animal a creature is, decided at hatch and never changed.
+ *
+ * Taken from GameTev's bestiary, which declares every specimen against this
+ * exact set, so the roster is selected rather than invented and each plan
+ * arrives with recorded skeletons, proportion bands and gaits behind it. No
+ * eighth plan without a specimen asking for one.
+ *
+ * BUILDABLE is what the forge can currently draw. The rest are named here on
+ * purpose: the type is the roster, and a plan with no rig yet should be a
+ * compile error waiting to happen rather than a surprise at runtime.
+ */
+export const BODY_PLANS = [
+  'quadruped',
+  'serpent',
+  'multi-limb',
+  'biped',
+  'winged',
+  'critter',
+  'blob',
+] as const
+export type BodyPlan = (typeof BODY_PLANS)[number]
+
+/** The plans a rig exists for today. Rolling only ever picks from these. */
+export const BUILDABLE_PLANS: BodyPlan[] = ['quadruped', 'serpent']
+
 export interface Genome {
   // Hex string, crypto-random per group. It is the thing that makes two groups'
   // creatures incomparable, and it is sent to every viewer on connect: the
@@ -105,6 +131,10 @@ export interface Genome {
   // here because somebody was one step away from building a hidden-roll feature
   // on an invariant that does not hold.
   seed: string
+  // Which animal this is, before any question of what it grows. Rolled from
+  // the seed and fixed for life, so a group's creature stays one animal that
+  // changes while two groups get genuinely different animals.
+  plan: BodyPlan
   // The alleles this creature carries at each locus: its potential, not its
   // appearance. How many are drawn is tuned in alleles.ts and trades off against
   // itself, so no count is quoted here: drawing too few leaves committed groups

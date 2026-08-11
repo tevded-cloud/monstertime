@@ -9,7 +9,8 @@
 // This file decides when things change and how they move while they change.
 
 import * as THREE from 'three'
-import type { ActionKind, Creature, Genome, Locus, Morphs } from '../core/types'
+import { BUILDABLE_PLANS } from '../core/types'
+import type { ActionKind, BodyPlan, Creature, Genome, Locus, Morphs } from '../core/types'
 import { MORPHS } from '../core/types'
 import {
   auraFor,
@@ -28,6 +29,7 @@ import {
   type Surface,
 } from './materials'
 import { buildBody, buildEgg, REST_POSE, type Body, type Egg, type PoseDrive, type Sockets } from './body'
+import { buildSerpent } from './serpent'
 import { builderFor } from './registry'
 import { registerPlaceholderParts } from './parts'
 
@@ -173,6 +175,10 @@ export class CreatureView {
   private readonly sphere = new THREE.Sphere()
 
   private observer: ResizeObserver | null = null
+  /** Which rig this creature gets. Set from the genome before anything is
+   *  built, and never changed for a given group. */
+  private plan: BodyPlan = 'quadruped'
+
   private media: MediaQueryList | null = null
   private readonly onMedia = () => this.readMotionPreference()
 
@@ -253,6 +259,10 @@ export class CreatureView {
     if (!this.renderer || this.disposed) return
 
     if (genome.seed !== this.seed) this.rebuildWorld(genome.seed)
+    // The plan cannot change for a group, but a rebuilt world has to know it
+    // before anything is built, and a genome arriving with a plan this forge
+    // has no rig for must not take the stage down with it.
+    this.plan = BUILDABLE_PLANS.includes(genome.plan) ? genome.plan : 'quadruped'
     const materials = this.materials
     const palette = this.palette
     if (!materials || !palette) return
@@ -473,7 +483,13 @@ export class CreatureView {
       this.egg = null
     }
     if (this.body) return false
-    this.body = buildBody(materials, palette, this.surface, this.rand)
+    // The one place a body plan turns into geometry. Everything downstream,
+    // the sockets, the parts, the camera framing, the poses, is written against
+    // the Body interface and does not know which rig it is holding.
+    this.body =
+      this.plan === 'serpent'
+        ? buildSerpent(materials, palette, this.surface, this.rand)
+        : buildBody(materials, palette, this.surface, this.rand)
     this.stage.add(this.body.root)
     this.body.setMorphs(this.morphNow, true)
     this.flash = 1
