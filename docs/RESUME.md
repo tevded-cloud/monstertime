@@ -6,6 +6,11 @@ original conversation, and it works from any account or machine.
 
 ---
 
+**Where it is going is a separate document.** `docs/DIRECTION.md` holds the
+design decisions taken after launch, with the reasons: body plans, time-driven
+growth, accounts, the economy and the substance channel. Two of the locked
+decisions below are overturned there. Read it before planning anything.
+
 ## 1. What MonsterTime is
 
 A friend group collectively raises ONE persistent 3D creature, at
@@ -83,8 +88,13 @@ empty registry. That is a real trap for a future test file.
    the same seam as `SPR.get` elsewhere. Code-generated art is a rejected method
    on this account: the intended replacement is hand-authored GLB parts loaded
    into the same registry keys, with no gameplay change.
-4. **No accounts.** The group link is the access control, so the group id must
-   stay unguessable.
+4. ~~**No accounts.** The group link is the access control, so the group id must
+   stay unguessable.~~ **OVERTURNED 2026-08-11, see `DIRECTION.md` 2.4.** It was
+   right for an app whose only shared state was a creature, and it does not
+   survive an economy: coins and votes on top of a self-asserted `actorId` are
+   forgeable by clearing local storage. Sign-in is by emailed link, and it is
+   required to ACT, never to look, so opening a group link stays frictionless.
+   The group id must still stay unguessable.
 5. **"Downloadable" means an installable PWA**, not a desktop binary. It is the
    only shape satisfying downloadable plus phones plus tablets plus desktop from
    one URL, and it is already the house pattern on this site.
