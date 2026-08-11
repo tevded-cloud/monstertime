@@ -303,3 +303,35 @@ export async function createGroup(): Promise<string> {
   const body = (await response.json()) as CreateGroupResponse
   return body.groupId
 }
+
+/**
+ * The group that goes by this name, or null if nobody does.
+ *
+ * A name the server will not even consider (too short, punctuation in it) comes
+ * back as null rather than as an error, because from where the caller stands
+ * those are the same answer: nobody goes by that. Only a server that failed to
+ * answer at all is worth telling somebody about.
+ */
+export async function resolveHandle(handle: string): Promise<string | null> {
+  const response = await fetch(`/api/monstertime/handles/${encodeURIComponent(handle)}`)
+  if (response.status === 404 || response.status === 400) return null
+  if (!response.ok) {
+    throw new Error(`monstertime: resolveHandle failed with status ${response.status}`)
+  }
+  return ((await response.json()) as { groupId: string }).groupId
+}
+
+export type ClaimResult = 'claimed' | 'taken' | 'unusable'
+
+/** Claim a name for a group. Whoever asks first gets it. */
+export async function claimHandle(groupId: string, handle: string): Promise<ClaimResult> {
+  const response = await fetch(`/api/monstertime/handles/${encodeURIComponent(handle)}`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ groupId }),
+  })
+  if (response.ok) return 'claimed'
+  if (response.status === 409) return 'taken'
+  if (response.status === 400) return 'unusable'
+  throw new Error(`monstertime: claimHandle failed with status ${response.status}`)
+}

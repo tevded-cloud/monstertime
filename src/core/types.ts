@@ -195,6 +195,11 @@ export interface GroupSnapshot {
   groupId: string
   createdAt: number
   name: string | null
+  // What the group calls itself, so somebody can open the app and type it
+  // instead of hunting for the link. Null until they pick one. Distinct from
+  // `name`, which is the CREATURE's name: one is how you find the group, the
+  // other is what the animal is called, and they are not the same thing.
+  handle: string | null
   genome: Genome
   actions: ActionRecord[]
 }

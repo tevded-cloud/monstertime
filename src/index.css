@@ -882,6 +882,39 @@ button.creature-name {
   align-items: center;
 }
 
+/* The name the group opens by. Sits under the link because the link is what
+   brings the first person in and the name is what brings everybody back. */
+.handle-row {
+  margin-top: 12px;
+}
+
+.handle-row .label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.handle-row .text-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.invite p.handle-set {
+  margin-top: 12px;
+  margin-bottom: 0;
+}
+
+.handle-set strong {
+  font-family: var(--font-mono);
+  color: var(--ember);
+  font-weight: 400;
+}
+
+/* The way back to the front door. Quiet, and last, because it is the one
+   control here that takes somebody away from their creature. */
+.leave {
+  margin-top: 14px;
+}
+
 .link-box {
   flex: 1;
   min-width: 0;

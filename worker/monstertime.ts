@@ -71,6 +71,39 @@ const SEED_BYTES = 32
  */
 const GROUP_ID = /^[A-Za-z0-9_-]{16,64}$/
 
+/**
+ * The name a group calls itself, so friends can open the app and type
+ * "buttmcgee" instead of going to find the link somebody sent them in March.
+ *
+ * Lower case, digits and hyphens. Folded to lower case before anything is done
+ * with it, because a name shouted across a room has no case and two groups
+ * separated only by a capital letter is a trap rather than a feature.
+ *
+ * This is a NICKNAME, not a key. The 22 character id is still what a group
+ * actually is, the link still works, and nothing here can reach a group that
+ * has not published a name for itself.
+ */
+const HANDLE = /^[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$/
+
+function cleanHandle(raw: string): string | null {
+  const folded = raw.trim().toLowerCase().replace(/\s+/g, '-')
+  return HANDLE.test(folded) ? folded : null
+}
+
+/**
+ * Where a name's pointer lives.
+ *
+ * A pointer is an ordinary MonsterGroup that holds one row saying which group
+ * the name belongs to, and it works because '#' cannot appear in GROUP_ID: the
+ * two key spaces cannot collide, so no name can ever be mistaken for a group
+ * and no group id can ever be typed in as a name. Doing it this way means no
+ * second Durable Object class, and therefore no third migration on a Worker
+ * that is also running ColorTime's live rooms.
+ */
+function handleKey(handle: string): string {
+  return `#h:${handle}`
+}
+
 /** What an actor id may look like. The client makes these up and keeps them in
  *  local storage, so this is a shape check, never an identity claim. */
 const ACTOR_ID = /^[A-Za-z0-9_-]{1,64}$/
@@ -300,6 +333,7 @@ export function handleMonsterTime(request: Request, env: MonsterEnv): Promise<Re
 
 async function route(request: Request, url: URL, env: MonsterEnv): Promise<Response> {
   const parts = url.pathname.slice(PREFIX.length).split('/')
+  if (parts[0] === 'handles') return handles(request, parts, env)
   if (parts[0] !== 'groups') return json({ error: 'No such endpoint.' }, 404)
 
   // POST /api/monstertime/groups
@@ -337,6 +371,62 @@ async function route(request: Request, url: URL, env: MonsterEnv): Promise<Respo
   }
 
   return json({ error: 'No such endpoint.' }, 404)
+}
+
+/**
+ * The name a group answers to.
+ *
+ *   GET  /api/monstertime/handles/:name   which group is this, if any
+ *   PUT  /api/monstertime/handles/:name   claim it for a group
+ *
+ * A name is a way back in for people who are already in the group and have lost
+ * the link, which on a phone is most of the time. It is not a second security
+ * boundary and is not pretending to be one: anybody who types the name is in,
+ * which is the entire point of it and is what was asked for.
+ */
+async function handles(request: Request, parts: string[], env: MonsterEnv): Promise<Response> {
+  if (parts.length !== 2) return json({ error: 'No such endpoint.' }, 404)
+  const handle = cleanHandle(decodeURIComponent(parts[1]))
+  if (handle === null) {
+    return json({ error: 'A name is 3 to 32 letters, numbers or hyphens.' }, 400)
+  }
+  const pointer = env.MONSTER_GROUP.getByName(handleKey(handle))
+
+  if (request.method === 'GET') {
+    const groupId = await pointer.resolveHandle()
+    if (groupId === null) return json({ error: 'Nobody is called that yet.' }, 404)
+    return json({ handle, groupId })
+  }
+
+  if (request.method !== 'PUT') return json({ error: 'A name is claimed with PUT.' }, 405)
+
+  const asked = await readGroupId(request)
+  if (asked === null) return json({ error: 'Say which group.' }, 400)
+
+  // The group has to exist before it can be called anything. Without this a
+  // stranger could park every good name against ids nobody ever minted.
+  const group = env.MONSTER_GROUP.getByName(asked)
+  if ((await group.snapshot()) === null) return json({ error: 'No such group.' }, 404)
+
+  const holder = await pointer.claimHandle(asked)
+  if (holder !== asked) return json({ error: 'Somebody already goes by that.' }, 409)
+  await group.setHandle(handle)
+  return json({ handle, groupId: asked }, 201)
+}
+
+/** The group id out of a PUT body, or null if it is not one. Bounded before it
+ *  is looked at, because this is a door on the open internet. */
+async function readGroupId(request: Request): Promise<string | null> {
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return null
+  }
+  if (typeof body !== 'object' || body === null) return null
+  const asked = (body as { groupId?: unknown }).groupId
+  if (typeof asked !== 'string' || !GROUP_ID.test(asked)) return null
+  return asked
 }
 
 // ---------------------------------------------------------------------------
@@ -472,6 +562,55 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
    *  this id. Here so a cold load has something to draw before the socket is up. */
   async snapshot(): Promise<GroupSnapshot | null> {
     return this.readSnapshot()
+  }
+
+  /**
+   * Which group this name points at, or null. Reads and never writes, so a
+   * stranger typing names into the box cannot make this app create storage: an
+   * unclaimed name is exactly as cheap to ask about as an unminted group id.
+   */
+  async resolveHandle(): Promise<string | null> {
+    if (!this.exists()) return null
+    return this.metaValue('points')
+  }
+
+  /**
+   * Claim this name for a group. First come, first served.
+   *
+   * Returns whichever group holds it, which is the answer the caller needs
+   * either way: the same id back means the claim succeeded, a different one
+   * means somebody got there first. Deciding it inside the object is what makes
+   * it safe, because a Durable Object runs one request at a time, so two groups
+   * claiming the same name at the same moment cannot both read "free".
+   */
+  async claimHandle(groupId: string): Promise<string> {
+    this.schema()
+    const held = this.metaValue('points')
+    if (held !== null) return held
+    this.setMeta('points', groupId)
+    return groupId
+  }
+
+  /** Records the name a group answers to, for the app to show. Older names are
+   *  deliberately left pointing here, so a link or a name already given out to
+   *  somebody goes on working after the group renames itself. */
+  async setHandle(handle: string): Promise<void> {
+    if (!this.exists()) return
+    this.setMeta('handle', handle)
+
+    // Everybody looking has to be told, or the person who claimed the name sees
+    // the form they just filled in still sitting there and nobody else learns
+    // the group has a name until they next reload.
+    //
+    // A whole snapshot rather than a message of its own, because the contract
+    // has no type for this and a fresh snapshot is already defined as truth
+    // that replaces whatever a client had. It re-sends the action log, which
+    // for a long lived group is not free, and it is the right trade here: a
+    // group is named once or twice in its life.
+    const snapshot = this.readSnapshot()
+    if (snapshot !== null) {
+      this.broadcast({ type: 'snapshot', snapshot, present: this.present(null) })
+    }
   }
 
   /**
@@ -862,6 +1001,7 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
       groupId: this.metaValue('groupId') ?? '',
       createdAt: Number(this.metaValue('createdAt') ?? '0'),
       name: this.metaValue('name'),
+      handle: this.metaValue('handle'),
       genome: rollGenome(seed),
       actions: this.ctx.storage.sql
         .exec<{

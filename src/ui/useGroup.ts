@@ -76,23 +76,6 @@ function dropKey(key: string): void {
   }
 }
 
-/** The display modes a launcher uses when the app is not in a browser tab. */
-const INSTALLED_MODES = ['standalone', 'fullscreen', 'minimal-ui', 'window-controls-overlay']
-
-function launchedInstalled(): boolean {
-  try {
-    for (const mode of INSTALLED_MODES) {
-      if (matchMedia(`(display-mode: ${mode})`).matches) return true
-    }
-  } catch {
-    // matchMedia with an unknown feature throws in some engines rather than
-    // returning a non-matching list. Fall through to the iOS check.
-  }
-  // iOS Safari never implemented display-mode, and this non-standard flag is
-  // still the only signal a home screen launch gives there.
-  return (navigator as { standalone?: boolean }).standalone === true
-}
-
 export function rememberGroup(id: string): void {
   try {
     localStorage.setItem(GROUP_KEY, id)
@@ -114,15 +97,16 @@ export function forgetGroup(): void {
 /**
  * Called once, before the first render, from main.tsx.
  *
- * Restores only for an installed launch. A browser tab is deliberately left
- * alone: in a browser the empty-hash screen is the ONLY route to starting or
- * joining a different creature (App renders it whenever there is no hash, and
- * nothing else links to it), so restoring there would take that door away and
- * leave the error screen as the only way back to it.
+ * Restores in a browser tab as well as an installed launch. It was installed
+ * only to begin with, because the empty-hash screen is the one route to the
+ * front door and restoring over it would take that away. That was the wrong
+ * trade: closing the tab and coming back is the ordinary thing people do, and
+ * it meant going to find a link in a chat thread from weeks ago to see your own
+ * creature. The front door is reachable now whether or not the hash is empty,
+ * from the control on the group panel, so there is nothing left to protect.
  */
 export function restoreGroupOnLaunch(): void {
   if (readGroupIdFromHash() !== null) return
-  if (!launchedInstalled()) return
   const id = readKey(GROUP_KEY)
   if (id === null || !ID_SHAPE.test(id)) return
   // replaceState, not `location.hash = id`: this should look like where the

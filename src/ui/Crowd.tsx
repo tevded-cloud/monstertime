@@ -5,10 +5,12 @@
 // creature does not know who clicked most, it only carries the shape of what
 // was done to it.
 
+import { useState } from 'react'
 import type { JSX } from 'react'
 import { PRESSURE_AXES } from '../core/types'
 import type { Bond, Creature, PressureAxis, PresentActor } from '../core/types'
-import { groupLink, useCopy } from './useGroup'
+import { claimHandle } from '../net'
+import { forgetGroup, groupLink, useCopy } from './useGroup'
 
 const HABIT: Record<PressureAxis, string> = {
   nourish: 'feeds it',
@@ -26,9 +28,10 @@ interface CrowdProps {
   present: PresentActor[]
   actorId: string
   groupId: string
+  handle: string | null
 }
 
-export default function Crowd({ creature, present, actorId, groupId }: CrowdProps): JSX.Element {
+export default function Crowd({ creature, present, actorId, groupId, handle }: CrowdProps): JSX.Element {
   const bonds: Record<string, Bond> = creature ? creature.bonds : {}
   const everyone = Object.values(bonds)
   const hereIds = new Set(present.map((p) => p.actorId))
@@ -84,7 +87,102 @@ export default function Crowd({ creature, present, actorId, groupId }: CrowdProp
           <span className="label">Bring somebody in</span>
         )}
         <LinkRow groupId={groupId} />
+        <HandleRow groupId={groupId} handle={handle} />
+        <LeaveRow />
       </div>
+    </div>
+  )
+}
+
+/**
+ * The way back to the front door.
+ *
+ * It has to exist here, because the app now reopens the last group on every
+ * launch. Before that, an empty address bar WAS this control; with the group
+ * restored there is otherwise nothing anywhere that reaches the screen where a
+ * creature is started or another one is opened.
+ */
+function LeaveRow(): JSX.Element {
+  return (
+    <button
+      type="button"
+      className="btn-text leave"
+      onClick={() => {
+        // Forget before clearing, or the launch after this one restores the
+        // group that was just walked away from.
+        forgetGroup()
+        location.hash = ''
+      }}
+    >
+      Start or open a different creature
+    </button>
+  )
+}
+
+/**
+ * What the group calls itself, which is how anybody gets back in without the
+ * link. A link lives in one chat thread and is gone the moment that thread
+ * moves on; a name is the thing people actually remember.
+ */
+function HandleRow({ groupId, handle }: { groupId: string; handle: string | null }): JSX.Element {
+  const [typed, setTyped] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [problem, setProblem] = useState<string | null>(null)
+
+  if (handle) {
+    return (
+      <p className="handle-set">
+        Anybody can open this by typing <strong>{handle}</strong> on the front screen.
+      </p>
+    )
+  }
+
+  const wanted = typed.trim().toLowerCase().replace(/\s+/g, '-')
+
+  async function claim(): Promise<void> {
+    if (!wanted || busy) return
+    setBusy(true)
+    setProblem(null)
+    try {
+      const result = await claimHandle(groupId, wanted)
+      if (result === 'taken') setProblem('Another group already goes by that. Try adding a word.')
+      if (result === 'unusable') setProblem('Letters, numbers and hyphens, 3 to 32 of them.')
+      // On success nothing is set here: the name arrives in the next snapshot
+      // from the server, the same way every other shared fact about the group
+      // does, so two people looking at this panel cannot disagree about it.
+    } catch {
+      setProblem('That did not take. Try once more.')
+    }
+    setBusy(false)
+  }
+
+  return (
+    <div className="handle-row">
+      <label className="label" htmlFor="group-handle">
+        Give the group a name to open it by
+      </label>
+      <div className="link-row">
+        <input
+          id="group-handle"
+          className="text-input"
+          type="text"
+          inputMode="text"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          maxLength={32}
+          placeholder="buttmcgee"
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void claim()
+          }}
+        />
+        <button type="button" className="btn" disabled={!wanted || busy} onClick={() => void claim()}>
+          {busy ? 'Asking' : 'Claim'}
+        </button>
+      </div>
+      {problem && <p className="hint hint-bad">{problem}</p>}
     </div>
   )
 }

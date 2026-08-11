@@ -58,7 +58,13 @@ export default function App(): JSX.Element {
 
   const panels = (
     <>
-      <Crowd creature={group.creature} present={group.present} actorId={group.actor.id} groupId={groupId} />
+      <Crowd
+        creature={group.creature}
+        present={group.present}
+        actorId={group.actor.id}
+        groupId={groupId}
+        handle={group.snapshot ? group.snapshot.handle : null}
+      />
       <Chronicle creature={group.creature} actions={actions} />
     </>
   )

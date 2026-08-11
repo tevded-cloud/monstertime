@@ -6,7 +6,7 @@
 
 import { useState } from 'react'
 import type { JSX } from 'react'
-import { createGroup } from '../net'
+import { createGroup, resolveHandle } from '../net'
 import { commitLocalName, groupIdFromText, setGroupHash } from './useGroup'
 
 const NAME_MAX = 24
@@ -39,19 +39,48 @@ export default function Landing({ mode }: LandingProps): JSX.Element {
     }
   }
 
-  function join(): void {
-    if (!ready) return
+  async function join(): Promise<void> {
+    if (!ready || busy) return
     if (mode === 'join') {
       commitLocalName(clean)
       return
     }
-    const id = groupIdFromText(link)
-    if (!id) {
-      setError('That link does not look like a creature. Paste the whole thing.')
+
+    const raw = link.trim()
+
+    // Which of the two this is has to be decided on the shape of the text, not
+    // on whether it parses: a group id is any run of 3 to 64 letters, digits,
+    // hyphens and underscores, so EVERY name a person would pick also parses as
+    // an id. Reading it as an id first sent "the-lads" straight to a group
+    // called the-lads, which does not exist, and the app sat waiting for it.
+    // A link is the thing with a slash, a hash or a scheme in it. Anything
+    // else is a name.
+    if (/[#/]|https?:/i.test(raw)) {
+      const fromLink = groupIdFromText(raw)
+      if (!fromLink) {
+        setError('That link does not look like a creature. Paste the whole thing.')
+        return
+      }
+      commitLocalName(clean)
+      setGroupHash(fromLink)
       return
     }
-    commitLocalName(clean)
-    setGroupHash(id)
+
+    setBusy(true)
+    setError(null)
+    try {
+      const found = await resolveHandle(raw)
+      if (!found) {
+        setError('Nobody goes by that yet. Check the spelling, or paste the whole link.')
+        setBusy(false)
+        return
+      }
+      commitLocalName(clean)
+      setGroupHash(found)
+    } catch {
+      setError('Could not check that just now. Try once more.')
+      setBusy(false)
+    }
   }
 
   const invited = mode === 'join'
@@ -88,7 +117,7 @@ export default function Landing({ mode }: LandingProps): JSX.Element {
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => {
               if (e.key !== 'Enter') return
-              if (invited) join()
+              if (invited) void join()
               else void start()
             }}
           />
@@ -97,7 +126,7 @@ export default function Landing({ mode }: LandingProps): JSX.Element {
 
         {invited ? (
           <div className="row">
-            <button type="button" className="btn btn-primary" disabled={!ready} onClick={join}>
+            <button type="button" className="btn btn-primary" disabled={!ready} onClick={() => void join()}>
               Go and meet it
             </button>
           </div>
@@ -116,32 +145,39 @@ export default function Landing({ mode }: LandingProps): JSX.Element {
           <div className="door">
             {joining ? (
               <>
-                <p>Paste the link a friend sent you.</p>
+                <p>Type what the group calls itself, or paste the link somebody sent you.</p>
                 <div className="link-row">
                   <input
                     className="text-input"
                     type="text"
-                    inputMode="url"
+                    inputMode="text"
+                    autoCapitalize="none"
+                    autoCorrect="off"
                     spellCheck={false}
-                    placeholder="https://..."
+                    placeholder="buttmcgee"
                     value={link}
                     onChange={(e) => setLink(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') join()
+                      if (e.key === 'Enter') void join()
                     }}
                   />
                 </div>
                 <div className="row">
-                  <button type="button" className="btn btn-line" disabled={!ready || !link.trim()} onClick={join}>
-                    Join them
+                  <button
+                    type="button"
+                    className="btn btn-line"
+                    disabled={!ready || !link.trim() || busy}
+                    onClick={() => void join()}
+                  >
+                    {busy ? 'Looking' : 'Go and find it'}
                   </button>
                 </div>
               </>
             ) : (
               <>
-                <p>Already got a link from somebody?</p>
+                <p>Already have one on the go?</p>
                 <button type="button" className="btn-text" onClick={() => setJoining(true)}>
-                  Join a creature that already exists
+                  Open it by name or link
                 </button>
               </>
             )}
