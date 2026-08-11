@@ -23,6 +23,10 @@
   },
   /* The tests reach into src, so this project typechecks them against the real
      modules rather than against a copy of their shapes. A test that compiles
-     only because it was allowed to guess at an interface is worse than none. */
-  "include": ["test", "vitest.config.ts"]
+     only because it was allowed to guess at an interface is worse than none.
+
+     test/worker is excluded and has its own project: those run inside workerd
+     against the Workers globals, not node against the DOM ones. */
+  "include": ["test", "vitest.config.ts"],
+  "exclude": ["test/worker"]
 }

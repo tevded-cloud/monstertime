@@ -14,6 +14,11 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   test: {
     include: ['test/**/*.test.ts'],
+    // test/worker runs inside workerd and imports `cloudflare:test`, which
+    // does not resolve in node. It has its own config and its own command;
+    // without this exclusion those files are collected here and fail on import
+    // while the suite still reports every test it did run as passing.
+    exclude: ['test/worker/**'],
     environment: 'node',
     // The uniqueness sweep is the long one. The default 5s would fail it on a
     // slow machine while the code was perfectly correct, which is the kind of
