@@ -1011,6 +1011,34 @@ button.creature-name {
   padding: 14px 16px;
   border-bottom: 1px solid var(--line-soft);
   flex: none;
+  /* The drag surface. `none` because the browser must not claim the vertical
+     gesture for scrolling before the handler sees it; the head does not scroll,
+     so nothing is given up. */
+  position: relative;
+  touch-action: none;
+}
+
+/* Says the head can be pulled. Without it the drag is real but invisible, and
+   an escape route nobody can see is not an escape route. */
+.sheet-grip {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  width: 36px;
+  height: 4px;
+  margin-left: -18px;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+/* Snaps back when a pull is let go short of the threshold. Suppressed mid-drag
+   so the sheet tracks the finger exactly rather than easing behind it. */
+.sheet {
+  transition: transform 160ms ease;
+}
+
+.sheet.is-dragging {
+  transition: none;
 }
 
 .sheet-body {

@@ -5,7 +5,7 @@
 // history stack to keep in step, and a shared URL always lands on the animal.
 
 import { useEffect, useRef, useState } from 'react'
-import type { JSX, ReactNode } from 'react'
+import type { JSX, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import type { ActionRecord } from '../core/types'
 import ActionBar from './ActionBar'
 import Chronicle from './Chronicle'
@@ -108,22 +108,94 @@ export default function App(): JSX.Element {
 // children a fresh identity on every render and invalidate their memos.
 const NO_ACTIONS: ActionRecord[] = []
 
+// How far the sheet has to be pulled down before letting go closes it. Short
+// enough to feel like a flick, long enough that a thumb resting on the head
+// while reading does not dismiss the thing being read.
+const DRAG_TO_CLOSE_PX = 80
+
 function Sheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }): JSX.Element {
   const ref = useRef<HTMLDialogElement | null>(null)
+  const from = useRef<number | null>(null)
+  const [drag, setDrag] = useState(0)
 
   // A real <dialog> rather than a hand-rolled overlay, because it brings the
   // focus trap and the Escape key with it and both would otherwise be work we
   // would get subtly wrong.
+  //
+  // What it does NOT bring is any way out that a phone has. Escape is a key,
+  // and a modal dialog swallows the back gesture, so until the two handlers
+  // below existed the close button was the only exit: one 32px target, and if
+  // a tap on it missed or was swallowed (iOS eats the first tap on the page
+  // after the share sheet dismisses, which is exactly when somebody is in here
+  // sending an invite) the group menu could not be closed at all.
   useEffect(() => {
     const el = ref.current
     if (!el) return
     if (open && !el.open) el.showModal()
     if (!open && el.open) el.close()
+    if (open) setDrag(0)
   }, [open])
 
+  // Tapping the dimmed area closes it. A <dialog> does not do this on its own.
+  // The backdrop is not a separate element, so a press on it targets the dialog
+  // itself; the rect test is what tells that apart from a press on the sheet's
+  // own bottom inset padding, which is inside and must not close.
+  function onBackdrop(e: ReactPointerEvent<HTMLDialogElement>): void {
+    const el = ref.current
+    if (!el || e.target !== el) return
+    const box = el.getBoundingClientRect()
+    const inside =
+      e.clientX >= box.left && e.clientX <= box.right && e.clientY >= box.top && e.clientY <= box.bottom
+    if (!inside) onClose()
+  }
+
+  // Pull down to dismiss, from the head only. The body scrolls, and a drag that
+  // started there would have to arbitrate between scrolling and dismissing on
+  // every touch; the head never scrolls, so there is nothing to arbitrate.
+  function onGrabStart(e: ReactPointerEvent<HTMLDivElement>): void {
+    from.current = e.clientY
+    try {
+      // Keeps the move events coming if the finger leaves the head mid-pull.
+      // Non-fatal on purpose: a refused capture costs a drag that ends early,
+      // while letting it throw here would take the whole press handler down and
+      // with it the head this sheet is dismissed from.
+      e.currentTarget.setPointerCapture(e.pointerId)
+    } catch {
+      // Nothing to do. The pull still works while the finger stays on the head.
+    }
+  }
+
+  function onGrabMove(e: ReactPointerEvent<HTMLDivElement>): void {
+    if (from.current === null) return
+    // Downward only. Pulling up must not lift the sheet off the bottom edge.
+    setDrag(Math.max(0, e.clientY - from.current))
+  }
+
+  function onGrabEnd(): void {
+    if (from.current === null) return
+    from.current = null
+    if (drag > DRAG_TO_CLOSE_PX) onClose()
+    else setDrag(0)
+  }
+
   return (
-    <dialog className="sheet" ref={ref} onClose={onClose} onCancel={onClose} aria-label="The group and the chronicle">
-      <div className="sheet-head">
+    <dialog
+      className={drag > 0 ? 'sheet is-dragging' : 'sheet'}
+      ref={ref}
+      style={drag > 0 ? { transform: `translateY(${drag}px)` } : undefined}
+      onClose={onClose}
+      onCancel={onClose}
+      onPointerDown={onBackdrop}
+      aria-label="The group and the chronicle"
+    >
+      <div
+        className="sheet-head"
+        onPointerDown={onGrabStart}
+        onPointerMove={onGrabMove}
+        onPointerUp={onGrabEnd}
+        onPointerCancel={onGrabEnd}
+      >
+        <span className="sheet-grip" aria-hidden="true" />
         <span className="label">The group</span>
         <button type="button" className="icon-btn" onClick={onClose} aria-label="Close">
           <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
