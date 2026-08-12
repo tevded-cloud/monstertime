@@ -38,7 +38,7 @@
 // domain keeps being answered by the asset server exactly as it was before
 // this existed. See worker/README.md for what the site has to add.
 import { DurableObject } from 'cloudflare:workers'
-import { deriveCreature, rollGenome, variantById } from '../src/dna/index'
+import { deriveCreature, rollGenome, stageOfGrowth, variantById } from '../src/dna/index'
 import type {
   ActionRecord,
   ClientMessage,
@@ -139,6 +139,54 @@ const MAX_ACTIONS = 5000
  * refused is the worst possible way to learn it.
  */
 const CAP_WARNING = 100
+
+// ---------------------------------------------------------------------------
+// Growth
+// ---------------------------------------------------------------------------
+
+/**
+ * How long an untouched creature takes to reach its first stage, at pace 1.
+ *
+ * This is the number that makes a creature a living thing rather than a
+ * scoreboard: it grows while every member has the app shut, and a group coming
+ * back after a night finds it further along than they left it.
+ *
+ * Nothing is scheduled to make that happen. Growth is worked out when somebody
+ * asks, from a stored total plus the hours since it was stored, so a group
+ * nobody is looking at costs exactly nothing and a read never writes. An alarm
+ * that woke every group on the domain every hour to tick a number nobody was
+ * watching would be the same creature and a real bill.
+ */
+const HATCH_HOURS = 6
+const HOUR = 60 * 60 * 1000
+/** Growth points per millisecond at pace 1. STAGE_ACTIONS[1] is 5. */
+const GROWTH_PER_MS = 5 / (HATCH_HOURS * HOUR)
+
+/**
+ * What one action is worth, and how fast that falls away inside a stage.
+ *
+ * Interaction is meant to bring a stage forward, not to replace the waiting: a
+ * group that hammers the buttons should get there in well under an hour rather
+ * than in six, and a group that presses once an evening should still be moving.
+ * So the first thing done in a stage is worth the most and each one after it is
+ * worth less, down to a floor, which is what stops a stage being skipped by
+ * somebody with a fast thumb.
+ *
+ * Rational rather than exponential, deliberately: this number is written into
+ * every row and replayed by every client, so it is built from the four
+ * operations that return the same bits on every engine.
+ *
+ * These are first guesses. They want playing with before they want defending.
+ */
+const ACTION_WORTH = 0.2
+const ACTION_FLOOR = 0.35
+const ACTION_HALF = 8
+
+/** What a group may set its pace to. Below the floor a creature would take a
+ *  month; above the ceiling the whole life is one sitting and the log's own
+ *  rate limits become the real constraint anyway. */
+const PACE_MIN = 0.25
+const PACE_MAX = 6
 
 const MINUTE_MS = 60_000
 const HOUR_MS = 60 * MINUTE_MS
@@ -527,7 +575,8 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     )
     this.ctx.storage.sql.exec(
       'CREATE TABLE IF NOT EXISTS actions(n INTEGER PRIMARY KEY, id TEXT NOT NULL,' +
-        ' variantId TEXT NOT NULL, actorId TEXT NOT NULL, actorName TEXT NOT NULL, at INTEGER NOT NULL)',
+        ' variantId TEXT NOT NULL, actorId TEXT NOT NULL, actorName TEXT NOT NULL,' +
+        ' at INTEGER NOT NULL, growth REAL NOT NULL DEFAULT 0)',
     )
     // The per person brake is read straight back out of the log rather than
     // kept anywhere, which is what makes it survive hibernation for free. This
@@ -838,23 +887,29 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     // array and nothing else, but a timestamp that ran backwards after a clock
     // correction would show a creature whose life happened out of order.
     const at = tail !== null && tail.at > now ? tail.at : now
+    // Folded before the row is written, so the row carries the total INCLUDING
+    // what this action was worth. A replay then sees the creature exactly as
+    // grown as it was at the moment the pressure landed.
+    const grown = this.addActionGrowth(at)
     const action: ActionRecord = {
       id: crypto.randomUUID(),
       variantId,
       actorId: seat.actorId,
       actorName: seat.actorName,
       at,
+      growth: grown,
     }
     // Written before it is told, always. An action that was announced and then
     // failed to save would leave everybody looking at a creature that nobody
     // arriving later would ever see.
     this.ctx.storage.sql.exec(
-      'INSERT INTO actions(id, variantId, actorId, actorName, at) VALUES(?, ?, ?, ?, ?)',
+      'INSERT INTO actions(id, variantId, actorId, actorName, at, growth) VALUES(?, ?, ?, ?, ?, ?)',
       action.id,
       action.variantId,
       action.actorId,
       action.actorName,
       action.at,
+      action.growth,
     )
     // Kept as a number rather than counted, because the honest question is a
     // scan of the index and it would be asked on every action. Correct because
@@ -981,9 +1036,64 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     if (reached >= stage) return true
     const snapshot = this.readSnapshot()
     if (snapshot === null) return false
-    const grown = deriveCreature(snapshot.genome, snapshot.actions, snapshot.name).stage
+    const grown = deriveCreature(
+      snapshot.genome,
+      snapshot.actions,
+      snapshot.name,
+      snapshot.growth,
+    ).stage
     if (grown > reached) this.setMeta('stage', String(grown))
     return grown >= stage
+  }
+
+  // -- growth ----------------------------------------------------------------
+
+  /** This group's pace, clamped, defaulting to 1. */
+  private pace(): number {
+    const raw = Number(this.metaValue('pace') ?? '1')
+    if (!Number.isFinite(raw)) return 1
+    return Math.min(PACE_MAX, Math.max(PACE_MIN, raw))
+  }
+
+  /**
+   * How grown the creature is at this instant.
+   *
+   * A stored total plus the time since it was stored. Nothing is written, which
+   * is what makes reading it free and what lets an idle group cost nothing at
+   * all: the creature has been growing the whole time, it simply had not been
+   * added up until somebody asked.
+   */
+  private growthNow(at: number): number {
+    const base = Number(this.metaValue('growth') ?? '0')
+    // Falls back to when the group was made, NOT to now. Defaulting to now was
+    // a bug with no symptom except the whole feature quietly not working: every
+    // read set the clock to the moment it was asked, elapsed was always zero,
+    // and a creature nobody had acted on grew not at all, forever.
+    const since = Number(this.metaValue('grownAt') ?? this.metaValue('createdAt') ?? String(at))
+    const elapsed = Math.max(0, at - since)
+    return (Number.isFinite(base) ? base : 0) + elapsed * GROWTH_PER_MS * this.pace()
+  }
+
+  /**
+   * Fold an action's worth into the total and store the result.
+   *
+   * Called only from `act`, which already writes, so growth never turns a read
+   * into a write. The worth falls away across the actions taken since this
+   * stage began, so a burst brings a stage forward without skipping it.
+   */
+  private addActionGrowth(at: number): number {
+    const now = this.growthNow(at)
+    const stage = stageOfGrowth(now)
+    const done = Number(this.metaValue('sinceStage') ?? '0')
+    const worth = ACTION_WORTH * (ACTION_FLOOR + (1 - ACTION_FLOOR) / (1 + done / ACTION_HALF))
+    const next = now + worth
+
+    this.setMeta('growth', String(next))
+    this.setMeta('grownAt', String(at))
+    // Reset the run when the stage changes, so every stage starts with actions
+    // at full value rather than inheriting the last one's exhaustion.
+    this.setMeta('sinceStage', stageOfGrowth(next) === stage ? String(done + 1) : '0')
+    return next
   }
 
   /**
@@ -1002,6 +1112,8 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
       createdAt: Number(this.metaValue('createdAt') ?? '0'),
       name: this.metaValue('name'),
       handle: this.metaValue('handle'),
+      growth: this.growthNow(Date.now()),
+      pace: this.pace(),
       genome: rollGenome(seed),
       actions: this.ctx.storage.sql
         .exec<{
@@ -1010,7 +1122,8 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
           actorId: string
           actorName: string
           at: number
-        }>('SELECT id, variantId, actorId, actorName, at FROM actions ORDER BY n')
+          growth: number
+        }>('SELECT id, variantId, actorId, actorName, at, growth FROM actions ORDER BY n')
         .toArray(),
     }
   }

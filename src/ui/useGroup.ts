@@ -375,9 +375,13 @@ export function useGroup(): GroupHandle {
   // must happen exactly once per real change.
   const actionCount = shown ? shown.actions.length : -1
   const givenName = shown ? shown.name : null
+  // Growth is watched as well, because it moves without the log moving: hours
+  // pass, the server sends a fresh snapshot, and the creature is older with the
+  // same number of actions behind it.
+  const grown = shown ? shown.growth : 0
   const creature = useMemo(
-    () => (shown ? deriveCreature(shown.genome, shown.actions, shown.name) : null),
-    [shown, actionCount, givenName],
+    () => (shown ? deriveCreature(shown.genome, shown.actions, shown.name, shown.growth) : null),
+    [shown, actionCount, givenName, grown],
   )
 
   const act = useCallback((variantId: string) => {

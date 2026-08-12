@@ -66,6 +66,19 @@ export interface ActionRecord {
   actorId: string
   actorName: string
   at: number
+  // How grown the creature was when this happened, in growth points. Written by
+  // the server, like id and at, and for the same reason: it decides which stage
+  // the pressure landed in.
+  //
+  // This is how time gets into a creature that is a pure function of its log.
+  // Growth accrues from elapsed hours as well as from things people do, and
+  // stamping the total onto each row means a replay knows exactly how old the
+  // animal was at every step without anybody consulting a clock.
+  //
+  // Absent on rows written before growth existed, and on fixtures that do not
+  // care; readers fall back to the row's index, which is what growth was when
+  // one action meant one point.
+  growth?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -232,6 +245,19 @@ export interface GroupSnapshot {
   handle: string | null
   genome: Genome
   actions: ActionRecord[]
+  // How grown the creature is right now, in growth points, as of the moment
+  // this snapshot was made. Accrues from elapsed time as well as from what
+  // people do, so a creature grows while every member has the app shut.
+  //
+  // Computed rather than stored, from a stored base plus the hours since: a
+  // read never writes, which is what keeps growth free. Every client derives
+  // from this one number, so nobody's clock is consulted and nobody disagrees.
+  growth: number
+  // How fast this group wants its creature to live, as a multiplier on the
+  // hours. 1 is the default. A group that wants one interaction a day and a
+  // long slow animal turns it down; a group that wants to raise one in an
+  // evening turns it up.
+  pace: number
 }
 
 // Server -> client.

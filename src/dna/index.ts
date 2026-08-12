@@ -8,4 +8,4 @@
 
 export { ALLELES, alleleById, rollGenome } from './alleles'
 export { ACTION_VARIANTS, availableVariants, pastTense, variantById } from './actions'
-export { deriveCreature, emptyPressures } from './express'
+export { deriveCreature, emptyPressures, stageOfGrowth } from './express'

@@ -250,6 +250,13 @@ function affinityWeights(allele: Allele): Record<PressureAxis, number> {
 // Stages
 // ---------------------------------------------------------------------------
 
+/** Which stage a given amount of growth is. Exported because the server has to
+ *  answer the same question when it gates an action, and there must be exactly
+ *  one copy of that answer. */
+export function stageOfGrowth(grown: number): number {
+  return stageFor(grown)
+}
+
 function stageFor(count: number): number {
   let stage = 0
   for (let i = 1; i < STAGE_ACTIONS.length; i++) {
@@ -258,13 +265,46 @@ function stageFor(count: number): number {
   return stage
 }
 
-function isGrowthTick(count: number): boolean {
-  if (count <= 0) return false
+/**
+ * The growth points at which the creature changes, strictly after `from` and up
+ * to and including `to`.
+ *
+ * This replaced an equality test on the action count, and the reason is the
+ * whole of what growth is for. When one action meant one point, a tick was
+ * "count is exactly 18" and no action could ever skip past it. Growth now moves
+ * in fractions and in jumps, because hours pass while nobody is looking, so a
+ * creature can cross eighteen without ever standing on it. A tick has to be a
+ * boundary being crossed rather than a number being hit, or a group that left
+ * their animal alone for a week would come back to find it had grown past its
+ * own adolescence without ever having it.
+ */
+function ticksBetween(from: number, to: number): number[] {
+  const out: number[] = []
+  if (!(to > from)) return out
+
   for (let i = 1; i < STAGE_ACTIONS.length; i++) {
-    if (count === STAGE_ACTIONS[i]) return true
+    const at = STAGE_ACTIONS[i]
+    if (at > from && at <= to) out.push(at)
   }
-  const past = count - STAGE_ACTIONS[STAGE_ACTIONS.length - 1]
-  return past > 0 && past % MOLT_EVERY === 0
+
+  // Past adult the ticks keep coming on a fixed interval, so there is always a
+  // next one for a group that has been going for a year.
+  const last = STAGE_ACTIONS[STAGE_ACTIONS.length - 1]
+  const first = Math.floor((Math.max(from, last) - last) / MOLT_EVERY) + 1
+  for (let n = first; ; n++) {
+    const at = last + n * MOLT_EVERY
+    if (at > to) break
+    if (at > from) out.push(at)
+  }
+
+  return out
+}
+
+/** How grown the creature was when a given row was written. Rows from before
+ *  growth existed fall back to their index, which is what growth was when one
+ *  action meant one point. */
+function maturityOf(action: ActionRecord, index: number): number {
+  return action.growth ?? index + 1
 }
 
 // Progress toward the next growth tick rather than toward the next stage name,
@@ -788,12 +828,18 @@ export function deriveCreature(
   genome: Genome,
   actions: ActionRecord[],
   name: string | null,
+  // How grown the creature is right now, from the snapshot. Optional, and it
+  // defaults to the action count, which is exactly what growth was before time
+  // entered it: one action, one point. That default is what keeps every log
+  // written before this change deriving the animal it always derived.
+  grown?: number,
 ): Creature {
   const pressures = emptyPressures()
   const actors = new Map<string, ActorStat>()
   const traits = new Map<Locus, ExpressedTrait>()
   const lore = new Map<Locus, LocusLore>()
   const memories: Memory[] = []
+  let grownFrom = 0
 
   for (let i = 0; i < actions.length; i++) {
     const action = actions[i]
@@ -841,8 +887,15 @@ export function deriveCreature(
       })
     }
 
-    if (isGrowthTick(count)) {
-      const stage = stageFor(count)
+    const grownTo = maturityOf(action, i)
+    for (const point of ticksBetween(grownFrom, grownTo)) {
+      const stage = stageFor(point)
+      // `count` and not `point`. Growth says how OLD the creature is; the
+      // action count says how much was actually done to it, and the pace gate
+      // inside resolveLoci divides pressure by that to ask whether a trait was
+      // earned. Feeding it growth would mean hours spent doing nothing made
+      // every trait harder to reach, so a group that left their creature alone
+      // would be punished for it with a plainer animal.
       const locked = resolveLoci(genome, pressures, stage, count, actors, traits, lore)
       memories.push(stageMemory(stage, pressures, actors, action.at, count))
       for (const result of locked) {
@@ -851,10 +904,30 @@ export function deriveCreature(
         memories.push(traitMemory(result, trait, actors, action.at, count))
       }
     }
+    grownFrom = grownTo
   }
 
   const count = actions.length
-  const stage = stageFor(count)
+  // Everything after the last thing anybody did. This is the half of growth
+  // that only exists because time does: a creature left alone goes on growing,
+  // and can cross a boundary with nobody there to see it. The traits it locks
+  // are credited the same way as any other, out of the pressure standing at the
+  // time, because who caused them is a question about behaviour and not about
+  // which minute the boundary happened to fall in.
+  const now = Math.max(grown ?? count, grownFrom)
+  const lastAt = actions.length > 0 ? actions[actions.length - 1].at : 0
+  for (const point of ticksBetween(grownFrom, now)) {
+    const stage = stageFor(point)
+    const locked = resolveLoci(genome, pressures, stage, count, actors, traits, lore)
+    memories.push(stageMemory(stage, pressures, actors, lastAt, count))
+    for (const result of locked) {
+      const trait = traits.get(result.locus)
+      if (trait === undefined) continue
+      memories.push(traitMemory(result, trait, actors, lastAt, count))
+    }
+  }
+
+  const stage = stageFor(now)
 
   const bonds: Record<string, Bond> = {}
   for (const actor of orderedActors(actors)) {
@@ -878,7 +951,7 @@ export function deriveCreature(
     name,
     stage,
     stageName: STAGES[stage] as StageName,
-    stageProgress: progressFor(count),
+    stageProgress: progressFor(now),
     pressures,
     traits: expressed,
     morphs: deriveMorphs(genome, pressures, count),
