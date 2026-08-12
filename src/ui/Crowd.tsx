@@ -30,9 +30,11 @@ interface CrowdProps {
   actorId: string
   groupId: string
   handle: string | null
+  pace: number
+  onPace: (pace: number) => void
 }
 
-export default function Crowd({ creature, present, actorId, groupId, handle }: CrowdProps): JSX.Element {
+export default function Crowd({ creature, present, actorId, groupId, handle, pace, onPace }: CrowdProps): JSX.Element {
   const bonds: Record<string, Bond> = creature ? creature.bonds : {}
   const everyone = Object.values(bonds)
   const hereIds = new Set(present.map((p) => p.actorId))
@@ -89,10 +91,54 @@ export default function Crowd({ creature, present, actorId, groupId, handle }: C
         )}
         <LinkRow groupId={groupId} />
         <HandleRow groupId={groupId} handle={handle} />
+        <PaceRow pace={pace} onPace={onPace} />
         <OtherGroups here={groupId} />
         <InstallRow />
         <LeaveRow />
       </div>
+    </div>
+  )
+}
+
+/**
+ * How fast the group wants its creature to live.
+ *
+ * Named speeds rather than a number, because "1.5" is not a thing anybody
+ * wants; a long slow animal or one raised in an evening is. Anybody in the
+ * group can change it, which is deliberate: there are no roles here, and a pace
+ * one person imposed would be the first thing in this app belonging to one
+ * member rather than to everybody.
+ */
+const PACES: { pace: number; name: string; blurb: string }[] = [
+  { pace: 0.25, name: 'Slow', blurb: 'A day at a time. It will be a while.' },
+  { pace: 1, name: 'Steady', blurb: 'Hatches overnight if you leave it be.' },
+  { pace: 3, name: 'Quick', blurb: 'An evening, if a few of you are on it.' },
+  { pace: 6, name: 'One sitting', blurb: 'Grown before anybody goes to bed.' },
+]
+
+function PaceRow({ pace, onPace }: { pace: number; onPace: (pace: number) => void }): JSX.Element {
+  // Nearest, because the server clamps and an older group may be carrying a
+  // value no button here offers.
+  const current = PACES.reduce((best, p) =>
+    Math.abs(p.pace - pace) < Math.abs(best.pace - pace) ? p : best,
+  )
+  return (
+    <div className="pace">
+      <span className="label">How fast it grows</span>
+      <div className="pace-row">
+        {PACES.map((p) => (
+          <button
+            key={p.pace}
+            type="button"
+            className={p === current ? 'btn is-on' : 'btn'}
+            aria-pressed={p === current}
+            onClick={() => onPace(p.pace)}
+          >
+            {p.name}
+          </button>
+        ))}
+      </div>
+      <p className="hint">{current.blurb}</p>
     </div>
   )
 }

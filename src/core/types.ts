@@ -273,6 +273,10 @@ export type ClientMessage =
   | { type: 'hello'; actorId: string; actorName: string }
   | { type: 'act'; variantId: string }
   | { type: 'name'; name: string }
+  // How fast this group wants its creature to live. Anybody in the group may
+  // set it: there are no roles here, and a pace one person imposed on everybody
+  // else would be the first thing in this app that belonged to one member.
+  | { type: 'pace'; pace: number }
 
 export interface PresentActor {
   actorId: string

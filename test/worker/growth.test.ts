@@ -121,3 +121,67 @@ describe('doing something to it brings a stage forward', () => {
     for (let i = 1; i < stamps.length; i++) expect(stamps[i]).toBeGreaterThanOrEqual(stamps[i - 1])
   })
 })
+
+describe('the group sets the pace', () => {
+  async function setPace(groupId: string, pace: number, who = 'ann'): Promise<void> {
+    const response = await SELF.fetch(`https://x/api/monstertime/groups/${groupId}/socket`, {
+      headers: { Upgrade: 'websocket' },
+    })
+    const socket = response.webSocket
+    if (!socket) throw new Error('no socket')
+    socket.accept()
+    socket.send(JSON.stringify({ type: 'hello', actorId: who, actorName: who }))
+    await scheduler.wait(80)
+    socket.send(JSON.stringify({ type: 'pace', pace }))
+    await scheduler.wait(200)
+    socket.close()
+  }
+
+  it('remembers what the group asked for', async () => {
+    const groupId = await makeGroup()
+    await setPace(groupId, 3)
+    expect((await snapshot(groupId)).pace).toBe(3)
+  })
+
+  it('clamps what it is given rather than believing it', async () => {
+    const groupId = await makeGroup()
+    await setPace(groupId, 9999)
+    expect((await snapshot(groupId)).pace).toBeLessThanOrEqual(6)
+    await setPace(groupId, -4)
+    expect((await snapshot(groupId)).pace).toBeGreaterThanOrEqual(0.25)
+  })
+
+  it('does not re-price the hours the creature has already lived', async () => {
+    // The correctness of the whole dial. Growth is a stored base plus the hours
+    // since, multiplied by pace, so changing pace without banking what has
+    // already accrued would re-run the creature's entire life at the new rate:
+    // turn it up on a week-old animal and that week silently happens again
+    // faster, turn it down and the creature goes backwards.
+    const groupId = await makeGroup()
+    await scheduler.wait(400)
+    const before = (await snapshot(groupId)).growth
+    await setPace(groupId, 0.25)
+    const after = (await snapshot(groupId)).growth
+    // Slowing right down must not have taken anything away from what it had.
+    expect(after).toBeGreaterThanOrEqual(before)
+  })
+
+  it('refuses a pace from somebody who has not said who they are', async () => {
+    const groupId = await makeGroup()
+    const response = await SELF.fetch(`https://x/api/monstertime/groups/${groupId}/socket`, {
+      headers: { Upgrade: 'websocket' },
+    })
+    const socket = response.webSocket
+    if (!socket) throw new Error('no socket')
+    socket.accept()
+    const seen: string[] = []
+    socket.addEventListener('message', (e: MessageEvent) => {
+      if (typeof e.data === 'string' && e.data !== 'pong') seen.push(JSON.parse(e.data).type as string)
+    })
+    socket.send(JSON.stringify({ type: 'pace', pace: 6 }))
+    await scheduler.wait(200)
+    expect(seen).toContain('error')
+    expect((await snapshot(groupId)).pace).toBe(1)
+    socket.close()
+  })
+})

@@ -1398,3 +1398,30 @@ button.creature-name {
 .install .hint {
   margin-top: 6px;
 }
+
+/* How fast the creature lives. Named speeds rather than a number, so the row
+   is four small choices instead of a slider nobody can aim. */
+.pace {
+  margin-top: 14px;
+}
+
+.pace .label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.pace-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pace-row .btn.is-on {
+  color: var(--on-ember);
+  background: var(--ember);
+  border-color: var(--ember);
+}
+
+.pace .hint {
+  margin-top: 6px;
+}

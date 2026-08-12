@@ -23,6 +23,8 @@ export interface Connection {
   subscribe(fn: (snapshot: GroupSnapshot, present: PresentActor[]) => void): () => void
   act(variantId: string): void
   rename(name: string): void
+  /** How fast the group wants the creature to live. Clamped by the server. */
+  setPace(pace: number): void
   close(): void
   onStatus(fn: (status: ConnectionStatus) => void): () => void
 }
@@ -244,6 +246,17 @@ class SocketConnection implements Connection {
     if (this.closed) return
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return
     const message: ClientMessage = { type: 'act', variantId }
+    this.socket.send(JSON.stringify(message))
+  }
+
+  setPace(pace: number): void {
+    if (this.closed) return
+    // Nothing optimistic: the server settles the growth accrued so far before
+    // it changes the rate, then broadcasts a fresh snapshot. Guessing locally
+    // would mean this screen briefly disagreed with everybody else about how
+    // old the creature is.
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return
+    const message: ClientMessage = { type: 'pace', pace }
     this.socket.send(JSON.stringify(message))
   }
 

@@ -63,6 +63,8 @@ export default function App(): JSX.Element {
       actorId={group.actor.id}
       groupId={groupId}
       handle={group.snapshot ? group.snapshot.handle : null}
+      pace={group.pace}
+      onPace={group.setPace}
     />
   )
   const chronicle = <Chronicle creature={group.creature} actions={actions} />

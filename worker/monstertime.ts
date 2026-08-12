@@ -353,6 +353,11 @@ function readClient(raw: string): ClientMessage | null {
   if (parsed.type === 'name') {
     return { type: 'name', name: cleanText(parsed.name, GROUP_NAME_MAX) }
   }
+  if (parsed.type === 'pace') {
+    const pace = Number(parsed.pace)
+    if (!Number.isFinite(pace)) return null
+    return { type: 'pace', pace }
+  }
   return null
 }
 
@@ -719,6 +724,10 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     }
     if (said.type === 'name') {
       this.rename(ws, said.name)
+      return
+    }
+    if (said.type === 'pace') {
+      this.repace(ws, said.pace)
     }
   }
 
@@ -1044,6 +1053,39 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     ).stage
     if (grown > reached) this.setMeta('stage', String(grown))
     return grown >= stage
+  }
+
+  /**
+   * How fast this group wants its creature to live.
+   *
+   * The settling on the first line is the whole of the correctness here. Growth
+   * is a stored base plus the hours since, multiplied by pace, so changing pace
+   * without banking what has already accrued would re-price every hour the
+   * creature has ever lived at the new rate. Turn it up on a week-old animal and
+   * that week would silently be re-run at the faster rate; turn it down and the
+   * creature would go backwards. Bank first, then change the rate, and only the
+   * future moves.
+   */
+  private repace(ws: WebSocket, wanted: number): void {
+    const seat = this.seatOf(ws)
+    if (seat === null || seat.actorId === null) {
+      this.tell(ws, { type: 'error', message: 'Say hello before changing the pace.' })
+      return
+    }
+    const next = Math.min(PACE_MAX, Math.max(PACE_MIN, wanted))
+    if (next === this.pace()) return
+
+    const at = Date.now()
+    this.setMeta('growth', String(this.growthNow(at)))
+    this.setMeta('grownAt', String(at))
+    this.setMeta('pace', String(next))
+
+    // Everybody has to be told, because this changes how fast the animal they
+    // are all looking at is living.
+    const snapshot = this.readSnapshot()
+    if (snapshot !== null) {
+      this.broadcast({ type: 'snapshot', snapshot, present: this.present(null) })
+    }
   }
 
   // -- growth ----------------------------------------------------------------

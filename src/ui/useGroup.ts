@@ -290,6 +290,9 @@ export interface GroupHandle {
   cachedAt: number | null
   act: (variantId: string) => void
   rename: (name: string) => void
+  setPace: (pace: number) => void
+  /** How fast this group has asked the creature to live. */
+  pace: number
 }
 
 const NO_ONE: PresentActor[] = []
@@ -388,6 +391,10 @@ export function useGroup(): GroupHandle {
     conn.current?.act(variantId)
   }, [])
 
+  const setPace = useCallback((pace: number) => {
+    conn.current?.setPace(pace)
+  }, [])
+
   const rename = useCallback((name: string) => {
     conn.current?.rename(name)
   }, [])
@@ -405,6 +412,8 @@ export function useGroup(): GroupHandle {
     cachedAt: cached ? cached.savedAt : null,
     act,
     rename,
+    setPace,
+    pace: shown ? shown.pace : 1,
   }
 }
 
