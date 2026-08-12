@@ -517,6 +517,11 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
    * WeakMap so a connection that goes away without a close event cannot leave
    * anything behind.
    */
+  /** Whether the one-off column-and-backfill migration has run for this
+   *  instantiation. In memory is enough: the migration is idempotent and an
+   *  eviction only costs one more no-op ALTER. */
+  private migrated = false
+
   private budgets = new WeakMap<WebSocket, Budget>()
 
   /** When the creature was last renamed. In memory for the same reason. */
@@ -609,7 +614,63 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
       found = false
     }
     this.made = found
+    if (found) this.migrate()
     return found
+  }
+
+  /**
+   * Bring a group made before growth existed up to date.
+   *
+   * `CREATE TABLE IF NOT EXISTS` does nothing to a table that is already there,
+   * so adding the growth column to the DDL added it for new groups only. Every
+   * group made before that deploy then threw on the first SELECT naming the
+   * column, which is to say every existing creature became a 500. Not a
+   * degraded creature. Gone.
+   *
+   * The backfill matters as much as the column. A new column takes its default
+   * on every existing row, so the whole log would have read as growth zero and
+   * every creature would have been stuck as an egg for ever, which is a quieter
+   * version of the same disaster. `n` is the insertion order, so setting growth
+   * to it restores exactly what growth was when one action meant one point.
+   */
+  /**
+   * Put this group back on the schema it had before growth existed.
+   *
+   * Only the test suite calls this, and it earns its place there: the outage it
+   * reproduces is one that every existing creature hit at once, and a migration
+   * with nothing exercising it is a migration nobody knows works.
+   */
+  async forgetGrowthColumn(): Promise<void> {
+    this.ctx.storage.sql.exec('ALTER TABLE actions DROP COLUMN growth')
+    this.ctx.storage.sql.exec("DELETE FROM meta WHERE k = 'growth'")
+    this.ctx.storage.sql.exec("DELETE FROM meta WHERE k = 'grownAt'")
+    this.migrated = false
+    this.made = null
+  }
+
+  private migrate(): void {
+    if (this.migrated) return
+    this.migrated = true
+    try {
+      this.ctx.storage.sql.exec('ALTER TABLE actions ADD COLUMN growth REAL NOT NULL DEFAULT 0')
+      // Only reached the once, when the column has just been added and every
+      // row is therefore carrying the default.
+      this.ctx.storage.sql.exec('UPDATE actions SET growth = n')
+    } catch {
+      // Already has the column. Nothing to do.
+      return
+    }
+    // And the group's running total, which the column alone does not give it:
+    // without this the base is zero and the creature walks back down its own
+    // stages the moment anybody looks at it.
+    if (this.metaValue('growth') === null) {
+      const rows = this.ctx.storage.sql
+        .exec<{ n: number }>('SELECT MAX(n) AS n FROM actions')
+        .toArray()
+      const grown = rows.length > 0 && rows[0].n !== null ? Number(rows[0].n) : 0
+      this.setMeta('growth', String(grown))
+      this.setMeta('grownAt', String(Date.now()))
+    }
   }
 
   /** The whole group as a plain object, or null if nothing was ever made under

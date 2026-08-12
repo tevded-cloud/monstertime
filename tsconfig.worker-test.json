@@ -23,5 +23,5 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["test/worker", "vitest.workers.config.ts"]
+  "include": ["test/worker/**/*.ts", "test/worker/**/*.d.ts", "vitest.workers.config.ts"]
 }

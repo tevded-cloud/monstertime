@@ -10,7 +10,7 @@
 // that growth moves on its own and moves further when somebody does something,
 // not what the constants happen to be this week.
 
-import { SELF } from 'cloudflare:test'
+import { env, SELF } from 'cloudflare:test'
 import { describe, expect, it } from 'vitest'
 
 interface Snapshot {
@@ -183,5 +183,32 @@ describe('the group sets the pace', () => {
     expect(seen).toContain('error')
     expect((await snapshot(groupId)).pace).toBe(1)
     socket.close()
+  })
+})
+
+describe('a group made before growth existed still opens', () => {
+  it('adds the column and backfills it rather than throwing', async () => {
+    // The shape of a real outage. CREATE TABLE IF NOT EXISTS does nothing to a
+    // table that already exists, so adding the growth column to the DDL added
+    // it for new groups only, and every group made before that deploy threw on
+    // the first SELECT naming it. Not a degraded creature: a 500.
+    //
+    // Simulated by dropping the column back off a live group, which is exactly
+    // the state an old group was in.
+    const groupId = await makeGroup()
+    await actOnce(groupId, 'sing.humDusk', 'ann')
+    await scheduler.wait(120)
+    await actOnce(groupId, 'give.riverStone', 'bo')
+
+    const stub = env.MONSTER_GROUP.getByName(groupId)
+    await stub.forgetGrowthColumn()
+
+    // Reading has to survive it, and the creature has to come back with its
+    // history intact rather than as a fresh egg.
+    const after = await snapshot(groupId)
+    expect(after.actions.length).toBe(2)
+    expect(after.actions[0].growth).toBe(1)
+    expect(after.actions[1].growth).toBe(2)
+    expect(after.growth).toBeGreaterThanOrEqual(2)
   })
 })
