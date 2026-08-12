@@ -9,11 +9,18 @@
 
 import { SELF } from 'cloudflare:test'
 import { describe, expect, it } from 'vitest'
+import { hatchedGroup } from './hatched'
 
+/**
+ * A group that has already bought its egg.
+ *
+ * Buying the egg changed what a new group is: it now arrives at the market with
+ * nothing hatched. Every fixture in this file said "make a group" and meant
+ * "make a creature", and those stopped being the same sentence. The market's
+ * own tests are the ones that exercise choosing; here it is staging.
+ */
 async function makeGroup(): Promise<string> {
-  const response = await SELF.fetch('https://x/api/monstertime/groups', { method: 'POST' })
-  expect(response.status).toBe(201)
-  return ((await response.json()) as { groupId: string }).groupId
+  return hatchedGroup()
 }
 
 describe('minting a group', () => {
@@ -43,8 +50,20 @@ describe('minting a group', () => {
     })
     const { groupId } = (await response.json()) as { groupId: string }
     expect(groupId).not.toBe('chosen-by-the-caller')
-    const snapshot = await (await SELF.fetch(`https://x/api/monstertime/groups/${groupId}`)).json()
-    expect((snapshot as { genome: { seed: string } }).genome.seed).not.toBe('ff'.repeat(32))
+    // Read off the MARKET now rather than off a genome. A group is minted with
+    // three candidate seeds and no creature, so the surface a caller might try
+    // to influence got three times bigger rather than going away: any one of
+    // the three could become the animal, so none of them may be chosen.
+    const snapshot = (await (
+      await SELF.fetch(`https://x/api/monstertime/groups/${groupId}`)
+    ).json()) as { market?: { candidates: string[] } }
+    expect(snapshot.market).toBeDefined()
+    expect(snapshot.market!.candidates).toHaveLength(3)
+    for (const candidate of snapshot.market!.candidates) {
+      expect(candidate).not.toBe('ff'.repeat(32))
+    }
+    // And they are real seeds rather than anything derived from what was sent.
+    expect(new Set(snapshot.market!.candidates).size).toBe(3)
   })
 })
 

@@ -52,10 +52,35 @@ import {
 import type { SleepState } from '../src/dna/index'
 import { googleKeys, verifyIdToken, type KeySource } from './verify'
 import { cleanPasscode, hashPasscode, mintPasscode } from './passcode'
+// The market's arithmetic and its legality, imported rather than restated. The
+// worker takes '../src/market/rules' and never '../src/market': the second half
+// of that module needs the palette, which needs three.js, and a renderer has no
+// business inside a Durable Object. Nothing below re-derives a price, a purse or
+// a leader; this file decides only who is asking and what gets written.
+import {
+  atMarket,
+  checkPledge,
+  checkWithdrawal,
+  CLAIMED_PREFIX,
+  EGG_COUNT,
+  GRANDFATHERED_HATCH_SPEED,
+  hatchAdjusted,
+  isClaimedMember,
+  pledgedBy,
+  resolutionOf,
+  withPledge,
+  withWithdrawal,
+  type Resolution,
+} from '../src/market/rules'
 import type {
   ActionRecord,
   ClientMessage,
   GroupSnapshot,
+  GroupView,
+  MarketNote,
+  MarketSnapshot,
+  MarketState,
+  Pledge,
   PresentActor,
   ServerMessage,
 } from '../src/core/types'
@@ -72,8 +97,16 @@ const PREFIX = '/api/monstertime/'
  */
 const ID_BYTES = 16
 
-/** Bytes of randomness in a seed. This is the thing that makes two groups'
- *  creatures incomparable, so it is generous. */
+/**
+ * Bytes of randomness in a seed. This is the thing that makes two groups'
+ * creatures incomparable, so it is generous.
+ *
+ * Three are drawn for every group that forms now, one per egg on offer, and the
+ * one the group buys becomes the group's seed unchanged. All three are drawn
+ * here, from crypto randomness, exactly as the single seed always was: a seed a
+ * client could choose is a creature two groups could both have, and putting
+ * three on a screen changed nothing about that.
+ */
 const SEED_BYTES = 32
 
 /**
@@ -122,21 +155,28 @@ function handleKey(handle: string): string {
 const ACTOR_ID = /^[A-Za-z0-9_-]{1,64}$/
 
 /**
- * The prefix on an actor id that a real, signed-in person owns.
+ * An actor id that a real, signed-in or passcode-holding person owns.
  *
  * '@' cannot appear in ACTOR_ID, so a client cannot mint one of these however
  * it is asked. That is the whole mechanism: an id beginning with '@' was issued
- * by this file after a Google-signed token verified, and an id without one was
- * simply typed by a browser. No extra column, no second table, and every place
- * that already reads an actorId gets the distinction for free.
+ * by this file after a Google-signed token verified or after somebody claimed a
+ * place, and an id without one was simply typed by a browser. No extra column,
+ * no second table, and every place that already reads an actorId gets the
+ * distinction for free.
  *
  * It matters because trait credit is the emotional payload of the app, and
- * until now anybody in a group could post as anybody else in it.
+ * because coins are now spent on that id. Coins on a self-asserted id are coins
+ * anybody can mint by clearing their local storage, which is what makes the
+ * passcode load bearing rather than decorative.
+ *
+ * The character itself lives in src/market/rules.ts and is imported, not typed
+ * again here. Both sides ask the question now (the server refuses a pledge from
+ * anybody else, the app decides whether to offer the buttons at all), and a
+ * second '@' written down would be a rule that agrees until one copy is edited.
+ * That is the exact failure the last fleet lost a feature to.
  */
-const VERIFIED_PREFIX = '@'
-
 function verifiedActorId(uid: string): string {
-  return VERIFIED_PREFIX + uid
+  return CLAIMED_PREFIX + uid
 }
 
 /** Longest a variant id may be before it is not worth looking up. */
@@ -288,6 +328,28 @@ const GROUP_ACTS_PER_HOUR = 120
 const MAX_ACTORS = 48
 
 /**
+ * How many people may ever claim a place in one group.
+ *
+ * The same number as MAX_ACTORS, and deliberately the same number rather than a
+ * second opinion: both are answering "how many people is a friend group", and
+ * two different answers to that would be two bounds to reason about for no gain.
+ *
+ * It is here because the market gave claiming a price. Every claim raises what
+ * the two eggs that scale cost, so without a bound anybody holding the link can
+ * claim a thousand times and leave the group unable to reach either of them, with
+ * no way back: nothing here deletes a claim. That is the same shape of defect as
+ * the strand that put `withdraw` in the design, one size up, and it costs one
+ * comparison to close. The purses those claims bring are no answer, because they
+ * belong to whoever holds the codes.
+ *
+ * It is not the whole answer either, and the plain egg is why: it is flat at 75
+ * now, so a thousand claims leave the group still able to buy that one and the
+ * bound is what keeps the other two reachable rather than what keeps the group
+ * from being stranded outright.
+ */
+const MAX_CLAIMED = MAX_ACTORS
+
+/**
  * Sockets one group may hold open at once. The flood guard is per connection,
  * so without this the way round it is simply more connections.
  */
@@ -355,6 +417,37 @@ function hex(bytes: Uint8Array): string {
   let out = ''
   for (const byte of bytes) out += byte.toString(16).padStart(2, '0')
   return out
+}
+
+/** One candidate seed. Three of these are drawn when a group forms and one of
+ *  them becomes the animal, so this is the only place a seed comes from and it
+ *  is as far from the open internet as it always was. */
+function mintSeed(): string {
+  return hex(randomBytes(SEED_BYTES))
+}
+
+/** Where one egg's seed lives in `meta`. Indexed by position because the index
+ *  IS the egg everywhere: 0 is the cheapest and slowest, 2 the dearest and
+ *  fastest, and rules.ts prices them off the same number. */
+function eggKey(egg: number): string {
+  return `egg:${egg}`
+}
+
+/**
+ * Where the note that this browser already claimed a place lives.
+ *
+ * Keyed by the actor id the client sent, which is a string it keeps in local
+ * storage and is not a proof of anything, and that is exactly as much as this
+ * can be: the limit is written out in full in claim(). It is enough for what it
+ * is for, which is that tapping the button twice does not mint a second purse
+ * and raise every price in the group for good.
+ *
+ * The prefix cannot collide with anything else in `meta`. `claimed` is the
+ * count and is an exact key rather than a prefix, `code:` is a hash, `egg:` is
+ * an index, and ACTOR_ID has no colon in it.
+ */
+function placeKey(actorId: string): string {
+  return `place:${actorId}`
 }
 
 /**
@@ -428,7 +521,33 @@ function readClient(raw: string): ClientMessage | null {
     if (!Number.isFinite(pace)) return null
     return { type: 'pace', pace }
   }
+  // Nothing about a pledge is judged here, and that is the point. A number
+  // arrives as a number and every question about whether it is a sum anybody may
+  // put behind an egg they are allowed to buy is answered once, by checkPledge,
+  // which the app calls too. Turning a bad one away at the parse would mean the
+  // client got silence where the shared rule has a reason, and it would put a
+  // second, quieter copy of the rule in this file. Number() of anything that is
+  // not a number is NaN, which is not an integer and not an egg index, so both
+  // of those come back as a named refusal rather than as nothing at all.
+  if (parsed.type === 'pledge') {
+    return { type: 'pledge', egg: wireNumber(parsed.egg), coins: wireNumber(parsed.coins) }
+  }
+  if (parsed.type === 'withdraw') return { type: 'withdraw', egg: wireNumber(parsed.egg) }
   return null
+}
+
+/**
+ * A number off the wire, or NaN.
+ *
+ * Anything that is not already a number becomes NaN rather than being coerced,
+ * and that is not fussiness. Number(null) is 0, 0 is a real egg and a real
+ * refusal to spend nothing, so a message with a field missing would otherwise
+ * read as a considered choice of the cheapest egg. NaN is neither an egg index
+ * nor a sum, so both of those come back from the shared rules as a named
+ * refusal.
+ */
+function wireNumber(value: unknown): number {
+  return typeof value === 'number' ? value : Number.NaN
 }
 
 // ---------------------------------------------------------------------------
@@ -473,11 +592,14 @@ async function route(request: Request, url: URL, env: MonsterEnv): Promise<Respo
   // POST /api/monstertime/groups
   if (parts.length === 1) {
     if (request.method !== 'POST') return json({ error: 'A group is made with POST.' }, 405)
-    // Both of these are made here and only here. A client that could choose
-    // either could hand two friend groups the same animal, which is the one
-    // outcome this app has no answer for.
+    // The id is made here and only here, and the eggs are drawn inside the
+    // object create() runs in. A client that could choose either could hand two
+    // friend groups the same animal, which is the one outcome this app has no
+    // answer for. What has changed is that no seed is chosen at this moment by
+    // anybody, including us: the group forms with three eggs in front of it and
+    // buys one of them together.
     const groupId = base64url(randomBytes(ID_BYTES))
-    await env.MONSTER_GROUP.getByName(groupId).create(groupId, hex(randomBytes(SEED_BYTES)))
+    await env.MONSTER_GROUP.getByName(groupId).create(groupId)
     return json({ groupId }, 201)
   }
 
@@ -648,19 +770,31 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
   // -- what the Worker calls -------------------------------------------------
 
   /**
-   * Called once, by the endpoint that generated both of these. If a seed is
-   * already here it wins: running this twice on one group would hand the same
-   * people a different animal, and there is no version of that which is not a
-   * disaster for them.
+   * Called once, by the endpoint that generated the id.
+   *
+   * A group is born WITH NO SEED and three eggs on offer. That is the whole
+   * feature: a seed written here would be a creature that already belongs to
+   * whoever pressed the button, decided before anybody else had arrived, which
+   * is exactly what the market replaces. The group's seed is set once, later, by
+   * resolve(), and it is the seed of the egg they bought.
+   *
+   * If this group has already been made it wins and nothing here runs again:
+   * running this twice would put three different eggs in front of a group that
+   * may already be pledging against the first three, and if it had already
+   * bought, a second set of candidates over a live seed is a group holding an
+   * animal nobody chose. The test is `groupId` and not `seed`, because there is
+   * a real and normal state now in which a group exists and has no seed.
    */
-  async create(groupId: string, seed: string): Promise<void> {
+  async create(groupId: string): Promise<void> {
     this.schema()
-    if (this.metaValue('seed') !== null) return
-    // No await between the three, so they land as one transaction. A group with
-    // an id and no seed would be a group that exists and cannot hatch.
+    if (this.metaValue('groupId') !== null) return
+    // No await anywhere in here, so all five land as one transaction. A group
+    // with an id and no eggs would be a group that exists and can never buy.
     this.ctx.storage.sql.exec("INSERT INTO meta(k, v) VALUES('groupId', ?)", groupId)
-    this.ctx.storage.sql.exec("INSERT INTO meta(k, v) VALUES('seed', ?)", seed)
     this.ctx.storage.sql.exec("INSERT INTO meta(k, v) VALUES('createdAt', ?)", String(Date.now()))
+    for (let egg = 0; egg < EGG_COUNT; egg++) {
+      this.ctx.storage.sql.exec('INSERT INTO meta(k, v) VALUES(?, ?)', eggKey(egg), mintSeed())
+    }
   }
 
   /**
@@ -696,6 +830,7 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     this.ctx.storage.sql.exec(
       'CREATE INDEX IF NOT EXISTS actions_by_actor ON actions(actorId, at)',
     )
+    this.pledgeTable()
     this.made = true
   }
 
@@ -759,14 +894,21 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
    * far from the open internet as forgetGrowthColumn is.
    *
    * The birthday and every row move TOGETHER, because that is what "time has
-   * passed" means here: the schedule is measured from the birthday and the
-   * rouse from the last waking, and shifting one without the other would be a
-   * state this group could never have been in. Growth follows the same
+   * passed" means here: the schedule is measured from when the creature began
+   * and the rouse from the last waking, and shifting one without the other would
+   * be a state this group could never have been in. Growth follows the same
    * instants, so the creature comes out as old as the clock now says it is.
+   *
+   * `bornAt` moves with them and cannot be left out. It is what the night is
+   * measured from, so a hook that aged a group without it would age everything
+   * except the schedule, and every sleep test would be asking about a creature
+   * standing still.
    */
   async age(byMs: number): Promise<void> {
     if (!this.exists()) return
     this.setMeta('createdAt', String(Number(this.metaValue('createdAt') ?? '0') - byMs))
+    const bornAt = this.metaValue('bornAt')
+    if (bornAt !== null) this.setMeta('bornAt', String(Number(bornAt) - byMs))
     const grownAt = this.metaValue('grownAt')
     if (grownAt !== null) this.setMeta('grownAt', String(Number(grownAt) - byMs))
     this.ctx.storage.sql.exec('UPDATE actions SET at = at - ?', byMs)
@@ -777,6 +919,75 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     this.ctx.storage.sql.exec('ALTER TABLE actions DROP COLUMN methodId')
     this.ctx.storage.sql.exec("DELETE FROM meta WHERE k = 'growth'")
     this.ctx.storage.sql.exec("DELETE FROM meta WHERE k = 'grownAt'")
+    // And the table the market added, which is the one this deploy's migration
+    // has to put back. A group that has never seen it is exactly the group that
+    // 500s if a read names it.
+    this.ctx.storage.sql.exec('DROP TABLE IF EXISTS pledges')
+    // The eggs go only if this group has already bought, and the condition is
+    // the point rather than a saving. A group with a seed is put back to
+    // precisely what every live group looks like today: a seed, a log, and no
+    // memory of ever having chosen. A group still AT the market keeps its three,
+    // because a market with no eggs in it is not an older shape of anything, it
+    // is a group that could never exist, and a hook that manufactures impossible
+    // states proves nothing about the ones that happen. What it leaves is the
+    // state the migration is for: a group that needs the pledges table and does
+    // not have it.
+    if (this.metaValue('seed') !== null) {
+      for (let egg = 0; egg < EGG_COUNT; egg++) {
+        this.ctx.storage.sql.exec('DELETE FROM meta WHERE k = ?', eggKey(egg))
+      }
+    }
+    this.ctx.storage.sql.exec("DELETE FROM meta WHERE k = 'hatchSpeed'")
+    this.ctx.storage.sql.exec("DELETE FROM meta WHERE k = 'claimed'")
+    // Nobody who bought before the market existed has one of these, and a group
+    // put back on that schema must not either: what makes a grandfathered
+    // creature's night correct is that it falls through to `createdAt`, and a
+    // `bornAt` left lying here would prove that fallback works while quietly
+    // never using it.
+    this.ctx.storage.sql.exec("DELETE FROM meta WHERE k = 'bornAt'")
+    // Same for the note saying which browser claimed which place. The codes stay,
+    // exactly as they do for a real group of this vintage, and that pair is the
+    // honest shape of the limit: a place claimed before this deploy has nothing
+    // recorded that a second claim from the same browser could be matched
+    // against, so for those the double claim is still open and there is nothing
+    // here that could close it.
+    this.ctx.storage.sql.exec("DELETE FROM meta WHERE k LIKE 'place:%'")
+    this.migrated = false
+    this.made = null
+  }
+
+  /**
+   * Put a second row behind one person on one egg, the way a pledge used to.
+   *
+   * The third hook the test suite has, and it earns its place the same way the
+   * other two do: what it reaches cannot be reached any other way. Every group
+   * standing at the market on the day this deploys has rows like these, because
+   * a pledge appended one and lowering a figure meant a withdrawal and then a
+   * smaller pledge, and the very next read of such a group runs a migration that
+   * has to fold them together without moving a coin. That migration runs on live
+   * markets with nobody looking, and the number it is folding decides which
+   * animal a group ends up with, so it is not allowed to be the one piece of
+   * this with nothing exercising it.
+   *
+   * The index goes with the row, because the index is what makes a second row
+   * impossible now, and putting it back is precisely the job being tested. The
+   * cached answers are cleared so the next read migrates rather than trusting
+   * what this instantiation already worked out.
+   *
+   * Nothing in route() calls it, so it is exactly as far from the open internet
+   * as forgetGrowthColumn and age are.
+   */
+  async pledgeTwice(actorId: string, actorName: string, egg: number, coins: number): Promise<void> {
+    if (!this.exists()) return
+    this.ctx.storage.sql.exec('DROP INDEX IF EXISTS pledges_one_per_person')
+    this.ctx.storage.sql.exec(
+      'INSERT INTO pledges(actorId, actorName, egg, coins, at) VALUES(?, ?, ?, ?, ?)',
+      actorId,
+      actorName,
+      egg,
+      coins,
+      Date.now(),
+    )
     this.migrated = false
     this.made = null
   }
@@ -790,6 +1001,7 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     // which is every group that exists: the second migration would silently
     // never run anywhere it was needed.
     this.addMethodColumn()
+    this.addPledgeTable()
   }
 
   private addGrowthColumn(): void {
@@ -832,10 +1044,115 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     }
   }
 
-  /** The whole group as a plain object, or null if nothing was ever made under
-   *  this id. Here so a cold load has something to draw before the socket is up. */
-  async snapshot(): Promise<GroupSnapshot | null> {
-    return this.readSnapshot()
+  /**
+   * The table coins live in, added to every group that predates the market.
+   *
+   * A whole new table rather than a column, so IF NOT EXISTS is the honest
+   * statement here and does the work: the sentence that did nothing and cost
+   * every live creature a 500 was IF NOT EXISTS against a table that was already
+   * there. This one is against a table that is not.
+   *
+   * Grandfathered groups have no market and will never write a row into it, and
+   * it is made for them anyway. The alternative is a table that exists for some
+   * groups and not others, and therefore a read that throws depending on when
+   * the group was made, which is the same outage wearing a different hat. It
+   * costs one statement, once, on the first read after this deploy.
+   *
+   * Its own try block, like the two above it and for the same reason: a group
+   * that already had one of the earlier migrations must not return before
+   * reaching this one.
+   *
+   * It is reached before anything can write a pledge, and that ordering is now
+   * load bearing rather than tidy: migrate() is called by exists(), exists() is
+   * called by marketNow(), and pledge() reads the market before it writes a row.
+   * The upsert below names a unique index by its columns, so the index has to be
+   * there first.
+   */
+  private addPledgeTable(): void {
+    try {
+      this.pledgeTable()
+    } catch {
+      // Nothing to do: it is already there.
+    }
+  }
+
+  /**
+   * The pledge table in the shape this deploy needs, whether the group has one
+   * already or not. One place, so the DDL a new group gets and the DDL an old
+   * one is migrated onto cannot drift apart.
+   *
+   * Coins behind eggs, in arrival order, and nothing derived from them. The
+   * totals, everybody's purse, which egg is in front and whether the thing is
+   * bought are all worked out from these rows by src/market/rules.ts every time
+   * they are asked, because a stored running total is a number that can be wrong
+   * and this one decides which animal a group ends up with.
+   *
+   * THE INDEX IS AN INVARIANT AND NOT A LOOKUP, which is why there was rightly
+   * none here before. Every read is the whole list (that is what the rules take)
+   * and the list is bounded by a purse per member, so there is still no query to
+   * narrow and this index will never be read by one. What it is for is that a
+   * pledge now SETS what somebody has on an egg rather than adding to it, and one
+   * person, one egg, one row is the property the market rests on. Stated to
+   * SQLite it cannot be broken by a second writer arriving later; kept true by
+   * the one method that happens to write today, it lasts until somebody adds the
+   * second one.
+   */
+  private pledgeTable(): void {
+    this.ctx.storage.sql.exec(
+      'CREATE TABLE IF NOT EXISTS pledges(n INTEGER PRIMARY KEY, actorId TEXT NOT NULL,' +
+        ' actorName TEXT NOT NULL, egg INTEGER NOT NULL, coins INTEGER NOT NULL,' +
+        ' at INTEGER NOT NULL)',
+    )
+    this.collapsePledges()
+    this.ctx.storage.sql.exec(
+      'CREATE UNIQUE INDEX IF NOT EXISTS pledges_one_per_person ON pledges(actorId, egg)',
+    )
+  }
+
+  /**
+   * Rows from before a pledge replaced instead of adding, folded into one each.
+   *
+   * A pledge used to append, so anybody who moved twice on one egg has two rows
+   * and the unique index above would refuse to be built over them. Between the
+   * two statements it must be impossible for a coin to appear or vanish: this
+   * runs on the first read after the deploy, on live markets, with nobody
+   * looking, and a total that moved by one could put a different egg in front and
+   * hand a group an animal they did not choose. Summing is not a judgement call
+   * for exactly that reason: two rows of forty and fifty already MEANT ninety to
+   * every purse, every total and every leader in src/market/rules.ts, so summing
+   * them is the one collapse that leaves all three answers identical.
+   *
+   * The survivor is the earliest row, so it keeps its `at` and its place in the
+   * list, for the reason withPledge keeps them: the order is the record of how
+   * the group got here, and somebody who moved twice did not arrive the second
+   * time.
+   *
+   * A no-op on a group that has never pledged and on every group made after this,
+   * which is what lets it sit on the same path as the CREATE.
+   */
+  private collapsePledges(): void {
+    this.ctx.storage.sql.exec(
+      'UPDATE pledges SET coins = (SELECT SUM(dup.coins) FROM pledges dup' +
+        ' WHERE dup.actorId = pledges.actorId AND dup.egg = pledges.egg)' +
+        ' WHERE n IN (SELECT MIN(n) FROM pledges GROUP BY actorId, egg)',
+    )
+    this.ctx.storage.sql.exec(
+      'DELETE FROM pledges WHERE n NOT IN (SELECT MIN(n) FROM pledges GROUP BY actorId, egg)',
+    )
+  }
+
+  /**
+   * The whole group as a plain object, or null if nothing was ever made under
+   * this id. Here so a cold load has something to draw before the socket is up.
+   *
+   * Either shape, and the caller narrows with atMarket(). This used to answer
+   * null for a group with no seed, which was right when the only way to have no
+   * seed was not to exist; a group at the market is a group, and a door that
+   * called it missing would have made "no such group" the first thing everybody
+   * saw for the whole time they were choosing.
+   */
+  async snapshot(): Promise<GroupView | null> {
+    return this.readView()
   }
 
   /**
@@ -881,10 +1198,18 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     // that replaces whatever a client had. It re-sends the action log, which
     // for a long lived group is not free, and it is the right trade here: a
     // group is named once or twice in its life.
-    const snapshot = this.readSnapshot()
-    if (snapshot !== null) {
-      this.broadcast({ type: 'snapshot', snapshot, present: this.present(null) })
+    //
+    // A group at the market gets the market instead, because that is the message
+    // its screens are drawing from: the handle is on both shapes, and a snapshot
+    // that arrived as null would leave the person who just claimed the name
+    // looking at the form they filled in.
+    const view = this.readView()
+    if (view === null) return
+    if (atMarket(view)) {
+      this.broadcast({ type: 'market', snapshot: view, present: this.present(null), note: null })
+      return
     }
+    this.broadcast({ type: 'snapshot', snapshot: view, present: this.present(null) })
   }
 
   /**
@@ -894,8 +1219,8 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
    * socket, rather than an open connection to an animal that was never born.
    */
   override async fetch(): Promise<Response> {
-    const snapshot = this.readSnapshot()
-    if (snapshot === null) return json({ error: 'No such group.' }, 404)
+    const view = this.readView()
+    if (view === null) return json({ error: 'No such group.' }, 404)
     // Far more than a group of friends on every device they own, so anything
     // that reaches this is opening connections on purpose, and the reason it
     // matters is that the message allowance below is per connection.
@@ -911,8 +1236,15 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     // told apart from the others even after an eviction.
     server.serializeAttachment({ sid: crypto.randomUUID(), actorId: null, actorName: '' })
     // Sent without waiting for a hello, so a screen that is only watching still
-    // draws the creature.
-    this.tell(server, { type: 'snapshot', snapshot, present: this.present(null) })
+    // draws the creature, or the market if there is no creature yet. Somebody
+    // who has not claimed a place can watch the whole thing and cannot spend a
+    // coin in it, which is the point of the market being on this connection
+    // rather than behind a door.
+    if (atMarket(view)) {
+      this.tell(server, { type: 'market', snapshot: view, present: this.present(null), note: null })
+    } else {
+      this.tell(server, { type: 'snapshot', snapshot: view, present: this.present(null) })
+    }
     return new Response(null, { status: 101, webSocket: client })
   }
 
@@ -951,6 +1283,14 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     }
     if (said.type === 'pace') {
       this.repace(ws, said.pace)
+      return
+    }
+    if (said.type === 'pledge') {
+      this.pledge(ws, said.egg, said.coins)
+      return
+    }
+    if (said.type === 'withdraw') {
+      this.withdraw(ws, said.egg)
       return
     }
     if (said.type === 'claim') {
@@ -1049,6 +1389,22 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     const seat = this.seatOf(ws)
     if (seat === null || seat.actorId === null) {
       this.tell(ws, { type: 'error', message: 'Say hello before acting.' })
+      return
+    }
+    // Nothing to do it to yet, and this is first because at the market NOTHING
+    // is something anybody can do: every refusal below is about a creature, and
+    // being told that a real variant is not a thing anybody can do, or that it
+    // is asleep, would be a lie about a group that simply has not bought its egg.
+    //
+    // It also has to be here rather than nowhere. Without it a message reaching
+    // this far writes an action row for a group with no seed, and that row is in
+    // the log for the rest of the animal's life: the creature is the ordered log,
+    // so the group's first act would be one taken before they chose the animal.
+    if (this.metaValue('seed') === null) {
+      this.tell(ws, {
+        type: 'error',
+        message: 'There is nothing here yet. The group has to buy its egg first.',
+      })
       return
     }
     // Checked against the real catalogue, not against a shape. An id that is
@@ -1272,6 +1628,13 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
       this.tell(ws, { type: 'error', message: 'A name needs something in it.' })
       return
     }
+    // The creature's name, and there is no creature until the egg is bought. A
+    // name stored now would be a name for whichever of the three they end up
+    // with, chosen before they had.
+    if (this.metaValue('seed') === null) {
+      this.tell(ws, { type: 'error', message: 'There is nothing to name yet.' })
+      return
+    }
     // A rename that changes nothing costs nothing.
     if (name === this.metaValue('name')) return
 
@@ -1293,7 +1656,349 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     this.broadcast({ type: 'present', present: this.present(seat === null ? null : seat.sid) })
   }
 
+  // -- the market ------------------------------------------------------------
+
+  /**
+   * Coins behind an egg, which is also a vote for it.
+   *
+   * WHO THIS IS COMES FROM THE SEAT and never from the message, exactly as it
+   * does for an action. Every question after that is checkPledge's, which the
+   * app calls with the same arguments before it offers the button, so a refusal
+   * arriving here is a race rather than a surprise. Nothing in this method
+   * decides a price, a purse or a leader; it decides only what gets written.
+   *
+   * A PLEDGE SETS A FIGURE, it does not add one, so zero is a real message and
+   * is how somebody takes their coins back off an egg. That makes this the only
+   * thing a slider ever has to send, at any position, which is the whole reason
+   * the two-message version is gone.
+   *
+   * NOT ASYNC, and that is load bearing rather than incidental. See resolve().
+   */
+  private pledge(ws: WebSocket, egg: number, coins: number): void {
+    const seat = this.seatOf(ws)
+    // A named reason rather than "say hello first", because the app does
+    // something different with each one and this is the one it can act on: a
+    // socket that has not said who it is has not claimed a place either, so what
+    // that person needs on screen is the claim panel. It is also the same answer
+    // a guest who HAS said hello gets from checkPledge below, which is right:
+    // both of them are people without a passcode, and the coins do not exist for
+    // either.
+    if (seat === null || seat.actorId === null) {
+      this.tell(ws, { type: 'refused', reason: 'unclaimed' })
+      return
+    }
+    const market = this.marketNow()
+    if (market === null) {
+      this.tell(ws, { type: 'refused', reason: 'closed' })
+      return
+    }
+    const refusal = checkPledge(market, seat.actorId, egg, coins)
+    if (refusal !== null) {
+      this.tell(ws, { type: 'refused', reason: refusal })
+      return
+    }
+
+    const pledge: Pledge = {
+      actorId: seat.actorId,
+      actorName: seat.actorName,
+      egg,
+      coins,
+      at: Date.now(),
+    }
+    // Written before anybody is told, for the reason an action is: a pledge that
+    // was announced and then failed to save would leave the group counting money
+    // that is not there, and the number they are counting decides which animal
+    // they get.
+    //
+    // ONE ROW PER PERSON PER EGG, SET rather than added to. This was an INSERT
+    // every time, so lowering a pledge took two messages, a withdrawal and then
+    // a smaller pledge, and between them the market sat in a state nobody asked
+    // for: the withdrawal alone could push a different egg into the lead AND
+    // fund it, so dragging a slider down bought the group a creature nobody
+    // chose. That purchase cannot be undone, which makes it the worst thing this
+    // screen can do, and the fix is that the intermediate state no longer exists
+    // rather than that something guards it.
+    //
+    // `at` is deliberately not in the update. An adjusted row keeps the moment
+    // this person first backed this egg, and therefore its place in the list,
+    // exactly as withPledge does: the order is the record of how the group got
+    // here and somebody changing their mind has not just arrived. The name is
+    // updated, because somebody who renamed themselves mid-market should not
+    // spend the rest of it under the old one.
+    this.ctx.storage.sql.exec(
+      'INSERT INTO pledges(actorId, actorName, egg, coins, at) VALUES(?, ?, ?, ?, ?)' +
+        ' ON CONFLICT(actorId, egg) DO UPDATE SET coins = excluded.coins,' +
+        ' actorName = excluded.actorName',
+      pledge.actorId,
+      pledge.actorName,
+      pledge.egg,
+      pledge.coins,
+      pledge.at,
+    )
+
+    // Asked of the state this row produces rather than of the table it was just
+    // written to. The two are the same list, and this way the decision and the
+    // thing everybody is shown are made from exactly the value the checks above
+    // were made against.
+    const next = withPledge(market, pledge)
+    const bought = resolutionOf(next)
+    if (bought !== null) {
+      this.resolve(bought)
+      return
+    }
+    this.tellMarket(next, { kind: 'pledged', actorName: pledge.actorName, egg, coins })
+  }
+
+  /**
+   * Taking back everything one person has on one egg.
+   *
+   * Not in the locked design, and it is here because without it a group can
+   * strand itself for good: coins come only from claiming, so two people who put
+   * a hundred each on two different eggs and reach neither price have no money
+   * left, no way to move it and no creature, ever. A vote you cannot change is
+   * not a vote.
+   *
+   * A WITHDRAWAL CAN BUY THE EGG, which is the part worth stating out loud. An
+   * egg can be fully funded and still not be in front, because the group wants a
+   * dearer one more; take the coins off the dearer one and the funded egg leads
+   * and is bought on the spot. So this asks the same question a pledge does, in
+   * the same words, and hands it to the same resolve().
+   *
+   * KEPT, THOUGH A PLEDGE OF ZERO NOW SAYS THE SAME THING, and the reason is
+   * what is already installed on people's phones. This app is live, a message
+   * this server stopped understanding is a message dropped in silence, and the
+   * one it would be dropping is somebody trying to get their coins back off an
+   * egg. A client keeps working until it is next loaded, and there is no version
+   * of the wire that makes that safe to guess at. It also still answers a
+   * question a zero pledge does not: 'nothing-pledged' tells somebody the coins
+   * they were reaching for are not there, where a zero pledge onto an empty egg
+   * is a perfectly good instruction to leave it empty.
+   *
+   * What it leaves behind differs by one row and by nothing else: this removes
+   * the row, a zero pledge sets it to zero, and every total, purse, leader and
+   * resolution in src/market/rules.ts reads the two identically. The market
+   * screen skips a backer holding nothing, so neither is on anybody's screen.
+   */
+  private withdraw(ws: WebSocket, egg: number): void {
+    const seat = this.seatOf(ws)
+    if (seat === null || seat.actorId === null) {
+      this.tell(ws, { type: 'refused', reason: 'unclaimed' })
+      return
+    }
+    const market = this.marketNow()
+    if (market === null) {
+      this.tell(ws, { type: 'refused', reason: 'closed' })
+      return
+    }
+    const refusal = checkWithdrawal(market, seat.actorId, egg)
+    if (refusal !== null) {
+      this.tell(ws, { type: 'refused', reason: refusal })
+      return
+    }
+
+    // Read before the rows go, so the group can be told what came off the table.
+    const back = pledgedBy(market, seat.actorId)[egg]
+    this.ctx.storage.sql.exec(
+      'DELETE FROM pledges WHERE actorId = ? AND egg = ?',
+      seat.actorId,
+      egg,
+    )
+    const next = withWithdrawal(market, seat.actorId, egg)
+    const bought = resolutionOf(next)
+    if (bought !== null) {
+      this.resolve(bought)
+      return
+    }
+    this.tellMarket(next, { kind: 'withdrew', actorName: seat.actorName, egg, coins: back })
+  }
+
+  /**
+   * The group buys the egg in front, once, forever.
+   *
+   * HOW THIS HAPPENS EXACTLY ONCE. A Durable Object handles one event at a time,
+   * and a handler that never awaits runs to completion before the runtime
+   * delivers the next message to this object. pledge(), withdraw() and this are
+   * synchronous from end to end: no await stands between reading the pledges,
+   * deciding that the price is met, and writing the seed. So two people sending
+   * the closing coins in the same millisecond are two messages in a queue, the
+   * first sets the seed, and the second finds marketNow() answering null and is
+   * refused as closed. There is no window between the read and the write for
+   * anything to happen in, because a window is a thing only an await can open.
+   *
+   * The guard on the first line is the belt to that braces. It is what would
+   * catch a future edit that put an await into either caller, and it costs one
+   * point query at the one moment in a group's life this runs.
+   *
+   * THE SEED IS THE CANDIDATE, UNCHANGED. Not re-rolled, not derived, not
+   * anything: the egg on the screen was drawn from this exact string by the same
+   * call the renderer makes, so buying the pale green egg has to produce the pale
+   * green creature or the whole screen was a lie.
+   */
+  private resolve(bought: Resolution): void {
+    if (this.metaValue('seed') !== null) return
+    const at = Date.now()
+    // Everything on the eggs that lost goes back to whoever put it there. The
+    // rows are deleted rather than kept, because a purse is a hundred minus what
+    // that person has on the table and the coins are no longer on the table; a
+    // row left behind would be storage saying money was spent that was not. What
+    // stays is what the group actually paid for their animal.
+    this.ctx.storage.sql.exec('DELETE FROM pledges WHERE egg <> ?', bought.egg)
+    this.setMeta('seed', bought.seed)
+    this.setMeta('hatchSpeed', String(bought.hatchSpeed))
+    // Growth starts HERE and not when the group formed. Growth is a stored base
+    // plus the hours since it was stored, and with no base the hours are counted
+    // from the birthday, so a group that spent two days choosing would have
+    // bought an egg that hatched on the way home. What they bought is a wait, and
+    // the wait starts when they buy it.
+    this.setMeta('growth', '0')
+    this.setMeta('grownAt', String(at))
+    // And so does the day the creature keeps, for the same reason and in the
+    // same breath. Re-anchoring growth here while the sleep schedule went on
+    // reading `createdAt` meant a group made at nine in the morning that argued
+    // until six in the evening was handed a creature nine hours into a timetable
+    // it had never once been awake for, so it could arrive asleep. src/dna/sleep
+    // .ts is built the other way round on purpose: phase zero is inside a waking
+    // stretch, measured across four hundred seeds with none asleep at birth,
+    // because a group that meets a sleeping animal has no way to tell that from
+    // a broken app. One instant for both, written here, so the two cannot come
+    // apart again.
+    this.setMeta('bornAt', String(at))
+
+    const snapshot = this.readSnapshot()
+    if (snapshot === null) return
+    // The whole group travels with it, so a client crosses from the market to
+    // the creature on one message rather than on a message plus a fetch, and
+    // `spent` travels because what a group paid is the first thing they will ask
+    // each other and the market it was decided in is gone by then.
+    this.broadcast({ type: 'bought', egg: bought.egg, spent: bought.spent, snapshot })
+  }
+
+  /**
+   * The market as it stands, or null if there is not one.
+   *
+   * THE SEED IS WHAT CLOSES THE MARKET, and that line is the only thing standing
+   * between a group and a different animal than the one they bought. It cannot
+   * be left to the shared rules to notice, because "is this bought" is answered
+   * there by comparing the money on the leading egg against its price, and the
+   * price moves: somebody claiming a place after the purchase raises all three,
+   * the winning egg's total drops below its new price, and a market that has been
+   * resolved for a week reads as open again. A pledge accepted then could reach
+   * another egg's price and overwrite a seed that a live creature is derived
+   * from. The stored seed is the only fact about this that does not move.
+   */
+  private marketNow(): MarketState | null {
+    if (!this.exists()) return null
+    if (this.metaValue('seed') !== null) return null
+    const candidates = this.candidates()
+    if (candidates === null) return null
+    return { candidates, claimed: this.claimedCount(), pledges: this.pledgeRows() }
+  }
+
+  /**
+   * The three eggs on offer, or null if this group has none.
+   *
+   * Written out as three rather than collected in the loop, because the contract
+   * says three and a tuple is how the compiler is told to count them. Change
+   * EGG_COUNT and this is a compile error, which is the right kind of failure:
+   * the alternative is a fourth egg that exists in the price table and never
+   * reaches a screen.
+   */
+  private candidates(): [string, string, string] | null {
+    const seeds: string[] = []
+    for (let egg = 0; egg < EGG_COUNT; egg++) {
+      const seed = this.metaValue(eggKey(egg))
+      if (seed === null) return null
+      seeds.push(seed)
+    }
+    return [seeds[0], seeds[1], seeds[2]]
+  }
+
+  /**
+   * How many people hold a passcode here. The price input, and the reason a
+   * group of eight is not looking at a group of two's prices.
+   *
+   * Kept in `meta` and added to at the one place a place is claimed, like the
+   * actor count and for the same reason. A group that predates the counter is
+   * counted off its own code rows instead, and the answer is deliberately NOT
+   * written down when it is: this is on the read path, every market screen asks
+   * it, and a read that writes is what turns a group nobody is looking at into a
+   * bill. The count is exact either way.
+   */
+  private claimedCount(): number {
+    const stored = this.metaValue('claimed')
+    if (stored !== null) {
+      const held = Number(stored)
+      return Number.isFinite(held) && held > 0 ? Math.floor(held) : 0
+    }
+    return this.ctx.storage.sql
+      .exec<{ claimed: number }>("SELECT COUNT(*) AS claimed FROM meta WHERE k LIKE 'code:%'")
+      .one().claimed
+  }
+
+  /** Every pledge, in the order they arrived. The order is not decoration: it is
+   *  the only record of how the group got where it is, and a market screen that
+   *  can say who moved first is worth more than a shorter list. */
+  private pledgeRows(): Pledge[] {
+    return this.ctx.storage.sql
+      .exec<{ actorId: string; actorName: string; egg: number; coins: number; at: number }>(
+        'SELECT actorId, actorName, egg, coins, at FROM pledges ORDER BY n',
+      )
+      .toArray()
+  }
+
+  private marketSnapshot(market: MarketState): MarketSnapshot {
+    return {
+      groupId: this.metaValue('groupId') ?? '',
+      // The GROUP's birthday, and it stays that here rather than following
+      // readSnapshot's: there is no creature yet, so there is no schedule for
+      // this to be phase zero of and nothing that reads it as one.
+      createdAt: Number(this.metaValue('createdAt') ?? '0'),
+      handle: this.metaValue('handle'),
+      market,
+    }
+  }
+
+  /**
+   * Everybody looking gets the whole market, every time it moves.
+   *
+   * The whole state rather than what changed, because it is three seeds and a
+   * short list, the group is minutes old, and a client that has to replay a
+   * stream of increments to know what is on the table is a client that can be
+   * wrong about the thing the group is deciding.
+   */
+  private tellMarket(market: MarketState, note: MarketNote | null): void {
+    this.broadcast({
+      type: 'market',
+      snapshot: this.marketSnapshot(market),
+      present: this.present(null),
+      note,
+    })
+  }
+
   // -- reading and writing ---------------------------------------------------
+
+  /**
+   * When THIS CREATURE began, as it sits in storage, or null if neither row is
+   * there.
+   *
+   * The one answer to "what is phase zero", asked by the schedule the server
+   * enforces and by the figure the snapshot carries to the app, because those
+   * two disagreeing is the defect this whole area has already shipped once.
+   *
+   * `bornAt` is written by resolve() and is the moment the group bought its egg.
+   * A GROUP THAT NEVER HAD A MARKET FALLS THROUGH TO createdAt, and that
+   * fallback is the whole of the grandfathering rather than a default: every
+   * group made before eggs existed has a seed, no `bornAt` and a creature that
+   * began the day the group did, so this hands back exactly the row it always
+   * did and not one of their animals moves by a minute.
+   *
+   * A string and not a number, so a caller can tell a missing row from a real
+   * instant. sleepNow wants NaN for missing, readSnapshot wants zero, and the
+   * two want different things for a good reason each.
+   */
+  private bornAt(): string | null {
+    return this.metaValue('bornAt') ?? this.metaValue('createdAt')
+  }
 
   private metaValue(key: string): string | null {
     const rows = this.ctx.storage.sql
@@ -1416,6 +2121,12 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
    * but the browser that asked. There is no second chance to read it and no
    * path in this file that could produce one, which is the property that makes
    * the code worth anything at all.
+   *
+   * THIS IS ALSO WHERE MONEY COMES FROM. A claimed member has a purse, an
+   * unclaimed one has nothing, and there is no other source of coins in this
+   * unit: no ledger is written, because a purse is the starting hundred minus
+   * what that person has on the table, worked out from the pledge list every
+   * time it is asked.
    */
   private async claim(ws: WebSocket): Promise<void> {
     const seat = this.seatOf(ws)
@@ -1423,15 +2134,59 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
       this.tell(ws, { type: 'error', message: 'Say who you are before claiming a place.' })
       return
     }
-    if (seat.actorId.startsWith(VERIFIED_PREFIX)) {
+    if (isClaimedMember(seat.actorId)) {
       this.tell(ws, { type: 'error', message: 'You already have a place here.' })
       return
     }
     if (!this.exists()) return
+    // A SECOND CLAIM FROM THE SAME BROWSER IS NOT A SECOND MEMBER. The count is
+    // added to every time this method gets past here and nothing anywhere takes
+    // one away, so somebody who tapped the button twice raised the price of the
+    // two eggs that scale for the rest of the group's life, and the hundred coins
+    // behind the first place became unreachable in the same moment: only the
+    // hash of a code is kept, so a place whose code was never used again cannot
+    // be got back into and cannot be spent. The group is then permanently poorer
+    // and permanently dearer with nothing on screen saying why.
+    //
+    // Refused rather than answered with the old place, and that is deliberate.
+    // Handing this connection the place back would mean handing it a fresh code,
+    // and the id it is asking under is a string the client chose that everybody
+    // in the group can already see in the `present` list, so anybody could take
+    // anybody's coins by typing their name. There is no code to re-read either:
+    // it existed once, in the browser that asked.
+    if (this.metaValue(placeKey(seat.actorId)) !== null) {
+      this.tell(ws, {
+        type: 'error',
+        message:
+          'A place here was already claimed on this device.' +
+          ' Enter the code it was given to use it.',
+      })
+      return
+    }
+    if (this.claimedCount() >= MAX_CLAIMED) {
+      this.tell(ws, {
+        type: 'error',
+        message: 'This group already has as many people in it as it can hold.',
+      })
+      return
+    }
 
     const code = mintPasscode()
     const owner = verifiedActorId(`c${crypto.randomUUID().replace(/-/g, '').slice(0, 20)}`)
-    this.setMeta(`code:${await hashPasscode(this.groupId(), code)}`, owner)
+    const held = `code:${await hashPasscode(this.groupId(), code)}`
+
+    // Counted BEFORE the code row goes in, and that order is the whole of the
+    // correctness. A group that predates the counter has its members counted off
+    // those very rows, so writing the row first and then adding one to the answer
+    // counts this person twice: every price in the group jumps by two members'
+    // worth on the first claim, and the eggs a group of two was shown are the
+    // eggs a group of four pays for. Caught by the market suite on the day it was
+    // written, which is the only reason it is not in production.
+    this.setMeta('claimed', String(this.claimedCount() + 1))
+    this.setMeta(held, owner)
+    // Written in the same turn as the count it is guarding, so there is no state
+    // in which one exists without the other.
+    this.setMeta(placeKey(seat.actorId), owner)
 
     // Known limit, written down rather than hidden: anything this person did
     // BEFORE claiming stays in the log under their guest id, so they can appear
@@ -1442,9 +2197,36 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     // to ask people to claim their place before they start, which is what the
     // panel will do.
 
+    // THE LIMIT THAT CANNOT BE CLOSED HERE, in the place somebody would come
+    // looking for it. The check above is against the seat that asked, and a
+    // seat is one socket: one human with the app open in two tabs, or on a phone
+    // and a laptop, arrives as two ids, claims twice and holds two purses. There
+    // is no accounts system and there cannot be one, because the link IS the
+    // access control and that is the whole shape of the app.
+    //
+    // So the price floor in src/market/rules.ts holds against one MEMBER and not
+    // against one person, and no comment anywhere may say otherwise. What stands
+    // in for the check that cannot exist is the screen: the market carries every
+    // pledge under the name that made it, so somebody funding an egg out of two
+    // purses is doing it in front of their friends rather than behind
+    // arithmetic. A group seeing who backed what is the real bound here.
+
     ws.serializeAttachment({ sid: seat.sid, actorId: owner, actorName: seat.actorName })
     this.tell(ws, { type: 'claimed', actorId: owner, code })
     this.broadcast({ type: 'present', present: this.present(null) })
+
+    // Everybody at the market has to be told, because a new member is a hundred
+    // more coins in the group and a higher price on the two eggs that scale.
+    // Somebody watching "twelve short" become "sixty-seven short" without being
+    // told why would be watching the screen lie about what they can afford.
+    //
+    // A claim cannot buy an egg, and the reason is that it puts no coins on one
+    // and lowers no price, NOT that it makes everything dearer. It used to be
+    // the second of those and is not any more: the plain egg is flat at 75, so a
+    // friend arriving leaves it costing exactly what it cost. That is why
+    // nothing here asks whether the market has resolved.
+    const market = this.marketNow()
+    if (market !== null) this.tellMarket(market, null)
   }
 
   /** Which member a code belongs to, or null. Reads and never writes, so
@@ -1481,6 +2263,45 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
    * all: the creature has been growing the whole time, it simply had not been
    * added up until somebody asked.
    */
+  /**
+   * How fast this group's egg hatches, as the multiplier they paid for.
+   *
+   * Stored at the moment the market resolved and never afterwards. A group made
+   * before markets existed has no row here and reads as 1, which is the middle
+   * egg's speed and is exactly the tuning the app already had: hatchAdjusted(x,
+   * 1) is x on both of its branches, so no creature that already exists moves by
+   * a single growth point. That is the whole of the grandfathering, and it is
+   * the reason the middle egg is 1 rather than some tidier number.
+   *
+   * Anything unreadable means "as it was" and never "faster", because the one
+   * thing a mangled row must not be able to do is age somebody's animal.
+   */
+  private hatchSpeed(): number {
+    const raw = Number(this.metaValue('hatchSpeed') ?? String(GRANDFATHERED_HATCH_SPEED))
+    return Number.isFinite(raw) && raw > 0 ? raw : GRANDFATHERED_HATCH_SPEED
+  }
+
+  /**
+   * Growth as everybody outside this object sees it: the plain figure with the
+   * egg this group bought taken into account.
+   *
+   * THE ADJUSTMENT IS APPLIED ON THE WAY OUT AND NEVER STORED. hatchAdjusted is
+   * not idempotent, so folding its answer back into `meta.growth` would re-age
+   * the creature on every read, faster and faster, and the log is the animal.
+   * Everything written down here stays in plain units and this is the one door
+   * they leave by.
+   *
+   * Both figures that leave go through it: the snapshot's `growth` and the total
+   * stamped onto each action row. Those two are compared against the same stage
+   * table by deriveCreature, and mixing units would be worse than useless: a slow
+   * egg's rows would carry a bigger number than the snapshot, deriveCreature
+   * takes the larger of the two, and the longer wait a group paid less for would
+   * be erased by the first thing anybody did.
+   */
+  private grown(at: number): number {
+    return hatchAdjusted(this.growthNow(at), this.hatchSpeed())
+  }
+
   private growthNow(at: number): number {
     const base = Number(this.metaValue('growth') ?? '0')
     // Falls back to when the group was made, NOT to now. Defaulting to now was
@@ -1501,17 +2322,44 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
    */
   private addActionGrowth(at: number): number {
     const now = this.growthNow(at)
-    const stage = stageOfGrowth(now)
     const done = Number(this.metaValue('sinceStage') ?? '0')
     const worth = ACTION_WORTH * (ACTION_FLOOR + (1 - ACTION_FLOOR) / (1 + done / ACTION_HALF))
     const next = now + worth
 
     this.setMeta('growth', String(next))
     this.setMeta('grownAt', String(at))
+    // The stage question is asked of the ADJUSTED figures, because the stage is
+    // the one everybody can see. A group on the slow egg crosses out of the egg
+    // stage later than the plain number does, and a run of actions that reset
+    // itself at the plain boundary would hand that group a stage's worth of
+    // full-price actions while their creature was still in the one before it.
+    const grown = hatchAdjusted(next, this.hatchSpeed())
+    const stage = stageOfGrowth(hatchAdjusted(now, this.hatchSpeed()))
     // Reset the run when the stage changes, so every stage starts with actions
     // at full value rather than inheriting the last one's exhaustion.
-    this.setMeta('sinceStage', stageOfGrowth(next) === stage ? String(done + 1) : '0')
-    return next
+    this.setMeta('sinceStage', stageOfGrowth(grown) === stage ? String(done + 1) : '0')
+    // The row carries what a client will compare against the snapshot, so it
+    // leaves by the same door. See grown().
+    return grown
+  }
+
+  /**
+   * The group, either way it can be: a creature, or a market with three eggs in
+   * it. The one door, so that "which of the two is this" is asked in one place
+   * and answered by the stored seed.
+   *
+   * A group with a seed has no market and cannot have one, and that is the whole
+   * of the grandfathering: every group made before this feature existed has a
+   * seed, so every one of them takes the first branch on the first line and
+   * nothing below the market ever runs for them. No migration of anybody's
+   * history, no reset, and no group that has been raising a creature for months
+   * being asked to buy an egg it already has.
+   */
+  private readView(): GroupView | null {
+    if (!this.exists()) return null
+    if (this.metaValue('seed') !== null) return this.readSnapshot()
+    const market = this.marketNow()
+    return market === null ? null : this.marketSnapshot(market)
   }
 
   /**
@@ -1520,6 +2368,11 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
    * genetics, it lives in src/dna, and the server holding a stale copy of a
    * creature's potential is a bug that cannot happen because there is no copy
    * to go stale.
+   *
+   * Null while the group is still at the market, which is not the same as "no
+   * such group" and is why readView() exists above it. Every caller left here is
+   * one that genuinely needs a creature: acting on it, naming it, working out
+   * its stage, telling everybody it has just been bought.
    */
   private readSnapshot(): GroupSnapshot | null {
     if (!this.exists()) return null
@@ -1527,10 +2380,18 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     if (seed === null) return null
     return {
       groupId: this.metaValue('groupId') ?? '',
-      createdAt: Number(this.metaValue('createdAt') ?? '0'),
+      // THE CREATURE'S BEGINNING, which for a group that bought an egg is the
+      // moment they bought it and not the moment they formed. It leaves under
+      // the name the contract already has because this field has exactly one
+      // consumer: src/ui/useGroup.ts reads it into a local called `bornAt` and
+      // hands it to sleepStateOf, which is the same call sleepNow makes below.
+      // Sending the group's birthday here while the server measured the night
+      // from the purchase would be two answers to one question, which is the
+      // thing putting the schedule in a shared file exists to prevent.
+      createdAt: Number(this.bornAt() ?? '0'),
       name: this.metaValue('name'),
       handle: this.metaValue('handle'),
-      growth: this.growthNow(Date.now()),
+      growth: this.grown(Date.now()),
       pace: this.pace(),
       genome: rollGenome(seed),
       actions: this.ctx.storage.sql
@@ -1582,12 +2443,20 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     // because a socket is only handed out for a group that read back a snapshot.
     if (seed === null) return { asleep: false, since: now, until: now }
 
+    // WHEN THE CREATURE BEGAN, which is when its group bought the egg, and not
+    // when the group was made. Those were the same row until resolve() started
+    // re-anchoring growth to the purchase and left this one behind, and the gap
+    // between them is however long the group spent arguing: nine hours of that
+    // is nine hours of a timetable the creature was never awake for, which is
+    // how one could be born asleep. bornAt() is the single answer, and the
+    // snapshot the app works from carries the same instant.
+    //
     // Handed over as NaN when the row is missing, rather than as the zero that
     // readSnapshot uses. Zero is a real instant, and a creature born in 1970 is
     // fifty years into a schedule and asleep two evenings in five of them.
     // NaN is the value sleep.ts already has a written answer for, and its
     // answer is awake, decided in the one file both sides share.
-    const born = this.metaValue('createdAt')
+    const born = this.bornAt()
     // The rouse goes in as an argument rather than being applied here, and that
     // is a correction rather than a refactor. It used to be folded on after the
     // call, in this file only, so the app had no idea a waking lasted half an

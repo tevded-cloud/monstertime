@@ -98,7 +98,7 @@ export default function Landing({ mode }: LandingProps): JSX.Element {
         <p className="premise">
           {invited
             ? 'Your friends are raising one creature between them, and it grows into whatever their habits make it. Tell it what to call you and it will start counting you in.'
-            : 'You and your friends raise one creature between you. What you feed it, where you take it and how you treat it decide what it grows into, so no two groups end up with the same animal.'}
+            : 'You and your friends raise one creature between you. It starts as three eggs on a table and you buy one of them together, then what you feed it, where you take it and how you treat it decide what it grows into.'}
         </p>
 
         <div className="field">
@@ -133,9 +133,13 @@ export default function Landing({ mode }: LandingProps): JSX.Element {
         ) : (
           <div className="row">
             <button type="button" className="btn btn-primary" disabled={!ready || busy} onClick={() => void start()}>
-              {busy ? 'Laying an egg' : 'Start a creature'}
+              {/* Not "laying an egg" any more, and the difference is the whole
+                  feature: nothing is laid for anybody now, three go out on a
+                  table and the group buys one. A button that promised an egg
+                  and delivered a choice would be the app's first small lie. */}
+              {busy ? 'Setting out the eggs' : 'Start a creature'}
             </button>
-            {!ready && <span className="hint">A name first, then the egg.</span>}
+            {!ready && <span className="hint">A name first, then the eggs.</span>}
           </div>
         )}
 

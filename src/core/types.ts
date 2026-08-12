@@ -362,6 +362,110 @@ export interface Creature {
 }
 
 // ---------------------------------------------------------------------------
+// The market
+// ---------------------------------------------------------------------------
+
+/**
+ * Three numbers, one per egg, always in the order the eggs were minted.
+ *
+ * A tuple rather than a Record so the compiler counts them. Every place that
+ * holds a per egg figure holds the same shape, and an egg index read off the
+ * wire indexes all of them the same way.
+ */
+export type PerEgg = [number, number, number]
+
+/**
+ * One person putting coins behind one egg.
+ *
+ * `actorName` is copied in the same way ActionRecord copies it, and for the
+ * same reason: the market screen says who wants what, and a name looked up
+ * later is a name that has since changed.
+ *
+ * Rows are append only and a person may have several, on one egg or on more
+ * than one. Nothing here is a total: the totals, the leader, everybody's purse
+ * and whether the thing is bought are all derived from this list by
+ * src/market/rules.ts, so there is no second copy of the arithmetic to drift
+ * out of step with the first.
+ */
+export interface Pledge {
+  actorId: string
+  actorName: string
+  /** Which of the three, 0, 1 or 2. Validate with isEggIndex before using it. */
+  egg: number
+  /** Whole coins. Fractions of a coin are not a thing anybody can be shown. */
+  coins: number
+  at: number
+}
+
+/**
+ * A group that has formed and has not bought its egg yet.
+ *
+ * There is deliberately no seed here and no genome anywhere near it. Until the
+ * market resolves the group has not been handed an animal, and the whole point
+ * of the feature is that the animal is the thing they choose together. A seed
+ * held anywhere before that moment is a creature that already belongs to
+ * whoever clicked create, which is exactly what this replaces.
+ */
+export interface MarketState {
+  /**
+   * The three eggs on offer, as seeds. Index is identity everywhere: 0 is the
+   * cheapest and slowest to hatch, 2 the dearest and fastest.
+   *
+   * These are real candidate seeds, minted server side from crypto randomness
+   * like any other seed, and the winner becomes the group's seed unchanged.
+   * That is what makes the market honest: the pale green egg on the screen is
+   * derived from the same seed the creature will be, so buying it produces the
+   * pale green creature and not a surprise.
+   */
+  candidates: [string, string, string]
+  /**
+   * How many people have claimed a place. The price input, and the reason a
+   * group of eight is not looking at a group of two's prices.
+   */
+  claimed: number
+  pledges: Pledge[]
+}
+
+/** What one person has, during the market. Derived from the pledge list rather
+ *  than stored: coins come from claiming and go nowhere else in this unit, so a
+ *  ledger would be a second copy of a subtraction. */
+export interface Purse {
+  actorId: string
+  /** Left to spend. Zero for anybody who has not claimed a place: an
+   *  anonymous visitor can watch the market and has no money in it. */
+  coins: number
+  /** On the table across all three eggs. Returns unless their egg wins. */
+  pledged: number
+  onEgg: PerEgg
+}
+
+/**
+ * Why a pledge was refused, as a reason rather than as a sentence.
+ *
+ * Typed because the app reacts differently to each: somebody who has not
+ * claimed a place needs the claim panel, and somebody who is a few coins short
+ * needs the number. A client matching on English would be a client that breaks
+ * when the English is edited.
+ */
+export type PledgeRefusal =
+  | 'closed'
+  | 'unclaimed'
+  | 'no-such-egg'
+  | 'not-a-sum'
+  | 'too-poor'
+  | 'nothing-pledged'
+
+/** What just moved, so the market screen can say it out loud. Null when the
+ *  market is being sent for another reason, such as somebody claiming a place
+ *  and every price going up with them. */
+export interface MarketNote {
+  kind: 'pledged' | 'withdrew'
+  actorName: string
+  egg: number
+  coins: number
+}
+
+// ---------------------------------------------------------------------------
 // Wire
 // ---------------------------------------------------------------------------
 
@@ -393,6 +497,39 @@ export interface GroupSnapshot {
   pace: number
 }
 
+/**
+ * The same group, before it has bought an egg.
+ *
+ * A second interface rather than a nullable genome on the first one, and the
+ * reason is worth stating because the other shape looks tidier. A group at the
+ * market has no creature at all: no seed, no genome, no log, no growth, nothing
+ * to derive and nothing to draw. Written as `genome: Genome | null` that
+ * absence spreads a null check into the renderer, the Beastpedia, the sleep
+ * schedule and every test that ever built a snapshot, and every one of those
+ * checks would be dead code for the entire life of a group after its first
+ * hour. Two shapes and one union keeps the absence at the one place it is
+ * real, which is the door.
+ *
+ * The name is the CREATURE's and there is no creature yet, so there is no name
+ * here. The handle is the group's own and exists from the moment somebody picks
+ * one, so it is.
+ */
+export interface MarketSnapshot {
+  groupId: string
+  createdAt: number
+  handle: string | null
+  market: MarketState
+}
+
+/**
+ * What a group is, either way. Every door into a group hands back one of these:
+ * the REST read, the socket's first message, whatever the app has in state.
+ *
+ * Narrow it with atMarket() from src/market/rules.ts rather than by hand, so
+ * the app and the server ask the question in exactly the same words.
+ */
+export type GroupView = GroupSnapshot | MarketSnapshot
+
 // Server -> client.
 export type ServerMessage =
   | { type: 'snapshot'; snapshot: GroupSnapshot; present: PresentActor[] }
@@ -415,6 +552,29 @@ export type ServerMessage =
   // client can put its countdown back on the right footing rather than counting
   // down to a moment that has already passed.
   | { type: 'asleep'; since: number; until: number; now: number }
+  // The market, as it stands. The twin of `snapshot` for a group that has not
+  // bought an egg yet, and sent for exactly the same reasons: on connect, and
+  // again every time it moves. It moves when somebody pledges, when somebody
+  // takes a pledge back, and when somebody claims a place, because a new member
+  // is a hundred more coins in the group and a higher price on all three eggs.
+  //
+  // The whole state travels every time rather than a delta. It is three seeds
+  // and a short list, the group is minutes old, and a client that has to
+  // replay a stream of increments to know what it is looking at is a client
+  // that can be wrong about what is on the table.
+  | { type: 'market'; snapshot: MarketSnapshot; present: PresentActor[]; note: MarketNote | null }
+  // Bought. The leading egg reached its price, its seed is now the group's, and
+  // everything pledged to the other two is back with whoever pledged it.
+  //
+  // Carries the whole group so a client crosses from market to creature on one
+  // message rather than on a message plus a fetch, and carries `spent` because
+  // what a group paid for their animal is the first thing they will ask each
+  // other and the market it was decided in is gone by then.
+  | { type: 'bought'; egg: number; spent: number; snapshot: GroupSnapshot }
+  // Why that pledge did not happen. Not an `error`, for the reason `asleep` is
+  // not one: most of these are a race rather than a mistake, and every one of
+  // them wants a different thing on screen.
+  | { type: 'refused'; reason: PledgeRefusal }
 
 // Client -> server.
 export type ClientMessage =
@@ -444,6 +604,19 @@ export type ClientMessage =
   // Claim a place in this group, minting a code that says this is you. Answered
   // once, to the asker alone, and never obtainable again.
   | { type: 'claim' }
+  // Put coins behind an egg. Who this is comes from the seat, never from the
+  // message, exactly as it does for `act`: coins on a self asserted actorId are
+  // coins anybody can mint by clearing their local storage.
+  | { type: 'pledge'; egg: number; coins: number }
+  // Take back everything you have on one egg.
+  //
+  // Not in the locked design and added deliberately, because without it a group
+  // can strand itself permanently. Coins only come from claiming, so a group of
+  // two who put a hundred each on two different eggs and reach neither price
+  // have no money left, no way to move it, and no creature, ever. A vote you
+  // cannot change is not a vote, and this is the cheapest possible answer: the
+  // coins return to the purse they came from and the market carries on.
+  | { type: 'withdraw'; egg: number }
 
 export interface PresentActor {
   actorId: string

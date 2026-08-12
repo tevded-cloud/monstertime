@@ -11,6 +11,7 @@
 
 import { SELF } from 'cloudflare:test'
 import { describe, expect, it } from 'vitest'
+import { hatchedGroup } from './hatched'
 
 interface Wire {
   send(message: unknown): void
@@ -53,9 +54,16 @@ async function open(groupId: string): Promise<Wire> {
   }
 }
 
+/**
+ * A group that has already bought its egg.
+ *
+ * Buying the egg changed what a new group is: it now arrives at the market with
+ * nothing hatched. Every fixture in this file said "make a group" and meant
+ * "make a creature", and those stopped being the same sentence. The market's
+ * own tests are the ones that exercise choosing; here it is staging.
+ */
 async function makeGroup(): Promise<string> {
-  const response = await SELF.fetch('https://x/api/monstertime/groups', { method: 'POST' })
-  return ((await response.json()) as { groupId: string }).groupId
+  return hatchedGroup()
 }
 
 async function hello(wire: Wire, actorId: string, actorName = actorId): Promise<void> {

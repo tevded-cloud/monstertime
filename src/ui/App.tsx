@@ -12,6 +12,7 @@ import Beastpedia from './Beastpedia'
 import Chronicle from './Chronicle'
 import Crowd from './Crowd'
 import Landing, { Sigil } from './Landing'
+import Market from './Market'
 import Stage from './Stage'
 import { forgetGroup, useGroup, useMediaQuery, useNamed } from './useGroup'
 
@@ -25,10 +26,15 @@ export default function App(): JSX.Element {
   const compact = useMediaQuery('(max-width: 900px)')
   const [sheet, setSheet] = useState<'group' | 'chronicle' | 'pedia' | null>(null)
   const [waited, setWaited] = useState(false)
+  // Whether the purchase has had its moment. Held here rather than in the market
+  // screen because it decides which screen there is, and the market is the one
+  // that knows when it is finished saying what happened.
+  const [settled, setSettled] = useState(false)
 
   const groupId = group.groupId
   useEffect(() => {
     setWaited(false)
+    setSettled(false)
     if (!groupId) return
     const t = window.setTimeout(() => setWaited(true), PATIENCE_MS)
     return () => window.clearTimeout(t)
@@ -49,6 +55,34 @@ export default function App(): JSX.Element {
     return <Lost groupId={groupId} />
   }
 
+  // A group that has not bought its egg yet is not a broken group, and until
+  // this branch existed it read as one: there was no seed, so there was no
+  // snapshot, so every screen below drew nothing and the patience timer
+  // eventually said we could not reach it.
+  //
+  // It stays on screen for a moment after the egg is bought. `bought` and the
+  // snapshot arrive together, so without the second clause the market would be
+  // replaced by a lit tank in the same frame the group decided something
+  // together, which is the one beat in this whole feature worth having.
+  if (group.market !== null && (group.snapshot === null || (group.bought !== null && !settled))) {
+    return (
+      <Market
+        view={group.market}
+        actorId={group.seatId}
+        actorName={group.actor.name}
+        live={group.status === 'open'}
+        note={group.marketNote}
+        refusal={group.refusal}
+        bought={group.bought}
+        freshCode={group.freshCode}
+        onPledge={group.pledge}
+        onWithdraw={group.withdraw}
+        onClaim={group.claim}
+        onSettled={() => setSettled(true)}
+      />
+    )
+  }
+
   const actions = group.snapshot ? group.snapshot.actions : NO_ACTIONS
   const stale = group.everConnected && (group.status === 'closed' || group.status === 'error')
   // Held back until the socket has actually given up. While it is still
@@ -57,11 +91,26 @@ export default function App(): JSX.Element {
   const offlineSince =
     group.offline && (group.status === 'closed' || group.status === 'error') ? group.cachedAt : null
 
+  // seatId and NOT actor.id, on Crowd, Stage and ActionBar alike.
+  //
+  // The two are the same string right up until somebody claims a place, which
+  // is why this was wrong for weeks without ever looking wrong. After a claim
+  // the seat is the '@' id the server owns, while actor.id is still the one
+  // this browser invented, so all three screens were asking about a person the
+  // log has never heard of. ActionBar looked up creature.bonds[actorId] to
+  // anchor the cooldown, got undefined, and handed a claimed member a fresh
+  // turn on every reload, which is precisely what its own comment says must
+  // never happen. Stage decided "You" against it, so your own action was
+  // announced under your name as though a stranger had done it. Crowd marked
+  // nobody as you.
+  //
+  // Market had it right from the day it was written, which is how this was
+  // found at all.
   const crowd = (
     <Crowd
       creature={group.creature}
       present={group.present}
-      actorId={group.actor.id}
+      actorId={group.seatId}
       groupId={groupId}
       handle={group.snapshot ? group.snapshot.handle : null}
       pace={group.pace}
@@ -93,14 +142,14 @@ export default function App(): JSX.Element {
           stale={stale}
           offlineSince={offlineSince}
           groupId={groupId}
-          actorId={group.actor.id}
+          actorId={group.seatId}
           onRename={group.rename}
           onOpenPanel={compact ? setSheet : null}
           onOpenPedia={() => setSheet('pedia')}
         />
         <ActionBar
           creature={group.creature}
-          actorId={group.actor.id}
+          actorId={group.seatId}
           live={group.status === 'open'}
           onAct={group.act}
         />

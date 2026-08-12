@@ -34,6 +34,7 @@ import {
 } from '../../src/dna/index'
 import type { SleepState } from '../../src/dna/index'
 import type { Genome } from '../../src/core/types'
+import { hatchedGroup } from './hatched'
 
 /** Nobody has woken it, which is what every test about the timetable itself
  *  wants to say. Named rather than a bare zero, because a lone 0 at the end of
@@ -59,9 +60,16 @@ interface Snap {
   actions: { variantId: string; at: number }[]
 }
 
+/**
+ * A group that has already bought its egg.
+ *
+ * Buying the egg changed what a new group is: it now arrives at the market with
+ * nothing hatched. Every fixture in this file said "make a group" and meant
+ * "make a creature", and those stopped being the same sentence. The market's
+ * own tests are the ones that exercise choosing; here it is staging.
+ */
 async function makeGroup(): Promise<string> {
-  const response = await SELF.fetch('https://x/api/monstertime/groups', { method: 'POST' })
-  return ((await response.json()) as { groupId: string }).groupId
+  return hatchedGroup()
 }
 
 async function snapshot(groupId: string): Promise<Snap> {

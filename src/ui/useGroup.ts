@@ -7,10 +7,26 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { ACTIVITY_PATTERNS } from '../core/types'
-import type { Creature, Genome, GroupSnapshot, PresentActor } from '../core/types'
+import type {
+  Creature,
+  Genome,
+  GroupSnapshot,
+  MarketNote,
+  MarketSnapshot,
+  PledgeRefusal,
+  PresentActor,
+} from '../core/types'
 import { allowedWhileAsleep, deriveCreature, lastRouseAt, ROUSE_MS, sleepStateOf } from '../dna'
 import type { SleepState } from '../dna'
 import { connect, localActor, setLocalName } from '../net'
+// The server's own reader, imported rather than restated. It folds case, spaces
+// and doubled hyphens, and it is what the far end will put the typed string
+// through before it looks anything up, so a second reader here would be a field
+// that accepts what the server refuses (or worse, quietly refuses what it would
+// have taken, in front of somebody holding their only copy of a code). The file
+// has no imports of its own and nothing at its top level but a word list and
+// three functions, so this costs the app nothing it does not use.
+import { cleanPasscode } from '../../worker/passcode'
 import { codeFor, keepCode } from './passcode'
 import type { Connection, ConnectionStatus } from '../net'
 
@@ -503,14 +519,179 @@ export function useSleep(): SleepReading | null {
 }
 
 // ---------------------------------------------------------------------------
+// Who the server thinks you are
+// ---------------------------------------------------------------------------
+//
+// THIS IS NOT A SECOND IDENTITY, it is a memory of one the server issued.
+//
+// localActor() holds the id this browser made up for itself. The moment somebody
+// claims a place, the Durable Object throws that away and seats them under an id
+// of its own, prefixed with '@' (worker/monstertime.ts, claim()), and it says so
+// once, in the 'claimed' message. On every connect after that it silently
+// resolves the passcode to the same id and never mentions it again, so without
+// the two functions below this browser would spend the rest of its life sending
+// a guest id and being seated as a member, with no way to tell which of the
+// people on screen was itself.
+//
+// That gap does not matter while the only question is what to draw. It matters
+// the moment a screen has to ask "may I spend", because the answer is
+// isClaimedMember(actorId) and asking it about the made-up id returns no for
+// somebody the server would happily take coins from. So the id the server named
+// is kept here, beside the code that proves it, and every question about this
+// person is asked of that one.
+//
+// Nothing is minted here and nothing is trusted from a browser: the passcode is
+// still what authenticates, the server still decides, and a wrong value in this
+// key buys nobody anything except a screen that offers a button the server then
+// refuses.
+const SEAT_KEY = 'monstertime.seats'
+
+function readSeats(): Record<string, string> {
+  const raw = readKey(SEAT_KEY)
+  if (raw === null) return {}
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (typeof parsed !== 'object' || parsed === null) return {}
+    return parsed as Record<string, string>
+  } catch {
+    return {}
+  }
+}
+
+/** The id the server seated this browser under in that group, or null. */
+export function seatFor(groupId: string): string | null {
+  const held = readSeats()[groupId]
+  return typeof held === 'string' && held.length > 0 ? held : null
+}
+
+function keepSeat(groupId: string, actorId: string): void {
+  try {
+    localStorage.setItem(SEAT_KEY, JSON.stringify({ ...readSeats(), [groupId]: actorId }))
+  } catch {
+    // Private mode. They are still seated for the life of this tab, because the
+    // 'claimed' message is also held in state below; it is only the next launch
+    // that forgets, and the code in their photos is what puts it right.
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Being yourself again on a phone that has never seen the code
+// ---------------------------------------------------------------------------
+//
+// The card somebody saves says "type this to be yourself again on any phone",
+// and until this section existed there was nowhere in the app to type it. The
+// code went onto every hello automatically from the browser it was minted in and
+// from nowhere else, so it worked in exactly the one place it was never needed.
+//
+// What that cost, once the market existed: somebody opening the group on their
+// second phone could not reach the hundred coins their place is worth, and the
+// only thing the screen offered them was to claim again, which mints a SECOND
+// member, hands them a second purse, raises the price of the two scaling eggs
+// for everybody, and strands the first purse where nothing can ever spend it.
+//
+// A module store rather than a prop, for the reason the local name and the sleep
+// clock above are ones: the panel that has to offer this sits several levels
+// under the screen holding the connection, and threading it down would put the
+// way back into the group in the hands of whichever screen forgot to pass it on.
+
+/** The connection the panels below reach, and which group it is for. */
+let liveGroup: { groupId: string; conn: Connection } | null = null
+
+// What this browser holds, as a number that changes when it changes. The codes
+// live in localStorage, which React has no way to notice, so without this a code
+// typed in a moment ago would be right in storage and wrong on screen until
+// something unrelated caused a render.
+let codeVersion = 0
+const codeListeners = new Set<() => void>()
+
+function subscribeCode(fn: () => void): () => void {
+  codeListeners.add(fn)
+  return () => {
+    codeListeners.delete(fn)
+  }
+}
+
+function readCodeVersion(): number {
+  return codeVersion
+}
+
+/** Say that what this browser holds has changed. Called from both paths that
+ *  can change it, the claim and the typed code, so neither can be the one that
+ *  quietly does not move the screen. */
+function codeChanged(): void {
+  codeVersion += 1
+  for (const fn of [...codeListeners]) fn()
+}
+
+/**
+ * What happened to a code somebody typed.
+ *
+ * 'misshapen' never reached the server: it is not the shape of a code at all,
+ * and saying so is not telling anybody how far through the wordlist they have
+ * got, because the shape is printed on the card. 'refused' is the far end
+ * saying it does not open anything here, which is deliberately the same answer
+ * for a code that is unknown and one that belongs to another group.
+ */
+export type EnteredCode = 'accepted' | 'refused' | 'misshapen' | 'unanswered'
+
+/**
+ * Hand a code to the group and become the member it belongs to.
+ *
+ * Kept exactly the way the claim path keeps a minted one, and for the same
+ * reason: this is typed once per device, off a photograph, and asking again on
+ * every visit is how a code that survived a year gets lost.
+ */
+export async function enterPasscode(typed: string): Promise<EnteredCode> {
+  const code = cleanPasscode(typed)
+  if (code === null) return 'misshapen'
+  const live = liveGroup
+  if (live === null) return 'unanswered'
+  const answer = await live.conn.enterCode(code)
+  if (answer.verdict !== 'accepted') return answer.verdict
+  keepCode(live.groupId, code)
+  // Only when the far end's answer could be read. See judgeCode in
+  // net/connection.ts: a wrong id here is a screen showing somebody else's
+  // coins, so nothing is written on a guess.
+  if (answer.actorId !== null) keepSeat(live.groupId, answer.actorId)
+  codeChanged()
+  return 'accepted'
+}
+
+// ---------------------------------------------------------------------------
 // The group
 // ---------------------------------------------------------------------------
 
 export interface GroupHandle {
   groupId: string | null
   actor: { id: string; name: string }
+  /**
+   * Who the far end has this browser seated as, which is not always `actor.id`.
+   *
+   * The same value until somebody claims a place, and the server's own id after
+   * that. Every question about what THIS person may do is asked of this rather
+   * than of actor.id: the market refuses coins from anybody without a place, and
+   * asking that of the id the browser made up would hide the controls from
+   * exactly the people entitled to use them.
+   */
+  seatId: string
   status: ConnectionStatus
   snapshot: GroupSnapshot | null
+  /**
+   * The group before it has bought an egg, or null once it has one. Never both
+   * at once while the market is live, and deliberately NOT cleared when the egg
+   * is bought: the screen that was on the eggs is still on them for a moment
+   * after, saying which one won.
+   */
+  market: MarketSnapshot | null
+  /** What just moved in the market, so a screen can say it out loud. Null when
+   *  the market arrived for some other reason, such as somebody claiming. */
+  marketNote: MarketNote | null
+  /** Non-null the one time this group's egg is bought, and from then on. What
+   *  makes the market screen play the moment rather than blink out of the way. */
+  bought: { egg: number; spent: number } | null
+  /** The last pledge the server turned away, stamped so that the same refusal
+   *  twice running is two events and not one. Cleared by whoever showed it. */
+  refusal: { reason: PledgeRefusal; at: number } | null
   present: PresentActor[]
   creature: Creature | null
   genome: Genome | null
@@ -528,6 +709,10 @@ export interface GroupHandle {
   setPace: (pace: number) => void
   /** Ask for a code that says which member this is. */
   claim: () => void
+  /** Put coins behind one of the three eggs on offer. */
+  pledge: (egg: number, coins: number) => void
+  /** Take back everything this person has on one egg. */
+  withdraw: (egg: number) => void
   /** The code, for as long as it is on screen. Held in memory only and never
    *  put back after a reload: the server cannot reissue it, so a page that
    *  could show it again would be lying about how many copies exist. */
@@ -546,32 +731,73 @@ export function useGroup(): GroupHandle {
   const actor = useMemo(() => localActor(), [isNamed])
 
   const [snapshot, setSnapshot] = useState<GroupSnapshot | null>(null)
+  const [market, setMarket] = useState<MarketSnapshot | null>(null)
+  const [marketNote, setMarketNote] = useState<MarketNote | null>(null)
+  const [bought, setBought] = useState<{ egg: number; spent: number } | null>(null)
+  const [refused, setRefused] = useState<{ reason: PledgeRefusal; at: number } | null>(null)
   const [present, setPresent] = useState<PresentActor[]>(NO_ONE)
   const [status, setStatus] = useState<ConnectionStatus>('connecting')
   const [everConnected, setEverConnected] = useState(false)
   const [freshCode, setFreshCode] = useState<{ actorId: string; code: string } | null>(null)
+  // The id the server named for this browser during THIS session, which is the
+  // only moment it is ever said out loud. Held in state as well as in storage so
+  // the market screen offers its controls the instant somebody claims, rather
+  // than on the reload nobody is going to do.
+  const [seat, setSeat] = useState<string | null>(null)
   const conn = useRef<Connection | null>(null)
 
   useEffect(() => {
     if (!groupId || !isNamed) return
     setSnapshot(null)
+    setMarket(null)
+    setMarketNote(null)
+    setBought(null)
+    setRefused(null)
+    setSeat(null)
     setPresent(NO_ONE)
     setStatus('connecting')
     setEverConnected(false)
 
     const c = connect(groupId, actor, codeFor(groupId))
     conn.current = c
+    // The one connection a typed code can go up on, published for the panels
+    // that offer that and are handed no way to reach it.
+    liveGroup = { groupId, conn: c }
     const offClaimed = c.onClaimed((next) => {
       // Kept before it is shown, so a tab closed in the two seconds between the
       // two does not lose a code that can never be reissued.
       keepCode(groupId, next.code)
+      // The id goes down with it, in the same breath and for the same reason.
+      // This is the one message that ever carries it, and a browser that heard
+      // it and did not write it down spends every later session unable to tell
+      // which of the people in the group is itself.
+      keepSeat(groupId, next.actorId)
+      setSeat(next.actorId)
       setFreshCode(next)
+      // Said out loud for the same reason the typed path says it: `claimed`
+      // below is read out of storage, and storage is the one thing on this
+      // screen that cannot announce itself.
+      codeChanged()
     })
     const offSnapshot = c.subscribe((next, who) => {
       setSnapshot(next)
       setPresent(who)
       setEverConnected(true)
     })
+    // A group at the market has answered exactly as fully as one with a
+    // creature. Before this line it did not count as connected at all, so the
+    // patience timer in App ran out and told a perfectly healthy group we could
+    // not reach it.
+    const offMarket = c.onMarket((next, who, note) => {
+      setMarket(next)
+      setMarketNote(note)
+      setPresent(who)
+      setEverConnected(true)
+    })
+    const offBought = c.onBought(setBought)
+    // Stamped rather than stored bare, so being refused twice for the same
+    // reason is two things that happened and not one that never cleared.
+    const offRefused = c.onRefused((reason) => setRefused({ reason, at: Date.now() }))
     const offStatus = c.onStatus(setStatus)
     // The refusal is not routed through React state on purpose. Nothing renders
     // this message: it corrects the clock the sleep store is already keeping, and
@@ -580,11 +806,19 @@ export function useGroup(): GroupHandle {
 
     return () => {
       offSnapshot()
+      offMarket()
+      offBought()
+      offRefused()
       offStatus()
       offClaimed()
       offAsleep()
       c.close()
       conn.current = null
+      // By identity and never blindly: a teardown that lands after a fresh
+      // connection has published itself would otherwise clear the live one, and
+      // the panel offering the code would go quiet with nothing on screen saying
+      // why. This is the same guard `closed` is inside the connection.
+      if (liveGroup !== null && liveGroup.conn === c) liveGroup = null
     }
   }, [groupId, isNamed, actor])
 
@@ -602,7 +836,12 @@ export function useGroup(): GroupHandle {
   // Once the group has actually answered, this id is worth reopening. Written
   // on everConnected rather than on the id resolving, so a mistyped or dead
   // link never becomes the thing every future launch opens.
-  const knownHandle = shown ? shown.handle : null
+  //
+  // The handle is taken off the market as well when there is no snapshot yet. A
+  // group is nameable from the moment it is made, hours before it owns an
+  // animal, and without this the list of your other creatures would call one at
+  // the market unnamed for as long as it took them to choose.
+  const knownHandle = shown ? shown.handle : market ? market.handle : null
   const knownName = shown ? shown.name : null
   useEffect(() => {
     if (groupId && everConnected) rememberGroup(groupId, knownHandle, knownName)
@@ -676,6 +915,14 @@ export function useGroup(): GroupHandle {
     conn.current?.claim()
   }, [])
 
+  const pledge = useCallback((egg: number, coins: number) => {
+    conn.current?.pledge(egg, coins)
+  }, [])
+
+  const withdraw = useCallback((egg: number) => {
+    conn.current?.withdraw(egg)
+  }, [])
+
   const setPace = useCallback((pace: number) => {
     conn.current?.setPace(pace)
   }, [])
@@ -684,11 +931,31 @@ export function useGroup(): GroupHandle {
     conn.current?.rename(name)
   }, [])
 
+  // What this browser holds for this group, and what it was seated as.
+  //
+  // Both keyed on the version rather than read fresh on every render, and that
+  // is the point rather than a saving: a code typed into the panel a second ago
+  // lands in storage, which nothing in React watches, so without something that
+  // says it moved, the screen would go on offering "Claim my place" to somebody
+  // who had just proved they already have one, until an unrelated render
+  // happened to pick the new value up.
+  const codeAt = useSyncExternalStore(subscribeCode, readCodeVersion, () => 0)
+  const held = useMemo(() => (groupId ? codeFor(groupId) : null), [groupId, codeAt])
+  // Newest answer first: the id the server said out loud a moment ago, then the
+  // one it said in an earlier session, then the id this browser made up before
+  // it had ever been given one.
+  const stored = useMemo(() => (groupId ? seatFor(groupId) : null), [groupId, codeAt])
+
   return {
     groupId,
     actor,
+    seatId: seat ?? stored ?? actor.id,
     status,
     snapshot: shown,
+    market,
+    marketNote,
+    bought,
+    refusal: refused,
     present,
     creature,
     genome: shown ? shown.genome : null,
@@ -699,8 +966,10 @@ export function useGroup(): GroupHandle {
     rename,
     setPace,
     claim,
+    pledge,
+    withdraw,
     freshCode,
-    claimed: groupId !== null && codeFor(groupId) !== null,
+    claimed: held !== null,
     pace: shown ? shown.pace : 1,
   }
 }

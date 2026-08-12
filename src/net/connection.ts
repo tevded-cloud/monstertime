@@ -13,11 +13,38 @@ import type {
   ActionRecord,
   ClientMessage,
   GroupSnapshot,
+  MarketNote,
+  MarketSnapshot,
+  PledgeRefusal,
   PresentActor,
   ServerMessage,
 } from '../core/types'
+// The one place '@' means "this id was issued by the server". Imported rather
+// than tested here, because a second copy of that character is a rule that
+// agrees with the first until one of them is edited.
+import { isClaimedMember } from '../market/rules'
 
 export type ConnectionStatus = 'connecting' | 'open' | 'closed' | 'error'
+
+/**
+ * What came back when somebody presented a code they had been given.
+ *
+ * 'refused' is the far end saying it does not open anything here. 'unanswered'
+ * is nothing having come back at all, which is a different thing to tell
+ * somebody: one means check the code, the other means try again.
+ */
+export interface CodeAnswer {
+  verdict: 'accepted' | 'refused' | 'unanswered'
+  /**
+   * The id the far end seated this browser under, when this side could work out
+   * which of the people in the room it had become, and null when it could not.
+   *
+   * Null is NOT a failure and must not be read as one. The far end never says
+   * who a code resolved to, so this is worked out from the room changing, and
+   * there are rooms it cannot be worked out in. See judgeCode().
+   */
+  actorId: string | null
+}
 
 export interface Connection {
   subscribe(fn: (snapshot: GroupSnapshot, present: PresentActor[]) => void): () => void
@@ -30,15 +57,63 @@ export interface Connection {
   claim(): void
   /** Fires the one time a code is minted, and never after. */
   onClaimed(fn: (claimed: { actorId: string; code: string }) => void): () => void
+  /**
+   * Present a code somebody typed, as the member it belongs to.
+   *
+   * The twin of claim() and its opposite: claim() asks for a place and is
+   * answered with a code, this hands a code back and asks for the place. It
+   * exists because until it did, a code only ever worked on the browser it was
+   * minted in: `hello` has carried one for as long as the server has understood
+   * them, but nothing anywhere put one there except the claim that made it.
+   *
+   * IT GOES UP ON A SOCKET OF ITS OWN, which is not an implementation detail.
+   * A connection says hello once; a second hello on the same one, carrying a
+   * code that resolves to somebody other than the guest already sitting in that
+   * seat, is answered with "this connection already belongs to somebody", which
+   * is true and useless. So this closes the socket it is holding and opens
+   * another with the code on the first hello, which is exactly the shape every
+   * later visit from this browser will have.
+   *
+   * Answered once, and a refusal puts back whatever this browser held before, so
+   * a mistyped code cannot cost somebody the place they already had.
+   */
+  enterCode(code: string): Promise<CodeAnswer>
   /** Fires every time the server turns an action away because the creature is
    *  asleep. Not an error and not a status change: the socket is fine, the
    *  animal is not available, and the two want different words on screen. */
   onAsleep(fn: (refused: { since: number; until: number; now: number }) => void): () => void
+  /** Put coins behind one of the three eggs. Which person this is comes off the
+   *  seat at the far end, never off this message, exactly as it does for act():
+   *  coins spent against a self-asserted actorId would be coins anybody can mint
+   *  by clearing their local storage. */
+  pledge(egg: number, coins: number): void
+  /** Take back everything this person has on one egg. Nothing optimistic here
+   *  either: the market that comes back is what is actually on the table. */
+  withdraw(egg: number): void
+  /** The market, whole, every time it moves. The twin of subscribe() for a group
+   *  that has not bought an egg yet, and separate from it because the two carry
+   *  different shapes: a market has no genome, no log and nothing to derive, and
+   *  folding it into the snapshot channel would put a null check into every
+   *  screen that draws a creature. */
+  onMarket(fn: MarketListener): () => void
+  /** Fires the one time this group's egg is bought. The snapshot that came with
+   *  it has already gone out through subscribe() by then, so a listener here is
+   *  free to spend a moment on the moment rather than racing to fetch anything. */
+  onBought(fn: (bought: { egg: number; spent: number }) => void): () => void
+  /** Fires when the server turns a pledge away, with the reason and no English.
+   *  Sibling of onAsleep for the same reason: most of these are a race rather
+   *  than a mistake, and none of them is a broken socket. */
+  onRefused(fn: (reason: PledgeRefusal) => void): () => void
   close(): void
   onStatus(fn: (status: ConnectionStatus) => void): () => void
 }
 
 type SnapshotListener = (snapshot: GroupSnapshot, present: PresentActor[]) => void
+type MarketListener = (
+  snapshot: MarketSnapshot,
+  present: PresentActor[],
+  note: MarketNote | null,
+) => void
 type StatusListener = (status: ConnectionStatus) => void
 
 // Backoff shape: start quick (a dropped wifi packet should recover almost
@@ -51,9 +126,127 @@ const MAX_RETRY_DELAY_MS = 15_000
 const RETRY_MULTIPLIER = 2
 const JITTER_FRACTION = 0.3
 
+// How long a typed code is given to be answered, counted from the moment the
+// hello carrying it goes out rather than from the tap.
+//
+// This is not a patience budget, it is the length of the silence that has to
+// mean yes. The far end says nothing at all to somebody it seats and speaks up
+// only to refuse, so there is no message this can wait for; a hello is one round
+// trip, and four seconds is far past a slow one.
+const CODE_ANSWER_MS = 4000
+
+// And how long the socket carrying it gets to open in the first place. A code
+// typed on a train can wait a while for a connection, and telling somebody whose
+// code is perfectly good that it did not work is the worst answer available
+// here: they have one copy of it and will believe the app rather than the photo.
+const CODE_OPEN_MS = 8000
+
+/**
+ * A code somebody has typed, while the far end is deciding about it.
+ *
+ * ONE AT A TIME AND NEVER TWO. Everything here is about a single question that
+ * has been asked and not answered, and on the other end of it is a person
+ * watching a button that says "Checking".
+ */
+interface Asking {
+  /** What this browser held before, put back if the typed one is refused. */
+  was: string | null
+  /** Who was already seated as a member before the code went up. This is the
+   *  whole of what makes a newly seated one identifiable at all. */
+  before: Set<string>
+  /** Whether the hello carrying it has actually gone out. Before that, silence
+   *  is the network's and answering 'accepted' on it would be answering a
+   *  question the server has not been asked. */
+  sent: boolean
+  settle: (answer: CodeAnswer) => void
+  timer: ReturnType<typeof setTimeout> | null
+}
+
 function socketUrl(groupId: string): string {
   const scheme = location.protocol === 'https:' ? 'wss:' : 'ws:'
   return `${scheme}//${location.host}/api/monstertime/groups/${encodeURIComponent(groupId)}/socket`
+}
+
+// ---------------------------------------------------------------------------
+// What the object said, in words
+// ---------------------------------------------------------------------------
+//
+// EVERY WRITTEN SENTENCE THE OBJECT REFUSES IN, BAR THE ONE ANSWERING A TYPED
+// PASSCODE, WENT TO console.error AND NOWHERE ELSE. The per person hourly cap,
+// the group's hourly cap, the three burst limits, the stage gate, waking an
+// animal that is already up, a group with no room left in it, the rename it
+// will not take yet: all composed in the app's own voice, all logged for a
+// developer and hidden from the group they were written for. A tap that is
+// turned away with nothing on screen is indistinguishable from an app that has
+// broken, which is the failure ActionBar exists to prevent for sleep and the
+// cooldown and did not prevent for any of these.
+//
+// ONE OF THEM IS NOT A REFUSAL AT ALL. At CAP_WARNING actions short of the
+// lifetime cap the object BROADCASTS to the whole group that the creature is
+// nearly done, with a comment beside it saying the one thing that must not
+// happen is a group finding that out by being told no one day. It went to the
+// console with the rest, the creature reached the end of its life, and the app
+// simply stopped answering taps. It gets the same path as a refusal here and
+// deliberately so: on the wire the two are the same message, so the only way to
+// tell them apart is by their words, and matching on words is exactly what the
+// error case below refuses to do.
+//
+// A module store rather than another listener on Connection, for the reason the
+// sleep clock in useGroup.ts is one: the line that says why nothing happened
+// sits several levels under the screen holding the connection, and threading a
+// subscription down to it would put the app's only answer in the hands of
+// whichever screen forgot to pass it on.
+
+/** Something the far end said in words, and when it said it. */
+export interface ServerSentence {
+  text: string
+  at: number
+}
+
+/**
+ * How long one of these stays on screen.
+ *
+ * Set by the longest of them rather than by what feels brief. 'This creature
+ * has a full life behind it...' is thirty-two words, which is about thirteen
+ * seconds of unhurried reading, and the clock starts late because somebody who
+ * has just been refused is looking at the button they pressed and not at the
+ * line under it. It costs nothing to be generous: this line is a fixed region
+ * that covers nothing and interrupts nobody.
+ */
+export const SENTENCE_MS = 20_000
+
+let sentence: ServerSentence | null = null
+let sentenceTimer: ReturnType<typeof setTimeout> | null = null
+const sentenceListeners = new Set<() => void>()
+
+function setSentence(next: ServerSentence | null): void {
+  if (sentenceTimer !== null) {
+    clearTimeout(sentenceTimer)
+    sentenceTimer = null
+  }
+  sentence = next
+  if (next !== null) sentenceTimer = setTimeout(() => setSentence(null), SENTENCE_MS)
+  for (const fn of [...sentenceListeners]) fn()
+}
+
+export function subscribeSentence(fn: () => void): () => void {
+  sentenceListeners.add(fn)
+  return () => {
+    sentenceListeners.delete(fn)
+  }
+}
+
+/** The same object until it actually changes, because a store read on every
+ *  render that handed back a fresh one each time would re-render forever. */
+export function readSentence(): ServerSentence | null {
+  return sentence
+}
+
+/** Drop whatever is held. Called when a fresh tap supersedes the answer to the
+ *  last one, and when a connection goes: a sentence is about the creature that
+ *  said it, the same reason the sleep store drops its refusal on a new source. */
+export function forgetSentence(): void {
+  setSentence(null)
 }
 
 class SocketConnection implements Connection {
@@ -68,6 +261,14 @@ class SocketConnection implements Connection {
   >()
   private socket: WebSocket | null = null
   private snapshot: GroupSnapshot | null = null
+  // The market, when this group is still at one. Held for the same reason the
+  // snapshot is: a listener that subscribes after the first message still has to
+  // be handed what is on the table rather than waiting for somebody to move.
+  private market: MarketSnapshot | null = null
+  // The last thing that happened in the market, so a screen can say it out loud.
+  // Kept beside the market rather than inside it because it is not part of the
+  // state: it is what changed on the way to this state.
+  private marketNote: MarketNote | null = null
   private present: PresentActor[] = []
   // Tracks every action id folded into `snapshot`, both from the initial
   // snapshot and from every 'action' message since. This is what stands
@@ -75,10 +276,16 @@ class SocketConnection implements Connection {
   // a reconnect race) and a creature that silently double-counts pressure.
   private readonly seenActionIds = new Set<string>()
   private readonly snapshotListeners = new Set<SnapshotListener>()
+  private readonly marketListeners = new Set<MarketListener>()
+  private readonly boughtListeners = new Set<(bought: { egg: number; spent: number }) => void>()
+  private readonly refusalListeners = new Set<(reason: PledgeRefusal) => void>()
   private readonly statusListeners = new Set<StatusListener>()
   private status: ConnectionStatus = 'connecting'
   private retryDelay = INITIAL_RETRY_DELAY_MS
   private retryTimer: ReturnType<typeof setTimeout> | null = null
+  // The code somebody typed a moment ago, and nothing at all the rest of the
+  // time. See enterCode().
+  private asking: Asking | null = null
   // Once true, nothing in this instance is allowed to open a socket again.
   // Every handler and every scheduled retry checks this first, because
   // React strict mode mounts effects twice and a connection that can
@@ -110,6 +317,14 @@ class SocketConnection implements Connection {
       }
       socket.send(JSON.stringify(hello))
       this.setStatus('open')
+      // The clock on a typed code starts HERE and not when it was typed. Until
+      // this line has run the question has not been asked, and a silence that
+      // was really a socket failing to open would otherwise be read as the far
+      // end quietly accepting a code it never saw.
+      if (this.asking !== null) {
+        this.asking.sent = true
+        this.waitForCode(CODE_ANSWER_MS)
+      }
     }
 
     socket.onmessage = (event: MessageEvent) => {
@@ -157,6 +372,7 @@ class SocketConnection implements Connection {
         for (const action of message.snapshot.actions) {
           this.seenActionIds.add(action.id)
         }
+        this.widenCode()
         this.emitSnapshot()
         break
       }
@@ -189,7 +405,52 @@ class SocketConnection implements Connection {
       }
       case 'present': {
         this.present = message.present
+        // The one message a hello produces, so it is the only one a typed code
+        // can be recognised in. Read before either channel emits, so that a
+        // screen redrawing on this message already knows who it is looking at.
+        this.judgeCode()
+        // Both channels, because only one of them has anything to send on and
+        // this file is not the thing that decides which. Emitting only the
+        // snapshot left a group at the market with a present list frozen at
+        // whoever was there when the socket opened.
         this.emitSnapshot()
+        this.emitMarket()
+        break
+      }
+      case 'market': {
+        // The whole state, replacing whatever was here. There is no
+        // accumulation to get wrong and deliberately none to build: a market is
+        // three seeds and a short list of pledges, and a client that had to
+        // replay a stream of increments to know what is on the table is a client
+        // that can be quietly wrong about what a group is buying.
+        this.market = message.snapshot
+        this.present = message.present
+        this.marketNote = message.note
+        this.widenCode()
+        this.emitMarket()
+        break
+      }
+      case 'bought': {
+        // The group has a creature and it arrives whole. Folded in exactly the
+        // way a 'snapshot' is, so nothing downstream has to know this one is the
+        // first, and the market is deliberately left standing: the screen that
+        // was on the eggs needs it for a moment longer to say which one won.
+        this.snapshot = message.snapshot
+        this.seenActionIds.clear()
+        for (const action of message.snapshot.actions) {
+          this.seenActionIds.add(action.id)
+        }
+        // Snapshot first, then the news. A listener told about the purchase
+        // before the creature existed anywhere would have to go and ask for it.
+        this.emitSnapshot()
+        for (const fn of this.boughtListeners) fn({ egg: message.egg, spent: message.spent })
+        break
+      }
+      case 'refused': {
+        // Not console.error'd, for the reason 'asleep' is not: being told
+        // somebody else got there first is a normal minute at a market, not a
+        // fault, and it is the app's job to put words to it rather than a log's.
+        for (const fn of this.refusalListeners) fn(message.reason)
         break
       }
       case 'asleep': {
@@ -204,12 +465,36 @@ class SocketConnection implements Connection {
         break
       }
       case 'error': {
-        // A server-level error (an unknown variant id, a rejected name) is
-        // not a connection failure: the socket stays open. This is
-        // surfaced for debugging only; there is no status transition for
-        // it because ConnectionStatus describes the transport, not the
-        // last message's outcome.
-        console.error('monstertime connection: server reported an error:', message.message)
+        // A code somebody typed can be turned away, and on a socket that has
+        // only just opened that refusal is the ONLY error a hello can produce:
+        // nothing here ever sends a token, and a seat cannot already belong to
+        // somebody on a connection that has said nothing else. So an error
+        // arriving while a code is outstanding IS the answer to it.
+        //
+        // Recognised by that rather than by the sentence, deliberately. The
+        // words are the far end's to reword, and a client matching on them would
+        // go silently back to swallowing refusals the day somebody improved the
+        // English, which is the failure this whole unit exists to delete.
+        //
+        // ONE ERROR IS NOT ABOUT THE HELLO and it is worth knowing about: the
+        // object broadcasts an `error` to the whole group on the single action
+        // that leaves a creature CAP_WARNING short of its lifetime cap. Landing
+        // inside somebody's four second window would call a perfectly good code
+        // refused. It costs a retype and nothing else, because a refusal keeps
+        // no code and puts back the one this browser held, and it is the right
+        // way round: the other reading, believing an error is somebody else's
+        // and accepting anyway, would keep a code that does not work and tell
+        // the person they were back.
+        if (this.asking !== null && this.asking.sent) {
+          this.refuseCode('refused')
+          break
+        }
+        // Everything else the object says goes to the people it was written
+        // for. Not a connection failure and no status transition: the socket
+        // stays open and ConnectionStatus describes the transport, not the last
+        // message's outcome. It replaces a console.error rather than joining
+        // one, because a line only a developer can read is what this was.
+        setSentence({ text: message.message, at: Date.now() })
         break
       }
       default:
@@ -236,6 +521,13 @@ class SocketConnection implements Connection {
     if (!this.snapshot) return
     for (const listener of this.snapshotListeners) {
       listener(this.snapshot, this.present)
+    }
+  }
+
+  private emitMarket(): void {
+    if (!this.market) return
+    for (const listener of this.marketListeners) {
+      listener(this.market, this.present, this.marketNote)
     }
   }
 
@@ -268,6 +560,33 @@ class SocketConnection implements Connection {
     }
     return () => {
       this.snapshotListeners.delete(fn)
+    }
+  }
+
+  onMarket(fn: MarketListener): () => void {
+    this.marketListeners.add(fn)
+    // Handed the current market straight away, for the reason subscribe() hands
+    // over the current snapshot: a listener that joined a beat late should not
+    // have to wait for somebody in the group to move before it can draw.
+    if (this.market) {
+      fn(this.market, this.present, this.marketNote)
+    }
+    return () => {
+      this.marketListeners.delete(fn)
+    }
+  }
+
+  onBought(fn: (bought: { egg: number; spent: number }) => void): () => void {
+    this.boughtListeners.add(fn)
+    return () => {
+      this.boughtListeners.delete(fn)
+    }
+  }
+
+  onRefused(fn: (reason: PledgeRefusal) => void): () => void {
+    this.refusalListeners.add(fn)
+    return () => {
+      this.refusalListeners.delete(fn)
     }
   }
 
@@ -304,11 +623,177 @@ class SocketConnection implements Connection {
     }
   }
 
+  enterCode(code: string): Promise<CodeAnswer> {
+    // Nothing to ask on, or one already outstanding. Both are the same answer:
+    // nothing came back. Refusing the second is what keeps every field in
+    // `asking` about exactly one question.
+    if (this.closed || this.asking !== null) {
+      return Promise.resolve({ verdict: 'unanswered', actorId: null })
+    }
+    const was = this.code
+    this.code = code
+    return new Promise<CodeAnswer>((settle) => {
+      this.asking = {
+        was,
+        // Read before the socket goes, so it is who the room held while this
+        // browser was still whoever it was a second ago.
+        before: new Set(this.present.map((p) => p.actorId)),
+        sent: false,
+        settle,
+        timer: null,
+      }
+      this.waitForCode(CODE_OPEN_MS)
+      this.reopen()
+    })
+  }
+
+  /**
+   * Start again on a fresh socket, deliberately rather than because one broke.
+   *
+   * The backoff is reset because this is not a failure and must not be billed as
+   * one: somebody typing a code after an outage would otherwise wait out
+   * whatever delay the last dropped connection had climbed to.
+   */
+  private reopen(): void {
+    if (this.closed) return
+    if (this.retryTimer !== null) {
+      clearTimeout(this.retryTimer)
+      this.retryTimer = null
+    }
+    this.retryDelay = INITIAL_RETRY_DELAY_MS
+    const socket = this.socket
+    this.socket = null
+    if (socket !== null) {
+      // Detached before closing, for the reason close() detaches: the onclose
+      // this is about to cause would otherwise schedule a reconnect of its own
+      // and this connection would end up holding two live sockets.
+      socket.onopen = null
+      socket.onmessage = null
+      socket.onclose = null
+      socket.onerror = null
+      socket.close()
+    }
+    this.open()
+  }
+
+  private waitForCode(ms: number): void {
+    const asking = this.asking
+    if (asking === null) return
+    if (asking.timer !== null) clearTimeout(asking.timer)
+    asking.timer = setTimeout(() => {
+      if (this.asking === null) return
+      // A hello that never went out is not a code that was refused. The two
+      // want different words on screen and this is the only place that can tell
+      // them apart.
+      if (!this.asking.sent) {
+        this.refuseCode('unanswered')
+        return
+      }
+      // Silence is the yes, and it is the only yes on offer: the far end tells
+      // the room who is in it and tells the person who just arrived nothing at
+      // all. The seat is null here because the room did not change in a way this
+      // side could read, which is a smaller thing to be missing than a place.
+      this.answerCode({ verdict: 'accepted', actorId: null })
+    }, ms)
+  }
+
+  /** The answer, once, and the last thing that happens to an ask. */
+  private answerCode(answer: CodeAnswer): void {
+    const asking = this.asking
+    if (asking === null) return
+    if (asking.timer !== null) clearTimeout(asking.timer)
+    this.asking = null
+    asking.settle(answer)
+  }
+
+  /**
+   * A code the far end would not take, or one it never got.
+   *
+   * Whoever this browser was before goes back on and the socket comes back up
+   * under it, because a hello carrying a bad code seats nobody: without this,
+   * one wrong guess would leave somebody unable to do anything to the creature,
+   * invisible to the rest of the group, and holding no clue that the two facts
+   * were related.
+   */
+  private refuseCode(verdict: 'refused' | 'unanswered'): void {
+    const asking = this.asking
+    if (asking === null) return
+    this.code = asking.was
+    this.answerCode({ verdict, actorId: null })
+    this.reopen()
+  }
+
+  /**
+   * Which of the people in the room this browser has just become.
+   *
+   * THE FAR END NEVER SAYS, and that is the whole difficulty. A claim is
+   * answered with the id it minted; a code presented on a hello is answered with
+   * nothing: the seat moves, the room is told who is in it, and whoever typed
+   * the code is left to work out which of those is now them. This is that.
+   *
+   * It is deliberately unwilling. An id adopted wrongly here is a market screen
+   * showing somebody else's coins, so it takes exactly one unmistakable answer
+   * and adopts nothing otherwise, and adopting nothing still counts as accepted.
+   * The cost of declining is a screen that goes on calling somebody a visitor
+   * until they open the app again; the cost of guessing is a purse that is not
+   * theirs. The name has to match as well as the id being new, because a member
+   * who was already in the room reads as no change at all and somebody else
+   * arriving in the same instant reads as a change: without the name those two
+   * cases are the same shape.
+   *
+   * ONE LINE IN THE WORKER WOULD DELETE THIS FUNCTION. `claimed` already carries
+   * an actorId, and hello could send it back when a code resolves.
+   */
+  private judgeCode(): void {
+    const asking = this.asking
+    if (asking === null || !asking.sent) return
+    const fresh = this.present.filter(
+      (p) =>
+        isClaimedMember(p.actorId) &&
+        !asking.before.has(p.actorId) &&
+        p.actorName === this.actor.name,
+    )
+    if (fresh.length !== 1) return
+    this.answerCode({ verdict: 'accepted', actorId: fresh[0].actorId })
+  }
+
+  /**
+   * Everybody that a message which cannot be about the code says is here.
+   *
+   * The first thing a fresh socket is sent is the whole group, and the far end
+   * wrote it before it had read this connection's hello, so it is another
+   * reading of who was already in the room rather than an answer to anything.
+   * Folding it in rather than diffing against it is what stops a member who was
+   * there the whole time being read as the one that just arrived.
+   */
+  private widenCode(): void {
+    const asking = this.asking
+    if (asking === null) return
+    for (const who of this.present) asking.before.add(who.actorId)
+  }
+
   onAsleep(fn: (r: { since: number; until: number; now: number }) => void): () => void {
     this.asleepListeners.add(fn)
     return () => {
       this.asleepListeners.delete(fn)
     }
+  }
+
+  pledge(egg: number, coins: number): void {
+    if (this.closed) return
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return
+    // Nothing optimistic, for the reason act() invents nothing: the pledge list
+    // is ordered and the order is the record of how the group got to its animal,
+    // so the server writes the row and this only ever asks for one.
+    const message: ClientMessage = { type: 'pledge', egg, coins }
+    this.socket.send(JSON.stringify(message))
+  }
+
+  withdraw(egg: number): void {
+    if (this.closed) return
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return
+    const message: ClientMessage = { type: 'withdraw', egg }
+    this.socket.send(JSON.stringify(message))
   }
 
   setPace(pace: number): void {
@@ -345,6 +830,14 @@ class SocketConnection implements Connection {
       clearTimeout(this.retryTimer)
       this.retryTimer = null
     }
+    // A code still in the air when the screen goes has to be answered anyway.
+    // The person is gone, but whoever called enterCode is holding a promise, and
+    // a promise that never settles is a button that says "Checking" forever.
+    this.answerCode({ verdict: 'unanswered', actorId: null })
+    // Whatever the object last said goes with the connection that carried it.
+    // Left standing, a refusal earned in one group would be the first sentence
+    // under the next group's action bar, about an animal that never said it.
+    forgetSentence()
     this.snapshotListeners.clear()
     this.statusListeners.clear()
     const socket = this.socket

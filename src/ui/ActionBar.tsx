@@ -33,11 +33,15 @@
 // choose between while their animal is down, which is the only interesting
 // decision on offer at that hour.
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { JSX } from 'react'
 import { ACTION_KINDS } from '../core/types'
 import type { ActionKind, ActionVariant, Creature } from '../core/types'
 import { availableVariants, methodsForKind } from '../dna'
+// Reached past src/net's barrel deliberately and not happily. The barrel is the
+// public face of that module and this belongs on it; until it is added there,
+// the alternative is leaving every sentence the object writes in the console.
+import { forgetSentence, readSentence, SENTENCE_MS, subscribeSentence } from '../net/connection'
 import { wakingPhrase } from './describe'
 import { useSleep } from './useGroup'
 
@@ -63,6 +67,25 @@ const SETTLE: Record<ActionKind, string> = {
   sing: 'It is listening.',
   give: 'It is turning that over.',
   tend: 'It has gone quiet for a bit.',
+}
+
+// Why a kind is offering nothing, said out loud rather than only into the 1px
+// box a screen reader reads. Same two reasons and the same ranking as the sr
+// span inside the button, because they are the same answer to the same question
+// and a second wording would be a second answer that can drift.
+//
+// The sleeping one is deliberately NOT the sentence the bar is already showing
+// while it is asleep. An aria-live region announces a CHANGE, so an answer
+// identical to the line already on screen is silence to a screen reader and a
+// tap that did nothing to everybody else, which is the whole defect.
+const SHUT_ASLEEP = 'Not while it is asleep.'
+const SHUT_YOUNG = 'It is too young for this yet.'
+
+/** Something the app has to say about the tap that has just happened, and the
+ *  instant it was said, so the newer of two answers wins. */
+interface Answer {
+  text: string
+  at: number
 }
 
 interface ActionBarProps {
@@ -96,6 +119,47 @@ export default function ActionBar({ creature, actorId, live, onAct }: ActionBarP
   const since = Math.max(bond ? bond.lastAt : 0, localAt)
   const remaining = since ? Math.max(0, Math.min(COOLDOWN_MS, since + COOLDOWN_MS - now)) : 0
   const cooling = remaining > 0
+
+  // The answer to the last tap, from whichever side answered it.
+  //
+  // Two things can answer. The object does, when it turns an action away or when
+  // it tells the whole group the creature is nearly out of life. This file does,
+  // when somebody presses a kind that is offering nothing. They are the same
+  // kind of statement, they share one line, and the newer of the two wins: both
+  // on screen at once would be the app arguing with itself.
+  const fromServer = useSyncExternalStore(subscribeSentence, readSentence, () => null)
+  const [fromHere, setFromHere] = useState<Answer | null>(null)
+  const answer =
+    fromHere === null
+      ? fromServer
+      : fromServer === null || fromHere.at >= fromServer.at
+        ? fromHere
+        : fromServer
+
+  // Ours runs out on a clock of its own; the object's runs out inside the store
+  // holding it. The same length for both, because they land on the same line and
+  // nobody reading it has any way of knowing which of the two they are reading.
+  useEffect(() => {
+    if (fromHere === null) return
+    const t = window.setTimeout(() => setFromHere(null), SENTENCE_MS)
+    return () => window.clearTimeout(t)
+  }, [fromHere])
+
+  // A sentence from the object takes back the cooldown the tap started.
+  //
+  // localAt exists only to cover the gap before the server's own timestamp for
+  // that action echoes back, so when the answer is a sentence instead of an
+  // action there is no timestamp coming and the gap it stood in for never
+  // opened. Without this, being refused costs a real forty-five seconds during
+  // which the line above describes a meal that did not happen.
+  //
+  // The cap warning comes through here as well and loses nothing by it: the
+  // action that tripped it succeeded, so the server's own stamp for it is
+  // already in the snapshot and `since` falls straight back onto that.
+  const answeredAt = fromServer === null ? 0 : fromServer.at
+  useEffect(() => {
+    if (answeredAt !== 0) setLocalAt(0)
+  }, [answeredAt])
 
   useEffect(() => {
     setNow(Date.now())
@@ -164,6 +228,11 @@ export default function ActionBar({ creature, actorId, live, onAct }: ActionBarP
     onAct(variant.id, methodId)
     setLocalAt(Date.now())
     setLastKind(variant.kind)
+    // A fresh tap replaces the answer to the last one. Left standing, a refusal
+    // earned a moment ago outranks the settle line for the rest of its twenty
+    // seconds and reports it over an action that has just gone through.
+    forgetSentence()
+    setFromHere(null)
     shut()
   }
 
@@ -173,17 +242,26 @@ export default function ActionBar({ creature, actorId, live, onAct }: ActionBarP
   // that just said you woke it up reads as the app contradicting itself. The
   // creature's attention is the nearer and the more recent answer, so it is the
   // one on screen, and the sleep sentence comes back when it runs out.
+  //
+  // An answer to a tap goes above the cooldown, for a reason the cooldown itself
+  // creates: commit() starts it off the tap rather than off the server's echo,
+  // so in exactly the window where a refusal lands, the settle line is
+  // describing an action the object has just declined to record. It stays below
+  // "not connected", because a socket that has gone is the reason the NEXT tap
+  // will not be answered either, and that outranks the answer to the last one.
   const note = !live
     ? 'Not connected to it right now.'
-    : cooling
-      ? lastKind
-        ? SETTLE[lastKind]
-        : 'It needs a moment.'
-      : sleeping !== null
-        ? `It is asleep. Up again ${wakingPhrase(sleeping.until - sleeping.now)}.`
-        : creature && creature.actionCount === 0
-          ? 'Nothing has happened to it yet.'
-          : ''
+    : answer !== null
+      ? answer.text
+      : cooling
+        ? lastKind
+          ? SETTLE[lastKind]
+          : 'It needs a moment.'
+        : sleeping !== null
+          ? `It is asleep. Up again ${wakingPhrase(sleeping.until - sleeping.now)}.`
+          : creature && creature.actionCount === 0
+            ? 'Nothing has happened to it yet.'
+            : ''
 
   const inKind = open ? (byKind.get(open) ?? []) : []
   // Only shelves with something on them at this stage. An egg cannot be fed, so
@@ -322,24 +400,49 @@ export default function ActionBar({ creature, actorId, live, onAct }: ActionBarP
       <div className="kinds">
         {ACTION_KINDS.map((kind) => {
           const count = (byKind.get(kind) ?? []).length
+          const shutKind = count === 0
           return (
             <button
               key={kind}
               type="button"
               className="kind"
-              disabled={count === 0}
+              // aria-disabled and NOT the disabled attribute, which is what this
+              // was. A disabled button fires no pointer event and takes no
+              // focus, and the stylesheet turns the platform's tap highlight off
+              // everywhere, so a thumb landing on Feed at the egg stage produced
+              // literally nothing at the place it landed. Three of the six are
+              // like that for the whole of a new group's first session, right
+              // after they chose the animal together, and the only explanation
+              // anywhere on the page was in a box clipped to one pixel.
+              aria-disabled={shutKind}
               aria-expanded={open === kind}
               aria-controls={open === kind ? `tray-${kind}` : undefined}
-              onClick={() => (open === kind ? shut() : (setOpen(kind), setShelf(null), setPicked(null)))}
+              onClick={() => {
+                // The tap lands and is answered. The tray is left exactly as it
+                // was: somebody reading a shelf when they brush a shut kind
+                // should get the sentence, not lose the thing they were reading.
+                if (shutKind) {
+                  setFromHere({ text: asleep ? SHUT_ASLEEP : SHUT_YOUNG, at: Date.now() })
+                  return
+                }
+                if (open === kind) shut()
+                else {
+                  setOpen(kind)
+                  setShelf(null)
+                  setPicked(null)
+                }
+              }}
             >
               <KindIcon kind={kind} />
               <span>{KIND_LABEL[kind]}</span>
-              {count === 0 && (
+              {shutKind && (
                 // Two different reasons a kind is shut, and a reader gets the
                 // right one. "Too young for this yet" said about a grown animal
                 // that is merely asleep would send somebody looking for a stage
-                // gate that is not there, and it is the only explanation a screen
-                // reader gets at all: the sighted cue is the sentence above.
+                // gate that is not there. It stays even though the tap now
+                // answers in words: this one is readable BEFORE the press, which
+                // is what stops a screen reader user having to press every dead
+                // button to find out which of the six is worth pressing.
                 <span className="sr">{asleep ? 'not while it is asleep' : 'too young for this yet'}</span>
               )}
             </button>
