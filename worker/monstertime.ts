@@ -39,6 +39,7 @@
 // this existed. See worker/README.md for what the site has to add.
 import { DurableObject } from 'cloudflare:workers'
 import { deriveCreature, rollGenome, stageOfGrowth, variantById } from '../src/dna/index'
+import { googleKeys, verifyIdToken, type KeySource } from './verify'
 import type {
   ActionRecord,
   ClientMessage,
@@ -107,6 +108,24 @@ function handleKey(handle: string): string {
 /** What an actor id may look like. The client makes these up and keeps them in
  *  local storage, so this is a shape check, never an identity claim. */
 const ACTOR_ID = /^[A-Za-z0-9_-]{1,64}$/
+
+/**
+ * The prefix on an actor id that a real, signed-in person owns.
+ *
+ * '@' cannot appear in ACTOR_ID, so a client cannot mint one of these however
+ * it is asked. That is the whole mechanism: an id beginning with '@' was issued
+ * by this file after a Google-signed token verified, and an id without one was
+ * simply typed by a browser. No extra column, no second table, and every place
+ * that already reads an actorId gets the distinction for free.
+ *
+ * It matters because trait credit is the emotional payload of the app, and
+ * until now anybody in a group could post as anybody else in it.
+ */
+const VERIFIED_PREFIX = '@'
+
+function verifiedActorId(uid: string): string {
+  return VERIFIED_PREFIX + uid
+}
 
 /** Longest a variant id may be before it is not worth looking up. */
 const VARIANT_ID_MAX = 64
@@ -342,8 +361,16 @@ function readClient(raw: string): ClientMessage | null {
 
   if (parsed.type === 'hello') {
     const actorId = typeof parsed.actorId === 'string' ? parsed.actorId : ''
+    // ACTOR_ID has no '@' in it, so this is also what stops a client claiming
+    // an id that would read as verified.
     if (!ACTOR_ID.test(actorId)) return null
-    return { type: 'hello', actorId, actorName: cleanText(parsed.actorName, ACTOR_NAME_MAX) }
+    const token = typeof parsed.token === 'string' ? parsed.token : undefined
+    return {
+      type: 'hello',
+      actorId,
+      actorName: cleanText(parsed.actorName, ACTOR_NAME_MAX),
+      token,
+    }
   }
   if (parsed.type === 'act') {
     if (typeof parsed.variantId !== 'string') return null
@@ -367,6 +394,17 @@ function readClient(raw: string): ClientMessage | null {
 
 export interface MonsterEnv {
   MONSTER_GROUP: DurableObjectNamespace<MonsterGroup>
+  /**
+   * The Firebase project ID whose sign-ins this app accepts.
+   *
+   * Optional, and everything works without it: with no project configured no
+   * token is ever believed, everybody is an unverified guest, and the app is
+   * exactly what it was before sign-in existed. That is the point of it being
+   * optional rather than required. It also means an accidentally blank binding
+   * fails CLOSED, refusing every token, rather than falling back to trusting
+   * whatever a client sent.
+   */
+  MONSTERTIME_FIREBASE_PROJECT?: string
 }
 
 /**
@@ -521,6 +559,10 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
    *  instantiation. In memory is enough: the migration is idempotent and an
    *  eviction only costs one more no-op ALTER. */
   private migrated = false
+
+  /** Google's signing keys, fetched at most once an hour and shared by every
+   *  sign-in this object sees. */
+  private readonly keys: KeySource = googleKeys()
 
   private budgets = new WeakMap<WebSocket, Budget>()
 
@@ -776,7 +818,10 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     if (said === null) return
 
     if (said.type === 'hello') {
-      this.hello(ws, said.actorId, said.actorName)
+      // The only handler that awaits. Verifying a token means a signature check
+      // and, once an hour, fetching Google's keys; everything else in here is
+      // synchronous and stays that way.
+      void this.hello(ws, said.actorId, said.actorName, said.token)
       return
     }
     if (said.type === 'act') {
@@ -826,9 +871,28 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
    * the name they are showing under and it moves nobody into anybody else's
    * bucket.
    */
-  private hello(ws: WebSocket, actorId: string, actorName: string): void {
+  private async hello(
+    ws: WebSocket,
+    claimed: string,
+    actorName: string,
+    token?: string,
+  ): Promise<void> {
     const seat = this.seatOf(ws)
     if (seat === null) return
+
+    // A token, if there is one and if this deployment knows which project to
+    // believe. The id the client sent alongside it is discarded on success:
+    // somebody signed in does not get to choose who they are.
+    let actorId = claimed
+    const project = this.env.MONSTERTIME_FIREBASE_PROJECT
+    if (token !== undefined && project !== undefined && project !== '') {
+      const user = await verifyIdToken(token, project, this.keys)
+      if (user === null) {
+        this.tell(ws, { type: 'error', message: 'That sign-in is not valid any more.' })
+        return
+      }
+      actorId = verifiedActorId(user.uid)
+    }
     if (seat.actorId !== null && seat.actorId !== actorId) {
       this.tell(ws, {
         type: 'error',

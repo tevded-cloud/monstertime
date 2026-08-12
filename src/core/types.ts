@@ -307,7 +307,19 @@ export type ServerMessage =
 
 // Client -> server.
 export type ClientMessage =
-  | { type: 'hello'; actorId: string; actorName: string }
+  | {
+      type: 'hello'
+      actorId: string
+      actorName: string
+      // A Firebase ID token, when this person has signed in. Optional, and the
+      // app works without it: somebody who has not signed in is a guest whose
+      // actorId is whatever their browser made up, exactly as before.
+      //
+      // When it IS present and verifies, the server ignores the actorId sent
+      // alongside it and issues its own. A signed-in person does not get to say
+      // who they are, which is the entire difference between the two.
+      token?: string
+    }
   | { type: 'act'; variantId: string }
   | { type: 'name'; name: string }
   // How fast this group wants its creature to live. Anybody in the group may
