@@ -14,7 +14,8 @@
 // so a creature that has grown a lot visibly gains edge.
 
 import * as THREE from 'three'
-import type { AlleleId } from '../core/types'
+import { SUBSTANCE_AXES } from '../core/types'
+import type { AlleleId , Substance, SubstanceAxis } from '../core/types'
 
 // ---------------------------------------------------------------------------
 // Deterministic randomness
@@ -108,9 +109,93 @@ function shifted(c: THREE.Color, dh: number, ds: number, dl: number): THREE.Colo
   )
 }
 
-// The group's colours come from the genome seed, so they are settled at hatch
-// and never move. Colour is the one part of the creature that is pure luck: it
-// is what the group is handed, before anything they do starts to matter.
+/**
+ * Where a diet lands on the hide.
+ *
+ * Each axis is a direction in hue, saturation and lightness, not a colour. That
+ * matters: a group that fed their creature ember-fruit for a month gets THEIR
+ * animal pushed warmer, not a standard red one. The seed still decides what it
+ * is; substance decides which way it has been pulled since.
+ *
+ * The pulls are small on purpose. Colour was pure luck, handed to a group
+ * before anything they did mattered, and there is something worth keeping in
+ * that. This bends it rather than replacing it.
+ */
+const SUBSTANCE_PULL: Record<SubstanceAxis, { h: number; s: number; l: number }> = {
+  // Toward fire: hue down into red and orange, richer, a shade darker.
+  ember: { h: -0.07, s: 0.14, l: -0.03 },
+  // Toward growing things.
+  verdure: { h: 0.11, s: 0.06, l: 0.02 },
+  // Toward cold water: desaturated and paler, the way salt leaves everything it
+  // dries on. The hue shift is far larger than the others and that is not a
+  // typo. These are offsets rather than destinations, so from a clay animal a
+  // small positive shift lands in yellow-green, which is where verdure already
+  // is: measured from one seed, brine came out #bac164 and verdure #c1b34d,
+  // near enough identical. Two diets that look the same are the same defect
+  // this channel exists to fix, so brine is pushed far enough round to be
+  // somewhere else.
+  brine: { h: 0.34, s: -0.18, l: 0.06 },
+  // Toward stone: barely any hue at all, and darker. Minerals do not tint an
+  // animal, they dull it.
+  mineral: { h: 0.01, s: -0.22, l: -0.06 },
+}
+
+/**
+ * How much of each substance the creature is made of, 0 to 1, as a share of
+ * everything that has gone into it.
+ *
+ * A share rather than a total, so a creature fed for a year is not simply more
+ * coloured than one fed for a week: what shows is what it was fed MOSTLY. The
+ * overall amount only decides how far the pull goes, and it saturates, so the
+ * first month of a diet says most of what the tenth will.
+ */
+export function substanceMix(substance: Substance): { share: Substance; strength: number } {
+  let total = 0
+  for (const axis of SUBSTANCE_AXES) total += Math.max(0, substance[axis])
+
+  const share = {} as Substance
+  for (const axis of SUBSTANCE_AXES) {
+    share[axis] = total > 0 ? Math.max(0, substance[axis]) / total : 0
+  }
+  // Rational rather than exponential, matching the rest of the derivation: half
+  // strength at SATURATE, approaching but never reaching 1.
+  const SATURATE = 40
+  return { share, strength: total / (total + SATURATE) }
+}
+
+function pulled(c: THREE.Color, substance: Substance, amount: number): THREE.Color {
+  const { share, strength } = substanceMix(substance)
+  let h = 0
+  let s = 0
+  let l = 0
+  for (const axis of SUBSTANCE_AXES) {
+    const pull = SUBSTANCE_PULL[axis]
+    h += pull.h * share[axis]
+    s += pull.s * share[axis]
+    l += pull.l * share[axis]
+  }
+  const k = strength * amount
+  return shifted(c, h * k, s * k, l * k)
+}
+
+// The group's colours come from the genome seed AND from what has been put into
+// the creature since. The seed is what a group is handed before anything they
+// do matters; the diet is the part they earn. Both are needed, and both are
+// deterministic: same seed and same log, same animal, on every screen.
+export function paletteFor(seed: string, substance: Substance): Palette {
+  const base = paletteForSeed(seed)
+  return {
+    ...base,
+    // The hide takes most of it, the belly and markings less, and the glow is
+    // pulled hardest because an emissive is where a diet reads at a glance.
+    base: pulled(base.base, substance, 1),
+    belly: pulled(base.belly, substance, 0.7),
+    marking: pulled(base.marking, substance, 0.85),
+    glow: pulled(base.glow, substance, 1.15),
+    // Keratin stays. Horn and bone are not what an animal ate this month.
+  }
+}
+
 export function paletteForSeed(seed: string): Palette {
   const rand = seededRandom('palette:' + seed)
   const baseAnchor = HIDE_ANCHORS[Math.floor(rand() * HIDE_ANCHORS.length) % HIDE_ANCHORS.length]

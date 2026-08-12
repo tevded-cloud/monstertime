@@ -52,7 +52,7 @@
 // them to agree, which is why nothing here calls exp, pow, log or a trig
 // function and why the morphs use a rational curve rather than an exponential.
 
-import { LOCI, MORPHS, PRESSURE_AXES, STAGES } from '../core/types'
+import { LOCI, MORPHS, PRESSURE_AXES, STAGES, SUBSTANCE_AXES } from '../core/types'
 import type {
   ActionRecord,
   Allele,
@@ -69,6 +69,8 @@ import type {
   PressureDelta,
   Pressures,
   StageName,
+  Substance,
+  SubstanceDelta,
 } from '../core/types'
 import { VARIANT_MEMORY, variantById } from './actions'
 import { affinityShape, alleleById, centredShape, cosine } from './alleles'
@@ -159,6 +161,19 @@ for (let i = 0; i < PRESSURE_AXES.length; i++) AXIS_INDEX[PRESSURE_AXES[i]] = i
 // ---------------------------------------------------------------------------
 // Pressure maths
 // ---------------------------------------------------------------------------
+
+export function emptySubstance(): Substance {
+  const s = {} as Substance
+  for (const axis of SUBSTANCE_AXES) s[axis] = 0
+  return s
+}
+
+function addSubstance(into: Substance, delta: SubstanceDelta): void {
+  for (const axis of SUBSTANCE_AXES) {
+    const v = delta[axis]
+    if (v !== undefined) into[axis] += v
+  }
+}
 
 export function emptyPressures(): Pressures {
   const pressures = {} as Pressures
@@ -835,6 +850,7 @@ export function deriveCreature(
   grown?: number,
 ): Creature {
   const pressures = emptyPressures()
+  const substance = emptySubstance()
   const actors = new Map<string, ActorStat>()
   const traits = new Map<Locus, ExpressedTrait>()
   const lore = new Map<Locus, LocusLore>()
@@ -870,6 +886,9 @@ export function deriveCreature(
     if (variant !== undefined) {
       addDelta(pressures, variant.push)
       addDelta(actor.contribution, variant.push)
+      // Only feeding, giving and going places put anything in. Singing to it
+      // does not, which is the point of the channel being separate.
+      if (variant.gives !== undefined) addSubstance(substance, variant.gives)
       actor.variants.set(variant.id, (actor.variants.get(variant.id) ?? 0) + 1)
     }
 
@@ -953,6 +972,7 @@ export function deriveCreature(
     stageName: STAGES[stage] as StageName,
     stageProgress: progressFor(now),
     pressures,
+    substance,
     traits: expressed,
     morphs: deriveMorphs(genome, pressures, count),
     bonds,

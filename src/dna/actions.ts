@@ -54,6 +54,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'ember-fruit',
     blurb: 'Split one open. It steams.',
     push: { nourish: 3, ferocity: 1, vigor: 1 },
+    gives: { ember: 3 },
     minStage: 1,
   },
   {
@@ -62,6 +63,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'river greens',
     blurb: 'Cold, and still dripping.',
     push: { nourish: 3, stillness: 1, roam: 1 },
+    gives: { verdure: 3 },
     minStage: 1,
   },
   {
@@ -70,6 +72,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'a marrow bone',
     blurb: 'Heavy. It takes all evening.',
     push: { nourish: 3, ferocity: 1.5, stillness: 0.5 },
+    gives: { mineral: 2, ember: 1 },
     minStage: 1,
   },
   {
@@ -78,6 +81,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'honeycomb',
     blurb: 'Sticky, and it will not share.',
     push: { nourish: 2.5, bond: 1.5, stillness: 1 },
+    gives: { ember: 2, verdure: 1 },
     minStage: 2,
   },
   {
@@ -86,6 +90,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'salted fish',
     blurb: 'Kept back from the long walk home.',
     push: { nourish: 3, roam: 1.5, craft: 0.5 },
+    gives: { brine: 3 },
     minStage: 1,
   },
   {
@@ -94,6 +99,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'from your own hand',
     blurb: 'Slow. It has to lean in for it.',
     push: { nourish: 2.5, bond: 2, stillness: 0.5 },
+    gives: { ember: 1, verdure: 1 },
     minStage: 1,
   },
 
@@ -154,6 +160,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'the riverbank',
     blurb: 'Follow it until the water turns.',
     push: { roam: 2.5, stillness: 1.5, resonance: 1 },
+    gives: { verdure: 0.8, brine: 0.4 },
     minStage: 1,
   },
   {
@@ -162,6 +169,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'the old quarry',
     blurb: 'Everything down there says itself twice.',
     push: { roam: 2, resonance: 2, craft: 1 },
+    gives: { mineral: 1 },
     minStage: 1,
   },
   {
@@ -170,6 +178,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'the night field',
     blurb: 'Nothing to see. That is the point.',
     push: { roam: 2, stillness: 2, resonance: 1 },
+    gives: { verdure: 0.6 },
     minStage: 1,
   },
   {
@@ -178,6 +187,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'the market',
     blurb: 'Crowds. It will not like it at first.',
     push: { roam: 1.5, bond: 1.5, ferocity: 2 },
+    gives: { ember: 0.4, brine: 0.4 },
     minStage: 1,
   },
   {
@@ -186,6 +196,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'the ridgeline',
     blurb: 'Two hours up, ten minutes at the top.',
     push: { roam: 2.5, vigor: 2.5 },
+    gives: { mineral: 0.8 },
     minStage: 1,
   },
   {
@@ -194,6 +205,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'the burned wood',
     blurb: 'Black trunks, new green underneath.',
     push: { roam: 1.5, ferocity: 2, craft: 1.5 },
+    gives: { ember: 1 },
     minStage: 1,
   },
 
@@ -249,6 +261,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'a river stone',
     blurb: 'One that fit your hand right.',
     push: { craft: 2.5, bond: 1, stillness: 1.5 },
+    gives: { mineral: 2 },
   },
   {
     id: 'give.crackedBell',
@@ -256,6 +269,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'a cracked bell',
     blurb: 'Still rings. Wrong note.',
     push: { craft: 2, resonance: 2.5, bond: 0.5 },
+    gives: { mineral: 2, ember: 0.5 },
   },
   {
     id: 'give.knottedRope',
@@ -263,6 +277,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'a knotted rope',
     blurb: 'You tied it yourself. Badly.',
     push: { craft: 2.5, vigor: 1.5, bond: 1 },
+    gives: { verdure: 1.5 },
   },
   {
     id: 'give.shedSkin',
@@ -270,6 +285,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'a shed skin',
     blurb: 'Whole, if you were careful lifting it.',
     push: { craft: 2, ferocity: 1.5, roam: 1.5 },
+    gives: { brine: 1, mineral: 0.5 },
   },
   {
     id: 'give.mirrorBit',
@@ -277,6 +293,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'a bit of mirror',
     blurb: 'Tape over the sharp edge first.',
     push: { craft: 2.5, resonance: 1, ferocity: 1.5 },
+    gives: { mineral: 2.5 },
   },
   {
     id: 'give.mapScrap',
@@ -284,6 +301,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'a scrap of map',
     blurb: 'Somewhere neither of you has been.',
     push: { craft: 2, roam: 2.5, stillness: 0.5 },
+    gives: { verdure: 1, brine: 0.5 },
     minStage: 2,
   },
 

@@ -9,9 +9,9 @@
 // This file decides when things change and how they move while they change.
 
 import * as THREE from 'three'
-import { BUILDABLE_PLANS } from '../core/types'
-import type { ActionKind, BodyPlan, Creature, Genome, Locus, Morphs } from '../core/types'
-import { MORPHS } from '../core/types'
+import { BUILDABLE_PLANS, MORPHS, SUBSTANCE_AXES } from '../core/types'
+import type { ActionKind, BodyPlan, Creature, Genome, Locus, Morphs, Substance } from '../core/types'
+import { emptySubstance } from '../dna'
 import {
   auraFor,
   bareSurface,
@@ -19,7 +19,8 @@ import {
   createGround,
   createLightRig,
   makeMaterials,
-  paletteForSeed,
+  paletteFor,
+  substanceMix,
   seededRandom,
   surfaceFor,
   type Aura,
@@ -179,6 +180,20 @@ export class CreatureView {
    *  built, and never changed for a given group. */
   private plan: BodyPlan = 'quadruped'
 
+  /** What has gone into the creature, as of the last snapshot. Colour is pulled
+   *  by it, so a change here is a repaint rather than a rebuild. */
+  private substanceNow: Substance = emptySubstance()
+  /** The diet the colours were last painted for, per axis, already weighted by
+   *  strength. A repaint per action would be a facet-by-facet recolour of the
+   *  whole animal for a shift nobody could see, so it waits until the change is
+   *  worth it.
+   *
+   *  Per AXIS and not one number. It was one number, strength times the biggest
+   *  share, and that is identical for two completely different pure diets: a
+   *  creature fed only ember-fruit and one fed only salted fish both came to
+   *  0.818, so switching a group's whole diet repainted nothing at all. */
+  private paintedFor: Substance | null = null
+
   private media: MediaQueryList | null = null
   private readonly onMedia = () => this.readMotionPreference()
 
@@ -268,6 +283,27 @@ export class CreatureView {
     if (!materials || !palette) return
 
     this.growthTarget = clamp(creature.stage / 4, 0, 1)
+
+    // What the group has been putting into it pulls the palette. Repainted only
+    // when the pull has actually moved, because recolouring every facet of the
+    // animal for a shift under a percent is cost with nothing to show for it.
+    this.substanceNow = creature.substance
+    const mix = substanceMix(creature.substance)
+    const pull = {} as Substance
+    for (const axis of SUBSTANCE_AXES) pull[axis] = mix.share[axis] * mix.strength
+    let dietMoved = this.paintedFor === null ? 1 : 0
+    if (this.paintedFor !== null) {
+      for (const axis of SUBSTANCE_AXES) {
+        dietMoved = Math.max(dietMoved, Math.abs(pull[axis] - this.paintedFor[axis]))
+      }
+    }
+    if (this.palette && dietMoved > 0.02) {
+      this.paintedFor = pull
+      this.palette = paletteFor(this.seed ?? '', creature.substance)
+      // Through the surface path, so the change crossfades rather than
+      // snapping: a diet showing up on an animal is a thing worth watching.
+      this.body?.setSurface(this.surface, this.palette)
+    }
 
     if (creature.stage <= 0) {
       this.showEgg(materials, palette)
@@ -425,7 +461,7 @@ export class CreatureView {
 
     this.seed = seed
     this.rand = seededRandom('forge:' + seed)
-    this.palette = paletteForSeed(seed)
+    this.palette = paletteFor(seed, this.substanceNow)
     this.surface = bareSurface()
     const kit = makeMaterials(this.palette, this.surface)
     this.materials = kit

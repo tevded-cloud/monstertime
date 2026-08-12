@@ -38,6 +38,34 @@ export type Pressures = Record<PressureAxis, number>
 export type PressureDelta = Partial<Record<PressureAxis, number>>
 
 // ---------------------------------------------------------------------------
+// Substance
+// ---------------------------------------------------------------------------
+
+// What has actually gone INTO the creature, as opposed to what was done to it.
+//
+// The eight pressure axes describe a relationship: fed, worked, sung to, left
+// alone. They are about behaviour, and behaviour is what decides which traits
+// grow. That leaves nowhere for the difference between a strawberry and a fish
+// to land, because both are simply "nourish", and colour comes from the seed
+// alone. So an activity list with four hundred leaves in it would have been
+// four hundred buttons that are aliases of thirty six: a choice that looks like
+// it matters and does not.
+//
+// These four are that missing half. How a group treats the creature shapes its
+// temperament; what the group puts into it shapes its body. They are read by
+// materials.ts rather than by expression, so substance never competes with
+// behaviour over a trait: the two channels answer different questions and are
+// never asked the same one.
+export const SUBSTANCE_AXES = ['ember', 'verdure', 'brine', 'mineral'] as const
+export type SubstanceAxis = (typeof SUBSTANCE_AXES)[number]
+
+/** Every axis present, 0 upward. Read normalised, never raw. */
+export type Substance = Record<SubstanceAxis, number>
+
+/** What one action puts in. Sparse: absent axes mean nothing of that went in. */
+export type SubstanceDelta = Partial<Record<SubstanceAxis, number>>
+
+// ---------------------------------------------------------------------------
 // Actions
 // ---------------------------------------------------------------------------
 
@@ -54,6 +82,11 @@ export interface ActionVariant {
   // The point is that nobody can read the mechanics off the button.
   blurb: string
   push: PressureDelta
+  // What this puts INTO the creature, if anything. Feeding it and giving it
+  // things do; singing to it does not. Absent means nothing goes in, which is
+  // most of the catalogue and is correct: sitting quietly with an animal
+  // changes what it is like, not what it is made of.
+  gives?: SubstanceDelta
   // Stage below which this variant is not offered.
   minStage?: number
 }
@@ -221,6 +254,10 @@ export interface Creature {
   // 0..1 progress toward the next stage.
   stageProgress: number
   pressures: Pressures
+  // What has gone into it, accumulated over the whole log. Drives colour and
+  // material rather than traits, so a group can see what they have been
+  // feeding it without it competing with what they have been doing to it.
+  substance: Substance
   traits: ExpressedTrait[]
   morphs: Morphs
   bonds: Record<string, Bond>
