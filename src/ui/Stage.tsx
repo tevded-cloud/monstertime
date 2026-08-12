@@ -9,7 +9,7 @@ import type { ActionKind, ActionRecord, Creature, Genome, PresentActor } from '.
 import { methodById, methodFits, pastTense, variantById } from '../dna'
 import { CreatureView } from '../forge'
 import type { ConnectionStatus } from '../net'
-import { groupLink, useCopy } from './useGroup'
+import { groupLink, useCopy, useSleep } from './useGroup'
 
 const KIND_VERB: Record<ActionKind, string> = {
   feed: 'fed it',
@@ -54,6 +54,17 @@ export default function Stage(props: StageProps): JSX.Element {
   const seen = useRef(-1)
   const [ticker, setTicker] = useState<{ id: string; text: string } | null>(null)
 
+  // The same store the action bar reads, which is the same pure function the
+  // server refuses actions with. This is also the seam the forge takes its
+  // sleeping pose from when it has one: the boolean is available here, next to
+  // the view, and it belongs on the animal rather than only in the chrome.
+  // Until then the word below is the whole of what says so, and it has to be
+  // there: an animal standing squarely on its feet under a bar that says it is
+  // asleep is the app arguing with itself, and the person watching decides the
+  // screen is wrong rather than that the creature is.
+  const sleep = useSleep()
+  const asleep = sleep !== null && sleep.asleep
+
   // CreatureView already watches this exact canvas and resizes itself, which is
   // what makes an orientation change and a mobile address bar sliding away come
   // out right. A second observer here would only mean two buffer reallocations
@@ -73,6 +84,19 @@ export default function Stage(props: StageProps): JSX.Element {
   useEffect(() => {
     if (creature && genome) viewRef.current?.setCreature(creature, genome)
   }, [creature, genome])
+
+  // Told, never worked out in there: the view has no clock and no business
+  // having one, and this is the same reading the tray below is laid out from.
+  //
+  // Held back until there IS a reading rather than passing the false that a null
+  // one looks like. The view treats the first thing it hears as the state the
+  // creature was already in and plays nothing, so a premature "awake" would burn
+  // that and the real answer a moment later would arrive as news: an animal that
+  // was asleep before anybody opened the app, visibly lying down as they watch.
+  useEffect(() => {
+    if (sleep === null) return
+    viewRef.current?.setAsleep(sleep.asleep)
+  }, [sleep])
 
   // A new action means somebody is on the other end of this right now, which is
   // the feeling the whole app runs on. The first snapshot is skipped: replaying
@@ -138,6 +162,10 @@ export default function Stage(props: StageProps): JSX.Element {
             >
               <i style={{ transform: `scaleX(${creature ? creature.stageProgress : 0})` }} />
             </span>
+            {/* Lower case and unshouted, next to a stage name that is neither.
+                What it is is permanent and what it is doing is not, and the line
+                should not read as though the animal had grown a sixth stage. */}
+            {asleep && creature && <span className="dozing">asleep</span>}
           </div>
         </div>
 

@@ -66,6 +66,16 @@ export default function Beastpedia({ creature, genome }: BeastpediaProps): JSX.E
         <p>{capitalise(entry.temperament)}.</p>
       </Section>
 
+      {/* The one section on the page that is nothing to do with the group. Every
+          other line here is something they caused; this is the animal's own, it
+          was decided before anybody touched it, and no amount of raising it
+          changes it. It sits on this page rather than in the action bar because
+          the bar is for the minute you are in and this is the sort of thing you
+          read once and then know about your creature for good. */}
+      <Section label="When it is awake">
+        <p>{entry.hours}</p>
+      </Section>
+
       <Section label="What it grew">
         {creature.traits.length === 0 ? (
           <p className="empty">Nothing yet. It is still deciding.</p>

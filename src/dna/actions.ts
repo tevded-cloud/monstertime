@@ -389,6 +389,35 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     push: { ferocity: 2, bond: 1.5, vigor: 1.5 },
     minStage: 1,
   },
+
+  // The only thing anybody can do to a sleeping creature, and the only variant
+  // in the catalogue carrying the flag that says so.
+  //
+  // Deliberately worth less than everything above it. It is the sole button on
+  // screen for two evenings in five, so a group that keeps turning up while
+  // theirs is down would otherwise have the whole of its character decided by
+  // the one action they were allowed, and every creature raised by a group with
+  // an awkward schedule would come out the same animal. Three points against
+  // five says what it should say: rousing a thing is not the same as raising it.
+  //
+  // No minStage, and that is not an oversight. An egg sleeps too, and a stage
+  // gate here would leave a group looking at a sleeping egg with nothing on the
+  // tray at all, which is indistinguishable from an app that has broken.
+  //
+  // The axes are the three that are actually true of it: it is on its feet, it
+  // did not ask to be, and somebody wanted it up. What that adds up to is then
+  // decided by the manner, which is the whole point of putting this through the
+  // ordinary pipeline: waking it firmly and waking it while talking to it the
+  // whole time are two different things to have done to an animal.
+  {
+    id: 'tend.wakeIt',
+    category: 'company',
+    kind: 'tend',
+    label: 'wake it',
+    blurb: 'A hand on its side, until it shifts.',
+    push: { vigor: 1.5, ferocity: 1, bond: 0.5 },
+    whileAsleep: true,
+  },
 ]
 
 const BY_ID = new Map<string, ActionVariant>(
@@ -399,8 +428,42 @@ export function variantById(id: string): ActionVariant | undefined {
   return BY_ID.get(id)
 }
 
-export function availableVariants(stage: number): ActionVariant[] {
-  return ACTION_VARIANTS.filter((variant) => (variant.minStage ?? 0) <= stage)
+/**
+ * What is on the tray, given how grown it is and whether it is asleep.
+ *
+ * The two states offer disjoint sets rather than one being the other plus
+ * something. Waking a creature that is already awake is not an action anybody
+ * would want, and leaving it on the tray would put a button there that does
+ * nothing but push pressure around, which is the definition of a lever.
+ *
+ * Defaulted rather than required so that every caller written before sleep
+ * existed still asks the question it was asking.
+ */
+export function availableVariants(stage: number, asleep = false): ActionVariant[] {
+  return ACTION_VARIANTS.filter(
+    (variant) =>
+      (variant.minStage ?? 0) <= stage && (variant.whileAsleep === true) === asleep,
+  )
+}
+
+/**
+ * Whether this may be done to a creature that is asleep.
+ *
+ * The server's sleep gate calls this one function and nothing else, and that is
+ * a rule with a scar behind it. This app already shipped a pairing check that
+ * was never wired up, with two tests that passed the whole time because a
+ * different rule, the stage gate, refused the same message first. A negative
+ * test goes green the moment ANYTHING refuses, so the refuser has to have a
+ * name a test can call directly. This is that name.
+ *
+ * An id nobody recognises answers false, which is a refusal, and that is the
+ * right way round: `act` has already turned unknown variants away by the time
+ * anything asks this, so the only way to arrive here with one is through a code
+ * path nobody has thought about yet.
+ */
+export function allowedWhileAsleep(variantId: string): boolean {
+  const variant = variantById(variantId)
+  return variant !== undefined && variant.whileAsleep === true
 }
 
 // How each variant reads inside a remembered sentence, phrased as a habit
@@ -450,6 +513,7 @@ export const VARIANT_MEMORY: Record<string, string> = {
   'tend.trimClaws': 'trimming its claws',
   'tend.freshBedding': 'changing its bedding',
   'tend.checkTeeth': 'checking its teeth',
+  'tend.wakeIt': 'waking it up',
 }
 
 /**
@@ -508,6 +572,7 @@ export const VARIANT_PAST: Record<string, string> = {
   'tend.trimClaws': 'trimmed its claws',
   'tend.freshBedding': 'changed its bedding',
   'tend.checkTeeth': 'checked its teeth',
+  'tend.wakeIt': 'woke it up',
 }
 
 /**

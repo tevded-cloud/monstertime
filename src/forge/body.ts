@@ -37,18 +37,101 @@ export interface Sockets {
   eye: THREE.Object3D[]
 }
 
-// What a reaction wants the body to do. Kept as plain numbers rather than an
-// action kind so the anatomy stays in this file and the meaning of each action
-// stays in view.ts.
+// What a pose wants the body to do. Kept as plain numbers rather than an action
+// kind or a stance name so the anatomy stays in this file and the meaning of
+// each one stays in view.ts: this file knows how far a neck bends, view.ts
+// knows that a creature which has mostly been sung to holds its head over.
+//
+// TWO KINDS OF SCALAR LIVE IN HERE NOW, and the difference is what every rig
+// below is written against. The first five are TRANSIENT: a reaction pushes
+// one, it peaks, and it is back at zero a second later, so a rig may add it
+// straight on top of the idle. The last seven are HELD: a stance or sleep puts
+// a value in one and it stays there for hours. A rig must read those as the
+// pose it is idling AROUND rather than as a departure from rest, which is why
+// `settle` moves the pelvis to a second base height instead of subtracting from
+// the first, and why the idle terms are damped as the held ones deepen. An
+// animal lying down that goes on swaying its hips as though it were standing is
+// the exact thing this split exists to stop.
 export interface PoseDrive {
+  /** Nose toward the ground. Negative raises the head instead. */
   headDip: number
+  /** Weight loaded back onto the hindquarters. */
   crouch: number
+  /** The whole animal turned away, hips and all. */
   turn: number
+  /** A flick that runs out along the tail. */
   tailFlick: number
+  /** Chest and front end carried up. */
   lift: number
+  /** Head turned off the body's own axis, hips left square. Separate from
+   *  `turn` because looking at something and walking away from it are two
+   *  different acts, and one rig has hips to keep still while the other has
+   *  none to turn. */
+  headTurn: number
+  /** Head rolled over, one ear brought down toward the shoulder. Nothing else
+   *  in the set can cock a head, and a cocked head is the whole of listening. */
+  headTilt: number
+  /** Tipped onto one side, weight shifted that way. */
+  lean: number
+  /** Neck out, head forward and level, as if to reach what is in front of it. */
+  reach: number
+  /** 0..1, how far down onto the ground it is, weight off the legs. HELD. */
+  settle: number
+  /** 0..1, how far curled in on itself, nose round toward the tail. HELD. */
+  tuck: number
+  /** 0..1, how asleep. Only the parts a pose cannot say: the breath slows and
+   *  deepens, and the eyes shut. The SHAPE of a sleeping animal is `settle` and
+   *  `tuck`, which is exactly why a creature can be curled up and wide awake
+   *  and still not look asleep. HELD. */
+  sleep: number
 }
 
-export const REST_POSE: PoseDrive = { headDip: 0, crouch: 0, turn: 0, tailFlick: 0, lift: 0 }
+// Every field, as a list, so a caller can compose two poses without naming
+// twelve fields by hand.
+//
+// `satisfies` refuses a name that is not a field. UnlistedPoseKey below refuses
+// a field the list forgot, which is the direction that actually bites: a scalar
+// view.ts never blends is a pose that half works, and a pose that half works
+// looks like a badly judged pose rather than like a missing line.
+export const POSE_KEYS = [
+  'headDip',
+  'crouch',
+  'turn',
+  'tailFlick',
+  'lift',
+  'headTurn',
+  'headTilt',
+  'lean',
+  'reach',
+  'settle',
+  'tuck',
+  'sleep',
+] as const satisfies readonly (keyof PoseDrive)[]
+
+export type PoseKey = (typeof POSE_KEYS)[number]
+
+/** A constraint, not a value: `T extends never` holds only when T IS never, so
+ *  naming a non-empty union here is a compile error on the line below. */
+type Nothing<T extends never> = T
+
+/** Empty by construction. If PoseDrive gains a field and POSE_KEYS does not,
+ *  the build stops here rather than three files away. */
+export type UnlistedPoseKey = Nothing<Exclude<keyof PoseDrive, PoseKey>>
+
+export const REST_POSE: PoseDrive = {
+  headDip: 0,
+  crouch: 0,
+  turn: 0,
+  tailFlick: 0,
+  lift: 0,
+  headTurn: 0,
+  headTilt: 0,
+  lean: 0,
+  reach: 0,
+  settle: 0,
+  tuck: 0,
+  sleep: 0,
+}
 
 export interface Body {
   root: THREE.Group
@@ -332,6 +415,15 @@ function sample(table: readonly number[], u: number): number {
 }
 
 const lerp = THREE.MathUtils.lerp
+const clamp = THREE.MathUtils.clamp
+
+// Which way a creature curls when it goes down: nose toward its own left, tail
+// round the same way to meet it. Every creature curls the same way on purpose.
+// The alternative is one more draw off the generator buildBody is handed, and
+// view.ts hands that SAME generator to every part builder afterwards, so one
+// extra call here would re-jitter every horn, ear and plate on every creature
+// that already exists. A group can never see two of these side by side anyway.
+const CURL_SIDE = 1
 
 // Silhouette tables. These are the shape of the animal and the most opinionated
 // numbers in the forge: they decide that it is a heavy chested quadruped and
@@ -447,25 +539,41 @@ export function buildBody(materials: MaterialKit, palette: Palette, surface: Sur
   tailSway.add(tailTube.mesh)
 
   // Four limbs, each a node holding one tapered tube and one foot.
+  //
+  // Two nodes per limb for the same reason the tail has two: `node` is aimed
+  // with a quaternion by setMorphs and `fold` is swung with Euler angles by
+  // update. Writing both onto one node would have the fold quietly wipe the
+  // splay, because three keeps quaternion and rotation in sync and the last
+  // write wins.
   interface Limb {
     node: THREE.Group
+    fold: THREE.Group
     tube: Tube
     foot: Tube
     footNode: THREE.Group
     side: number
     fore: boolean
+    // Where this limb hangs from when the animal is standing, and how far down
+    // from there its foot reaches, both in root space and both recorded by
+    // setMorphs. update needs the pair to work out how far the leg has to swing
+    // to leave the foot where it was, which is the only thing standing between
+    // a held crouch and four feet buried in the plinth.
+    hipY: number
+    span: number
   }
   const limbs: Limb[] = []
   for (const fore of [false, true]) {
     for (const side of [-1, 1]) {
       const node = new THREE.Group()
+      const fold = new THREE.Group()
       const tube = new Tube(6, 7, materials.body, surface)
       const footNode = new THREE.Group()
       const foot = new Tube(3, 6, materials.body, surface)
-      node.add(tube.mesh, footNode)
+      node.add(fold)
+      fold.add(tube.mesh, footNode)
       footNode.add(foot.mesh)
       ;(fore ? torso : pelvis).add(node)
-      limbs.push({ node, tube, foot, footNode, side, fore })
+      limbs.push({ node, fold, tube, foot, footNode, side, fore, hipY: 1, span: 1 })
     }
   }
 
@@ -498,15 +606,30 @@ export function buildBody(materials: MaterialKit, palette: Palette, surface: Sur
 
   // Base transforms recorded by setMorphs so the idle animation can add to them
   // rather than fight them.
+  //
+  // lieY is the second base height and it is what makes lying down a pose
+  // rather than a crouch. A held `settle` cannot be a subtraction from the
+  // standing height: subtract enough to get the belly down and a long legged
+  // creature drives its feet through the plinth, subtract little enough to keep
+  // the feet honest and a short legged one never reaches the ground. So the two
+  // heights are measured separately and the pose crossfades between them.
   let base = {
     pelvisY: 1,
+    lieY: 1,
     pelvisPitch: 0,
     torsoPitch: 0,
     neckPitch: 0,
     headPitch: 0,
     tailPitch: 0,
+    bodyRx: 0.4,
     bodyRy: 0.4,
+    neckLen: 0.5,
+    headDrop: 0.2,
+    footRot: -Math.PI / 2,
   }
+  // What setMorphs put on the eye sockets, kept because update squashes them
+  // shut and has to know what open was.
+  let eyeBase = 0.1
 
   let currentSurface = surface
   let currentPalette = palette
@@ -514,6 +637,10 @@ export function buildBody(materials: MaterialKit, palette: Palette, surface: Sur
   const colorTo = new Map<Tube, Float32Array>()
   let fade = 1
   const jitterAmount = 0.045 + rand() * 0.03
+  // The breath's own clock, advanced by update at its own rate. See update for
+  // why it is not simply `clock`.
+  let lastClock = 0
+  let breathClock = 0
 
   // A morph change repaints instantly: the colours barely move, and fading them
   // would only add a pointless second of blur. A hide change crossfades,
@@ -548,12 +675,26 @@ export function buildBody(materials: MaterialKit, palette: Palette, surface: Sur
 
     base = {
       pelvisY: r.hipY,
+      // Where the pelvis sits when the belly is on the plinth. Read off the
+      // same body radius the torso tube is written from, plus a little, and
+      // clamped below to the standing height after settle() has had its say: a
+      // creature whose legs are shorter than its body is already lying down and
+      // must not rise to lie down.
+      lieY: r.bodyRy * 1.2 + 0.02,
       pelvisPitch: 0,
       torsoPitch: -r.torsoPitch,
       neckPitch: -r.neckPitch,
       headPitch: -r.headPitch,
       tailPitch: 0,
+      bodyRx: r.bodyRx,
       bodyRy: r.bodyRy,
+      neckLen: r.neckLen,
+      footRot: -Math.PI / 2 + r.splay * 0.3,
+      // Roughly how far the head hangs below the end of the neck: half its own
+      // length, since it is pitched down off the neck to begin with, plus the
+      // jaw. Only ever used to keep the thing off the floor, so it is allowed
+      // to be an estimate as long as it is not an underestimate.
+      headDrop: r.headRy * 1.5 + (r.skullLen + r.snoutLen) * 0.5,
     }
 
     // Hips run backward from the pelvis node, torso forward from it.
@@ -622,6 +763,13 @@ export function buildBody(materials: MaterialKit, palette: Palette, surface: Sur
       // cannot make the feet sink into the plinth or float above it.
       const hipY = l.node.getWorldPosition(_p).applyMatrix4(_inv).y
       const reach = THREE.MathUtils.clamp((hipY - 0.06) / Math.max(0.25, Math.cos(r.splay)), 0.16, r.limbLen * 2.1)
+      l.hipY = hipY
+      // The vertical part of the leg. A splayed leg spends some of its length
+      // going sideways, and a leg clamped short by limbLength does not reach
+      // the ground at all, so this is measured rather than assumed to be the
+      // hip height: the swing below has to be exact at rest or every creature
+      // stands with bent legs.
+      l.span = reach * Math.max(0.25, Math.cos(r.splay))
       const thick = r.limbR * (l.fore ? 0.88 : 1.0)
       l.tube.write((u, o) => {
         o.z = u * reach
@@ -631,8 +779,10 @@ export function buildBody(materials: MaterialKit, palette: Palette, surface: Sur
         o.ry = thick * sample(LIMB_W, u) * 1.08
       })
       l.footNode.position.set(0, 0, reach)
-      // Swings the foot from pointing down the leg to pointing forward.
-      l.footNode.rotation.set(-Math.PI / 2 + r.splay * 0.3, 0, 0)
+      // Swings the foot from pointing down the leg to pointing forward. update
+      // takes the leg's own swing back out of this, so the sole stays flat to
+      // the plinth however far the leg has folded.
+      l.footNode.rotation.set(base.footRot, 0, 0)
       l.foot.write((u, o) => {
         o.z = u * thick * 2.4
         o.y = -thick * 0.15
@@ -672,7 +822,8 @@ export function buildBody(materials: MaterialKit, palette: Palette, surface: Sur
       const eye = sockets.eye[i]
       eye.position.set(s * eRx * 0.72, eRy * 0.4 + headY(eyeU), headZ(eyeU))
       orientY(eye, s * 0.8, 0.36, 0.34)
-      eye.scale.setScalar(headWidth * r.eyeScale * 0.34)
+      eyeBase = headWidth * r.eyeScale * 0.34
+      eye.scale.setScalar(eyeBase)
 
       const wingU = 0.72
       const wing = sockets.wing[i]
@@ -710,6 +861,10 @@ export function buildBody(materials: MaterialKit, palette: Palette, surface: Sur
     sockets.tail[0].scale.setScalar(r.tailR * 4.2)
 
     settle()
+    // After settle(), never before: settle shifts the whole animal to put its
+    // lowest point on the plinth, so the standing height is not known until it
+    // has run, and lying down must never lift the creature up.
+    base.lieY = Math.min(base.pelvisY, base.lieY)
 
     if (repaintHide || colorTo.size === 0) repaint(false)
     else root.updateMatrixWorld(true)
@@ -725,6 +880,27 @@ export function buildBody(materials: MaterialKit, palette: Palette, surface: Sur
   // body's own tubes are measured: a wing hanging low is not the animal
   // standing on its wingtip.
   function settle(): void {
+    // Everything update leaves behind that setMorphs does not already reset,
+    // put back to rest before a single vertex is measured. This is not tidying:
+    // update leaves the legs FOLDED, and a morph drift arriving while the
+    // creature is lying down would otherwise measure an animal standing at full
+    // height with its legs stretched out in front of it, decide its belly was
+    // the lowest thing on it, and drop the whole rig by most of a leg. The
+    // standing height recorded here is the one every pose is measured against,
+    // so it has to be the height of the animal STANDING.
+    //
+    // The rolls and the breath are in the list for a smaller version of the
+    // same reason: without them the height a creature settles at depends on
+    // which frame of its idle the morph tween happened to land on.
+    for (const l of limbs) l.fold.rotation.set(0, 0, 0)
+    torso.rotation.z = 0
+    torso.scale.set(1, 1, 1)
+    neck.rotation.y = 0
+    neck.rotation.z = 0
+    head.rotation.y = 0
+    head.rotation.z = 0
+    tailSway.rotation.set(0, 0, 0)
+
     root.updateMatrixWorld(true)
     _inv.copy(root.matrixWorld).invert()
     let lowest = Infinity
@@ -738,6 +914,11 @@ export function buildBody(materials: MaterialKit, palette: Palette, surface: Sur
     if (!Number.isFinite(lowest)) return
     pelvis.position.y -= lowest
     base.pelvisY = pelvis.position.y
+    // The limbs' recorded attach heights moved down with the body. update
+    // measures the leg swing against them, so leaving them at their pre-settle
+    // values would fold every leg by exactly the settle correction on the very
+    // first frame.
+    for (const l of limbs) l.hipY -= lowest
   }
 
   function setSurface(s: Surface, p: Palette): void {
@@ -753,30 +934,139 @@ export function buildBody(materials: MaterialKit, palette: Palette, surface: Sur
       for (const t of tubes) t.applyColors(colorFrom.get(t)!, colorTo.get(t)!, fade)
     }
 
-    // Breathing is a scale on the torso rather than a geometry rewrite, so it
-    // costs nothing and everything attached to the torso breathes with it.
-    const breath = Math.sin(clock * 1.15) * 0.5 + 0.5
-    const amp = motion
+    const settled = clamp(drive.settle, 0, 1)
+    const tuck = clamp(drive.tuck, 0, 1)
+    const asleep = clamp(drive.sleep, 0, 1)
+
+    // The breath runs on its own accumulated clock so sleep can slow it without
+    // slowing anything else: `clock` is also what the sway, the trait grow-ins
+    // and the camera drift are timed off, and a sleeping creature whose newly
+    // grown horn takes twice as long to appear would be a bug caused by a mood.
+    // Fed the DIFFERENCE in clock rather than dt, so it still inherits the time
+    // warp view.ts puts on for a reduced-motion preference.
+    const step = clock - lastClock
+    lastClock = clock
+    if (step > 0 && step < 1) breathClock += step * lerp(1, 0.44, asleep)
+
     // Breathing is a scale on the torso, never a geometry rewrite, so it costs
     // nothing and everything hanging off the torso breathes with it. The pelvis
     // is only ever moved, never squashed: a non uniform scale there shears the
     // legs, which are rotated hard away from its axes.
-    const swell = 1 + breath * 0.035 * amp + drive.lift * 0.03
+    //
+    // The sleeping term is added rather than multiplied into `amp`, which is
+    // the one place in this file that deliberately ignores how much motion the
+    // caller asked for. A reduced-motion preference can damp the sway to
+    // nothing and should, but a creature with no visible breath does not read
+    // as asleep, it reads as dead, and that is not an accessible outcome.
+    const breath = Math.sin(breathClock * 1.15) * 0.5 + 0.5
+    const amp = motion
+    const swell = 1 + breath * (0.035 * amp + 0.045 * asleep) + drive.lift * 0.03
     torso.scale.set(swell, swell * 0.98, 1)
-    pelvis.position.y = base.pelvisY * (1 - drive.crouch * 0.2) + Math.sin(clock * 1.15 + 0.6) * 0.012 * amp
-    pelvis.rotation.x = base.pelvisPitch + drive.crouch * 0.12
+
+    // Standing height and lying height are two bases, crossfaded. The bob rides
+    // on top of whichever it is between, damped as it goes down: a belly on the
+    // ground does not rise and fall the way a ribcage on four legs does.
+    const standY = base.pelvisY * (1 - drive.crouch * 0.2)
+    const bob = Math.sin(breathClock * 1.15 + 0.6) * 0.012 * amp
+    pelvis.position.y = lerp(standY, base.lieY, settled) + bob * (1 - settled * 0.55)
+    pelvis.position.x = drive.lean * base.bodyRx * 0.16
+    pelvis.rotation.x = base.pelvisPitch + drive.crouch * 0.12 + settled * 0.05
     pelvis.rotation.y = drive.turn * 0.5 + Math.sin(clock * 0.31) * 0.05 * amp
+    pelvis.rotation.z = drive.lean * 0.12
 
-    torso.rotation.x = base.torsoPitch - drive.lift * 0.1
-    torso.rotation.z = Math.sin(clock * 0.43) * 0.03 * amp
+    torso.rotation.x = base.torsoPitch - drive.lift * 0.1 - drive.reach * 0.06
+    torso.rotation.z = Math.sin(clock * 0.43) * 0.03 * amp + drive.lean * 0.16
 
-    neck.rotation.x = base.neckPitch + drive.headDip * 0.62 - drive.lift * 0.42
-    neck.rotation.y = Math.sin(clock * 0.37 + 1.1) * 0.07 * amp + drive.turn * 0.35
-    head.rotation.x = base.headPitch + drive.headDip * 0.34 - drive.lift * 0.2 + Math.sin(clock * 0.79) * 0.03 * amp
-    head.rotation.z = Math.sin(clock * 0.53 + 2.2) * 0.045 * amp
+    // reach pitches the neck out and down and takes the same amount back out of
+    // the head, so the head travels forward and stays level. Lengthening the
+    // neck instead would mean rewriting its geometry every frame, and a neck
+    // that grows when the animal is interested is a different animal.
+    //
+    // A neck can only dip as far as it has room for, and how much room it has
+    // depends on the pose the rest of the animal is holding. The same pitch
+    // that reads as a nose on the ground while it is standing puts a long
+    // necked creature's jaw through the plinth once it has lain down, because
+    // lying down took most of a leg length out of the height its neck starts
+    // from. Measured off the pelvis as it is THIS frame rather than off the
+    // standing height, so it tightens as the animal goes down.
+    const neckRoom = pelvis.position.y + base.bodyRy * 0.42 - base.headDrop
+    const maxDip = Math.asin(clamp(neckRoom / Math.max(0.06, base.neckLen), 0, 1))
+    neck.rotation.x = Math.min(
+      base.neckPitch + drive.headDip * 0.62 - drive.lift * 0.42 + drive.reach * 0.3 + tuck * 0.42,
+      maxDip,
+    )
+    neck.rotation.y =
+      Math.sin(clock * 0.37 + 1.1) * 0.07 * amp +
+      drive.turn * 0.35 +
+      drive.headTurn * 0.34 +
+      tuck * CURL_SIDE * 0.5
+    neck.rotation.z = drive.lean * 0.14
+    head.rotation.x =
+      base.headPitch +
+      drive.headDip * 0.34 -
+      drive.lift * 0.2 -
+      drive.reach * 0.3 +
+      tuck * 0.2 +
+      Math.sin(clock * 0.79) * 0.03 * amp
+    head.rotation.y = drive.headTurn * 0.52 + tuck * CURL_SIDE * 0.42
+    head.rotation.z = Math.sin(clock * 0.53 + 2.2) * 0.045 * amp + drive.headTilt * 0.6
 
-    tailSway.rotation.y = Math.sin(clock * 0.61) * 0.16 * amp + Math.sin(clock * 3.4) * 0.22 * drive.tailFlick
-    tailSway.rotation.x = base.tailPitch + Math.sin(clock * 0.47 + 0.8) * 0.06 * amp
+    // The tail comes round the same way the nose does, which is the whole read
+    // of a curled animal: the two ends meet. Its aim node points it down and
+    // back, so settling has to lift it toward level or it saws into the plinth.
+    tailSway.rotation.y =
+      Math.sin(clock * 0.61) * 0.16 * amp +
+      Math.sin(clock * 3.4) * 0.22 * drive.tailFlick -
+      tuck * CURL_SIDE * 0.85
+    tailSway.rotation.x = base.tailPitch + Math.sin(clock * 0.47 + 0.8) * 0.06 * amp - settled * 0.18
+
+    // Legs. One bone each, so nothing here can bend a knee: the only way to
+    // lose height without driving a foot through the plinth is to put the foot
+    // further out, which is a swing about the limb frame's own X. The angle is
+    // not a number anybody chose, it is the one that leaves the foot at the
+    // height it was standing at, so a short legged creature folds almost
+    // nothing when it lies down and a long legged one folds itself nearly flat.
+    // The fore pair swing forward and the hind pair back, which is the shape a
+    // dog makes lying down and the only lying shape this rig can hold honestly.
+    //
+    // Measured rather than guessed because guessing was tried: fixed fold
+    // angles put the feet up to a fifth of a body height under the plinth on a
+    // long legged creature, and a held pose does that for hours rather than for
+    // the second a reaction lasts.
+    for (const l of limbs) {
+      // Where this limb hangs from THIS frame, in root space, composed by hand
+      // rather than read off matrixWorld because the root carries the growth
+      // scale and this has to be in root units. It cannot be the height
+      // setMorphs recorded: the pelvis pitches, the torso pitches on top of
+      // that, and a fore limb sits a body length forward of both, so seven
+      // degrees of pitch drops its shoulder further than the crouch did.
+      _p.copy(l.node.position)
+      if (l.fore) _p.multiply(torso.scale).applyEuler(torso.rotation).add(torso.position)
+      _p.applyEuler(pelvis.rotation).add(pelvis.position)
+      // How much of the leg's vertical span is left to spend, as a cosine. The
+      // target is the height the foot STANDS at, not the plinth: a leg clamped
+      // short by a low limbLength never reached the plinth in the first place,
+      // and aiming at the floor would fold those legs on a creature that is
+      // doing nothing.
+      const swing = Math.acos(clamp(1 - (l.hipY - _p.y) / Math.max(0.05, l.span), 0, 1))
+      const way = l.fore ? -1 : 1
+      l.fold.rotation.x = way * swing
+      // The sole keeps the angle to the ground it had while standing. Two
+      // rotations about the same axis, so they cancel exactly, and that is why
+      // there is nothing on the fold's other two axes: a yaw in between stops
+      // them cancelling and the foot comes out pointing down through the floor,
+      // which is measured, not feared.
+      l.footNode.rotation.x = base.footRot - way * swing
+    }
+
+    // The eyelid, such as there is one. orientY builds the eye socket with its
+    // local X running down the side of the head, so squashing X turns the ball
+    // into a horizontal slit and takes the pupil with it, whatever eye allele
+    // happens to be attached. Y comes in a little as well so the shut eye sits
+    // back against the head rather than standing off it as a fin.
+    for (const e of sockets.eye) {
+      e.scale.set(eyeBase * lerp(1, 0.1, asleep), eyeBase * lerp(1, 0.72, asleep), eyeBase * lerp(1, 1.06, asleep))
+    }
   }
 
   function bounds(target: THREE.Box3): THREE.Box3 {
@@ -801,10 +1091,14 @@ export function buildBody(materials: MaterialKit, palette: Palette, surface: Sur
 // own. It is the same tube primitive, a nest to sit in so it is a composition
 // rather than a floating object, and a light inside it that comes up as the
 // group gets closer to hatching.
+// An egg sleeps too, and it has to, because the sleep gate is stage free: a
+// group can open the app on their second evening and find an egg that will not
+// take an action. Something on screen has to be different, or that is
+// indistinguishable from an app that has stopped working.
 export interface Egg {
   root: THREE.Group
   setProgress(p: number): void
-  update(dt: number, clock: number, motion: number): void
+  update(dt: number, clock: number, motion: number, sleep: number): void
   bounds(target: THREE.Box3): THREE.Box3
   dispose(): void
 }
@@ -909,27 +1203,50 @@ export function buildEgg(materials: MaterialKit, palette: Palette, rand: () => n
 
   let progress = 0
   let shown = 0
+  let lastClock = 0
+  let slowClock = 0
+  let spin = 0
 
   function setProgress(p: number): void {
     progress = THREE.MathUtils.clamp(p, 0, 1)
   }
 
-  function update(dt: number, clock: number, motion: number): void {
+  function update(dt: number, clock: number, motion: number, sleep: number): void {
     shown += (progress - shown) * Math.min(1, dt * 2.4)
-    const amp = motion
-    const breath = Math.sin(clock * 0.9) * 0.5 + 0.5
-    const swell = 1 + breath * (0.014 + 0.03 * shown) * amp
-    shellNode.scale.set(swell, 1 + breath * 0.02 * amp, swell)
-    // A rock that gets more insistent the closer it is to hatching.
-    shellNode.rotation.z = Math.sin(clock * (0.7 + shown * 1.9)) * (0.012 + shown * 0.055) * amp
-    shellNode.rotation.x = Math.sin(clock * (0.53 + shown * 1.4) + 1.3) * (0.008 + shown * 0.03) * amp
+    const asleep = clamp(sleep, 0, 1)
+    // Same trick as the body's breath: a second clock, fed the change in the
+    // first, so sleep slows everything the egg does without slowing the tween
+    // that reveals the cracks or the camera drift outside.
+    const step = clock - lastClock
+    lastClock = clock
+    if (step > 0 && step < 1) slowClock += step * lerp(1, 0.4, asleep)
 
-    const pulse = 0.55 + 0.45 * Math.sin(clock * (1.1 + shown * 1.6))
-    materials.shell.emissiveIntensity = shown * 0.5 * (0.7 + 0.3 * pulse)
-    coreLight.intensity = shown * 2.6 * (0.6 + 0.4 * pulse)
+    // The rock is the egg's version of being awake, so it is what goes away.
+    // The swell is the egg's version of breathing, so it stays and deepens: an
+    // egg that has stopped moving entirely is an egg that has stopped.
+    const amp = motion * lerp(1, 0.18, asleep)
+    const breath = Math.sin(slowClock * 0.9) * 0.5 + 0.5
+    const swell = 1 + breath * ((0.014 + 0.03 * shown) * amp + 0.02 * asleep)
+    shellNode.scale.set(swell, 1 + breath * (0.02 * amp + 0.012 * asleep), swell)
+    // A rock that gets more insistent the closer it is to hatching.
+    shellNode.rotation.z = Math.sin(slowClock * (0.7 + shown * 1.9)) * (0.012 + shown * 0.055) * amp
+    shellNode.rotation.x = Math.sin(slowClock * (0.53 + shown * 1.4) + 1.3) * (0.008 + shown * 0.03) * amp
+
+    // The light inside banks rather than going out. Hatching is the one thing
+    // that must never look cancelled, and growth keeps accruing while it
+    // sleeps, so the glow that says how close it is has to stay readable.
+    const dim = lerp(1, 0.45, asleep)
+    const pulse = 0.55 + 0.45 * Math.sin(slowClock * (1.1 + shown * 1.6))
+    materials.shell.emissiveIntensity = shown * 0.5 * (0.7 + 0.3 * pulse) * dim
+    coreLight.intensity = shown * 2.6 * (0.6 + 0.4 * pulse) * dim
     core.scale.setScalar(0.6 + shown * 0.55 + pulse * 0.06 * amp)
-    core.rotation.y = clock * 0.25 * amp
-    core.rotation.x = clock * 0.17 * amp
+    // Accumulated, not clock times amplitude. A turn written as elapsed time
+    // times a speed runs BACKWARDS whenever the speed drops, and the speed now
+    // drops every time the creature goes to sleep, so the core would unwind for
+    // three and a half seconds each evening.
+    spin += step * 0.25 * amp
+    core.rotation.y = spin
+    core.rotation.x = spin * 0.68
 
     for (let i = 0; i < cracks.length; i++) {
       const t = THREE.MathUtils.clamp((shown - 0.45 - i * 0.11) / 0.14, 0, 1)

@@ -10,7 +10,7 @@
 
 import * as THREE from 'three'
 import { BUILDABLE_PLANS, MORPHS, SUBSTANCE_AXES } from '../core/types'
-import type { ActionKind, BodyPlan, Creature, Genome, Locus, Morphs, Substance } from '../core/types'
+import type { ActionKind, BodyPlan, Creature, Genome, Locus, Morphs, Stance, Substance } from '../core/types'
 import { emptySubstance } from '../dna'
 import {
   auraFor,
@@ -29,7 +29,16 @@ import {
   type Palette,
   type Surface,
 } from './materials'
-import { buildBody, buildEgg, REST_POSE, type Body, type Egg, type PoseDrive, type Sockets } from './body'
+import {
+  buildBody,
+  buildEgg,
+  POSE_KEYS,
+  REST_POSE,
+  type Body,
+  type Egg,
+  type PoseDrive,
+  type Sockets,
+} from './body'
 import { buildSerpent } from './serpent'
 import { builderFor } from './registry'
 import { registerPlaceholderParts } from './parts'
@@ -91,6 +100,92 @@ function envelope(t: number): number {
   if (t <= 0 || t >= 1) return 0
   return Math.sin(Math.PI * Math.pow(t, 0.62))
 }
+
+// The same idea for a creature that is asleep, and deliberately the wrong shape
+// against envelope(). Nothing at all for the first fifth, then a slow rise to a
+// late peak, then back under. A sleeping animal that answers on the frame the
+// hand lands is an animal that was pretending, and this is the one reaction in
+// the app that is allowed to look grudging.
+function rouse(t: number): number {
+  if (t <= 0 || t >= 1) return 0
+  const p = clamp((t - 0.18) / 0.82, 0, 1)
+  return Math.sin(Math.PI * Math.pow(p, 1.5))
+}
+
+// ---------------------------------------------------------------------------
+// The held layer
+// ---------------------------------------------------------------------------
+//
+// HOW A HELD POSE COMPOSES WITH A TRANSIENT PULSE, which is the rule this whole
+// section exists to state, because until now every drive in the forge was a
+// pulse that decayed back to rest within a second and could simply be added on
+// top of the idle.
+//
+//   drive = hold * (1 - release) + pulse
+//
+// `hold` is where the animal is living: its stance crossfaded toward the sleep
+// pose by how asleep it is. It only ever moves by tweening, never by being set.
+// `pulse` is what just happened to it, and it is zero again a second later.
+// `release` is the pulse's own envelope, scaled: at the peak of a reaction the
+// animal is most of the way out of whatever it was holding, and it sinks back
+// into it as the reaction dies. Two layers writing the same joint by addition
+// would have produced angles neither of them meant, and a stance the size of a
+// reaction would have made every reaction look twice as big for creatures whose
+// group happened to lean.
+//
+// The case this was written for is a wake action firing while the sleep pose is
+// held. Waking it does not actually wake it (the sleep window is arithmetic on
+// the clock and no action moves it), so that pulse releases the hold by about a
+// third and no more: the creature shifts, and goes back under. That is the
+// truthful picture, and it is the one that does not look broken.
+function pose(part: Partial<PoseDrive>): PoseDrive {
+  return { ...REST_POSE, ...part }
+}
+
+// What each stance does, as pose scalars. The MEANING lives here and the
+// anatomy lives in the rigs: this file says a creature that has mostly been
+// sung to holds its head over, and body.ts and serpent.ts each decide what
+// holding a head over is on the body they have.
+//
+// Every one of them is asked for on both rigs, which is what ruled out the
+// obvious ones. A tail carried high is a stance a quadruped can hold and a
+// serpent cannot answer, and a pose only half the animals can strike is a pose
+// that reads as nothing for half the groups.
+const STANCE_HOLD: Record<Stance, PoseDrive> = {
+  standing: pose({}),
+  nosing: pose({ headDip: 0.92, reach: 0.34, crouch: 0.26 }),
+  squaring: pose({ lift: 0.5, crouch: 0.34, reach: 0.26 }),
+  scenting: pose({ headDip: -0.7, headTurn: 0.82, lift: 0.28 }),
+  listening: pose({ headTilt: 0.85, headTurn: 0.34, crouch: 0.14 }),
+  leaning: pose({ lean: 0.8, reach: 0.6, headTurn: 0.2, headDip: 0.12 }),
+  // Down on the ground with its head UP and its eyes open, which is the whole
+  // difference between this and asleep. They share a shape and they must not
+  // share a silhouette, so the curl is deliberately the looser of the two: a
+  // creature that goes to sleep from here still visibly closes up.
+  curled: pose({ settle: 0.9, tuck: 0.6, crouch: 0.5, headDip: -0.18 }),
+}
+
+// Asleep. Further into the same two scalars the curl uses, plus the head down
+// onto itself, plus `sleep`, which is the part no pose can say: the breath
+// slows and deepens and the eyes shut.
+const SLEEP_HOLD: PoseDrive = pose({ settle: 1, tuck: 0.9, crouch: 0.6, headDip: 0.6, sleep: 1 })
+
+// How much idle the pose leaves room for. Some of these are things the animal
+// is doing STILL: a creature that has locked onto a sound and then goes on
+// swaying its hips is not listening, it is idling with its head tipped over.
+// This rides on top of the accessibility damping rather than replacing it, so a
+// reduced-motion preference is still the floor.
+const STANCE_IDLE: Record<Stance, number> = {
+  standing: 1,
+  nosing: 0.85,
+  squaring: 0.8,
+  scenting: 0.75,
+  listening: 0.4,
+  leaning: 0.9,
+  curled: 0.55,
+}
+
+const SLEEP_IDLE = 0.4
 
 type MeshLike = { geometry?: THREE.BufferGeometry; material?: THREE.Material | THREE.Material[] }
 
@@ -162,7 +257,33 @@ export class CreatureView {
   private pulseKind: ActionKind | null = null
   private pulseT = 1
   private flash = 0
+  /** The composed pose handed to the rig, held layer plus transient layer. */
   private readonly drive: PoseDrive = { ...REST_POSE }
+  /** The transient layer alone, rebuilt every frame from whatever reaction is
+   *  playing. Kept apart from `drive` so the held layer underneath can be
+   *  crossfaded rather than overwritten. */
+  private readonly pulseDrive: PoseDrive = { ...REST_POSE }
+  /** The stance layer, tweened toward STANCE_HOLD. A stance change is a change
+   *  in what the animal has been doing for weeks, so it takes a couple of
+   *  seconds and nobody catches it happening. */
+  private readonly stanceHold: PoseDrive = { ...REST_POSE }
+  private stance: Stance = 'standing'
+  /** Whether a stance has ever arrived. The first one is taken as read rather
+   *  than tweened to: see setCreature. */
+  private posed = false
+  private asleep = false
+  private sleepKnown = false
+  /** 0..1 linear, and the eased copy of it. Everything visual reads the eased
+   *  one so falling asleep has no corner in it at either end. */
+  private sleepNow = 0
+  private sleepEase = 0
+  /** How much of the idle the current pose leaves room for, tweened. */
+  private idleNow = 1
+  /** How far the transient layer has pulled the animal out of its held pose,
+   *  0..1. Written by stepPulse, read by stepPose. */
+  private release = 0
+  /** The stretch on the way up. 1 means finished. */
+  private wakeT = 1
 
   private ripple: THREE.Mesh | null = null
   private gift: THREE.Mesh | null = null
@@ -282,6 +403,21 @@ export class CreatureView {
     const palette = this.palette
     if (!materials || !palette) return
 
+    // What it is doing when nothing is being done to it, read straight off the
+    // creature. Nothing is stored for this and nothing here decides it: it is
+    // the same eight pressures the traits come from, read once more.
+    this.stance = creature.stance
+    if (!this.posed) {
+      // The app opening is not an event in the creature's life. Tweening into
+      // the first stance we hear about would show every group their animal
+      // settling into itself on load, which says something happened when
+      // nothing did.
+      this.posed = true
+      const hold = STANCE_HOLD[this.stance]
+      for (const key of POSE_KEYS) this.stanceHold[key] = hold[key]
+      this.idleNow = STANCE_IDLE[this.stance]
+    }
+
     this.growthTarget = clamp(creature.stage / 4, 0, 1)
 
     // What the group has been putting into it pulls the palette. Repainted only
@@ -340,6 +476,40 @@ export class CreatureView {
     this.flash = 1
     if (kind === 'sing') this.armRipple()
     if (kind === 'give') this.armGift()
+  }
+
+  /**
+   * Whether it is asleep, which this view is TOLD rather than works out.
+   *
+   * Sleep is a fact about the minute you asked, not about the log, so there is
+   * nothing on Creature to read it off and nothing here reads a clock. The
+   * caller already holds the answer: it needs it to lay out the tray and to run
+   * the countdown, and it gets it from sleepStateOf(genome, createdAt, now) in
+   * src/dna/sleep.ts, which is the same arithmetic the server refuses actions
+   * with. Deriving it a second time in here would be a second opinion, and the
+   * one bug this feature must not have is two parts of one screen disagreeing
+   * about whether the animal is awake.
+   *
+   * Safe to call on every tick and every snapshot: only a change does anything.
+   */
+  setAsleep(asleep: boolean): void {
+    if (!this.renderer || this.disposed) return
+    if (!this.sleepKnown) {
+      // The first word on the subject is not news. A creature that was already
+      // asleep when somebody opened the app did not just go to sleep, and
+      // playing the fall would tell them it did.
+      this.sleepKnown = true
+      this.asleep = asleep
+      this.sleepNow = asleep ? 1 : 0
+      this.sleepEase = this.sleepNow
+      return
+    }
+    if (asleep === this.asleep) return
+    this.asleep = asleep
+    // Waking is the only half of this with an event in it. Going to sleep is
+    // the tween and nothing else, because nothing happens when an animal falls
+    // asleep: that is what falling asleep is.
+    if (!asleep) this.wakeT = 0
   }
 
   resize(): void {
@@ -458,6 +628,25 @@ export class CreatureView {
     this.rig?.dispose()
     this.rig?.group.removeFromParent()
     this.materials?.dispose()
+
+    // The pose belongs to the old group's animal as much as its colours did.
+    // Carrying a held stance across would put the next creature into a pose its
+    // own group never earned, and carrying sleep across would have it lying
+    // down with its eyes shut before anybody had said whether it was.
+    this.posed = false
+    this.sleepKnown = false
+    this.asleep = false
+    this.sleepNow = 0
+    this.sleepEase = 0
+    this.wakeT = 1
+    this.release = 0
+    this.idleNow = 1
+    this.stance = 'standing'
+    for (const key of POSE_KEYS) {
+      this.stanceHold[key] = 0
+      this.pulseDrive[key] = 0
+      this.drive[key] = 0
+    }
 
     this.seed = seed
     this.rand = seededRandom('forge:' + seed)
@@ -686,13 +875,17 @@ export class CreatureView {
 
     this.stepMorphs(dt)
     this.stepGrowth(dt)
+    // In this order, always: stepPose composes what stepPulse just wrote on top
+    // of the held layer, so a frame that ran them the other way round would
+    // draw the previous frame's reaction.
     this.stepPulse(dt)
+    this.stepPose(dt)
     this.stepTraits()
     this.stepAura(dt)
     this.stepCamera(dt)
 
-    this.body?.update(dt, this.clock, this.motion, this.drive)
-    this.egg?.update(dt, this.clock, this.motion)
+    this.body?.update(dt, this.clock, this.motion * this.idleNow, this.drive)
+    this.egg?.update(dt, this.clock, this.motion, this.sleepEase)
 
     this.flash = Math.max(0, this.flash - dt / 0.7)
     if (this.rig) {
@@ -763,14 +956,33 @@ export class CreatureView {
   // Reactions
   // -------------------------------------------------------------------------
 
+  // The transient layer. Writes pulseDrive and release, never drive: stepPose
+  // owns drive, because a reaction is only ever half of what the body is doing.
   private stepPulse(dt: number): void {
-    const d = this.drive
+    const d = this.pulseDrive
+    for (const key of POSE_KEYS) d[key] = 0
+    this.release = 0
+
+    // Coming up, which is not an action anybody took: the window simply ended.
+    // It gets a transient of its own because a creature that is merely awake at
+    // the end of a tween has not woken up, it has cut, and because this has to
+    // survive whatever reaction happens to be playing over the top of it.
+    if (this.wakeT < 1) {
+      this.wakeT = Math.min(1, this.wakeT + dt / (this.reduced ? 1.3 : 2.1))
+      const w = envelope(this.wakeT)
+      // The stretch lags the head coming up, which is the order it happens in.
+      const late = envelope(clamp((this.wakeT - 0.22) / 0.78, 0, 1))
+      d.headDip = -0.5 * w
+      d.lift = 0.7 * late
+      d.crouch = 0.34 * late
+      d.tailFlick = 0.9 * w * this.motion
+      // A shake, taken out by amplitude rather than by timing, so a
+      // reduced-motion preference loses the shudder and keeps the stretch.
+      d.headTilt = Math.sin(this.wakeT * Math.PI * 3) * 0.3 * w * this.motion
+      this.release = 0.85 * w
+    }
+
     if (this.pulseT >= 1 || !this.pulseKind) {
-      d.headDip = 0
-      d.crouch = 0
-      d.turn = 0
-      d.tailFlick = 0
-      d.lift = 0
       this.hideTransients()
       return
     }
@@ -778,42 +990,88 @@ export class CreatureView {
     const t = this.pulseT
     const e = envelope(t)
 
-    d.headDip = 0
-    d.crouch = 0
-    d.turn = 0
-    d.tailFlick = 0
-    d.lift = 0
+    // A pulse landing on a sleeping creature is the wake action and can be
+    // nothing else: the server refuses every variant that is not flagged for
+    // sleep, so the kind that arrived is not worth reading. Drawing a feed's
+    // head dip on an animal that is still asleep would be drawing something
+    // that did not happen, and it stays asleep because the schedule is
+    // arithmetic on the clock that no action moves.
+    if (this.sleepEase > 0.5) {
+      const r = rouse(t)
+      d.headDip -= 0.34 * r
+      d.headTurn += Math.sin(t * Math.PI * 2) * 0.42 * r * this.motion
+      d.lift += 0.12 * r
+      d.tailFlick += 0.5 * r * this.motion
+      this.release = Math.max(this.release, 0.34 * r)
+      // The ripple and the gift are armed by pulse() before anybody knows the
+      // creature is under. Nothing steps them below, so without this they hang
+      // on screen at whatever transform they were last drawn at.
+      this.hideTransients()
+      return
+    }
 
+    // Added rather than assigned, because the stretch above may still be
+    // running: somebody feeding it the moment it woke up must not delete the
+    // half of the stretch that has not happened yet.
     switch (this.pulseKind) {
       case 'feed':
         // Head down to the food, then back up, chewing on the way.
-        d.headDip = e
-        d.tailFlick = e * 0.3
+        d.headDip += e
+        d.tailFlick += e * 0.3
         break
       case 'train':
         // Load, then release. The tail goes with the effort.
-        d.crouch = e
-        d.tailFlick = e
+        d.crouch += e
+        d.tailFlick += e
         break
       case 'explore':
         // Looks away, then back. The only reaction that turns the whole body.
-        d.turn = Math.sin(t * Math.PI * 2) * e
-        d.tailFlick = e * 0.7
+        d.turn += Math.sin(t * Math.PI * 2) * e
+        d.tailFlick += e * 0.7
         break
       case 'sing':
-        d.lift = e
+        d.lift += e
         this.stepRipple(t)
         break
       case 'give':
-        d.lift = e * 0.35
-        d.headDip = e * 0.4
+        d.lift += e * 0.35
+        d.headDip += e * 0.4
         this.stepGift(t)
         break
       case 'tend':
         // No movement worth the name. The change is all in the light.
-        d.lift = e * 0.25
+        d.lift += e * 0.25
         break
     }
+    this.release = Math.max(this.release, e * 0.62)
+  }
+
+  // The held layer, and the composition. See the rule written out above
+  // STANCE_HOLD: drive = hold * (1 - release) + pulse.
+  private stepPose(dt: number): void {
+    // Asymmetric on purpose, because the two are not the same event. Going
+    // under is a long fade nobody is watching for; coming up is quicker and
+    // has the stretch on top of it.
+    const to = this.asleep ? 1 : 0
+    const rate = dt / (this.asleep ? 3.6 : 1.4)
+    this.sleepNow =
+      to > this.sleepNow ? Math.min(to, this.sleepNow + rate) : Math.max(to, this.sleepNow - rate)
+    // Eased, so there is no corner at either end of the fall. A linear ramp
+    // into a held pose stops dead on arrival and the stop is what gets noticed.
+    this.sleepEase = THREE.MathUtils.smootherstep(this.sleepNow, 0, 1)
+
+    const want = STANCE_HOLD[this.stance]
+    const k = Math.min(1, dt / 2.2)
+    const held = this.stanceHold
+    const rel = clamp(this.release, 0, 1)
+    for (const key of POSE_KEYS) {
+      held[key] += (want[key] - held[key]) * k
+      // Sleep overrides the stance rather than adding to it: a creature does
+      // not sleep in a listening pose, it sleeps.
+      const now = lerp(held[key], SLEEP_HOLD[key], this.sleepEase)
+      this.drive[key] = now * (1 - rel) + this.pulseDrive[key]
+    }
+    this.idleNow += (lerp(STANCE_IDLE[this.stance], SLEEP_IDLE, this.sleepEase) - this.idleNow) * k
   }
 
   private ensureRipple(): THREE.Mesh {

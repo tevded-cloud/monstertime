@@ -30,6 +30,10 @@ export interface Connection {
   claim(): void
   /** Fires the one time a code is minted, and never after. */
   onClaimed(fn: (claimed: { actorId: string; code: string }) => void): () => void
+  /** Fires every time the server turns an action away because the creature is
+   *  asleep. Not an error and not a status change: the socket is fine, the
+   *  animal is not available, and the two want different words on screen. */
+  onAsleep(fn: (refused: { since: number; until: number; now: number }) => void): () => void
   close(): void
   onStatus(fn: (status: ConnectionStatus) => void): () => void
 }
@@ -59,6 +63,9 @@ class SocketConnection implements Connection {
    *  come back as the same person rather than as a fresh guest. */
   private code: string | null
   private readonly claimListeners = new Set<(c: { actorId: string; code: string }) => void>()
+  private readonly asleepListeners = new Set<
+    (r: { since: number; until: number; now: number }) => void
+  >()
   private socket: WebSocket | null = null
   private snapshot: GroupSnapshot | null = null
   private present: PresentActor[] = []
@@ -185,6 +192,17 @@ class SocketConnection implements Connection {
         this.emitSnapshot()
         break
       }
+      case 'asleep': {
+        // Passed straight up without being folded into the snapshot, because it
+        // is not part of the creature: the creature is a pure function of the
+        // log and this is a fact about the minute somebody tapped. It is also
+        // deliberately not console.error'd the way a real server error is. Being
+        // told the animal is asleep is a normal evening, not a fault.
+        for (const fn of this.asleepListeners) {
+          fn({ since: message.since, until: message.until, now: message.now })
+        }
+        break
+      }
       case 'error': {
         // A server-level error (an unknown variant id, a rejected name) is
         // not a connection failure: the socket stays open. This is
@@ -283,6 +301,13 @@ class SocketConnection implements Connection {
     this.claimListeners.add(fn)
     return () => {
       this.claimListeners.delete(fn)
+    }
+  }
+
+  onAsleep(fn: (r: { since: number; until: number; now: number }) => void): () => void {
+    this.asleepListeners.add(fn)
+    return () => {
+      this.asleepListeners.delete(fn)
     }
   }
 

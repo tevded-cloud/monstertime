@@ -93,6 +93,17 @@ export interface ActionVariant {
   category: string
   // Stage below which this variant is not offered.
   minStage?: number
+  // Whether this may be done to a creature that is asleep. The sleep gate
+  // refuses every variant without it, so this is the flag that decides what a
+  // group can still reach while their animal is down.
+  //
+  // A flag rather than a message type of its own, and that is the whole design.
+  // Waking it goes through the identical pipeline as everything else: the same
+  // cooldown, the same credit, the same line in the chronicle, the same push on
+  // the pressures, and the same manner layer on top. Waking it gently and
+  // waking it firmly are therefore two different acts without a single line of
+  // code being written for the difference.
+  whileAsleep?: boolean
 }
 
 /**
@@ -199,6 +210,18 @@ export type BodyPlan = (typeof BODY_PLANS)[number]
 /** The plans a rig exists for today. Rolling only ever picks from these. */
 export const BUILDABLE_PLANS: BodyPlan[] = ['quadruped', 'serpent']
 
+/**
+ * When a creature is awake, as a kind rather than as a timetable.
+ *
+ * The three are the ones a bestiary entry declares, so this is selected rather
+ * than invented, and they are not three names for one thing: a crepuscular
+ * creature sleeps twice, which is a different life to live around than sleeping
+ * once. The timetable itself is src/dna/sleep.ts, and it is not stored anywhere,
+ * because a stored schedule is a schedule two machines can disagree about.
+ */
+export const ACTIVITY_PATTERNS = ['diurnal', 'nocturnal', 'crepuscular'] as const
+export type ActivityPattern = (typeof ACTIVITY_PATTERNS)[number]
+
 export interface Genome {
   // Hex string, crypto-random per group. It is the thing that makes two groups'
   // creatures incomparable, and it is sent to every viewer on connect: the
@@ -212,6 +235,11 @@ export interface Genome {
   // the seed and fixed for life, so a group's creature stays one animal that
   // changes while two groups get genuinely different animals.
   plan: BodyPlan
+  // Which hours it keeps, as a kind. Rolled off its own stream and fixed for
+  // life, like the plan and for the same reason. What this actually means in
+  // milliseconds is sleep.ts's business, and nothing outside it should be
+  // deciding when a creature is awake from this field alone.
+  activity: ActivityPattern
   // The alleles this creature carries at each locus: its potential, not its
   // appearance. How many are drawn is tuned in alleles.ts and trades off against
   // itself, so no count is quoted here: drawing too few leaves committed groups
@@ -253,6 +281,39 @@ export type Morph = (typeof MORPHS)[number]
 // the discrete moments when a trait locks in.
 export type Morphs = Record<Morph, number>
 
+/**
+ * What the animal is doing when nothing is happening to it.
+ *
+ * Read the names as verbs, because that is what they are: each one is a thing a
+ * creature is caught in the middle of, not a label for an axis. A group that
+ * fed theirs for a month finds it nosing at the ground; a group that trained
+ * theirs finds it squared up and waiting for the next thing. Nothing new is
+ * stored for this and nobody chose it, which is the point: it is the same
+ * pressures the traits are read from, read once more for the pose, and it is
+ * what makes two groups' creatures look different on a screen where neither
+ * group is doing anything.
+ *
+ * `standing` is the honest answer rather than a fallback. A group that does a
+ * bit of everything has not leaned anywhere, and a creature that just stands
+ * there is exactly what that should look like.
+ *
+ * NOT the same thing as the `stance` morph, and the two sit close enough
+ * together to be worth saying out loud. The morph is a proportion, 0 to 1, for
+ * how upright and squared off the body is BUILT. This is what the built body is
+ * doing this minute. One is anatomy and one is behaviour, and a renderer needs
+ * both: `creature.morphs.stance` shapes the rig, `creature.stance` poses it.
+ */
+export const STANCES = [
+  'standing',
+  'nosing',
+  'squaring',
+  'scenting',
+  'listening',
+  'leaning',
+  'curled',
+] as const
+export type Stance = (typeof STANCES)[number]
+
 export const STAGES = ['egg', 'hatchling', 'juvenile', 'adolescent', 'adult'] as const
 export type StageName = (typeof STAGES)[number]
 
@@ -291,6 +352,10 @@ export interface Creature {
   substance: Substance
   traits: ExpressedTrait[]
   morphs: Morphs
+  // What it is doing right now, read off the same pressures as everything else.
+  // See STANCES: this is the pose, `morphs.stance` is the build, and they are
+  // two different questions asked of the same eight numbers.
+  stance: Stance
   bonds: Record<string, Bond>
   memories: Memory[]
   actionCount: number
@@ -338,6 +403,18 @@ export type ServerMessage =
   // The one time a passcode is ever sent anywhere. Only the hash is kept, so
   // this is the only moment it exists outside the browser that asked for it.
   | { type: 'claimed'; actorId: string; code: string }
+  // Why that did not happen: it is asleep. Not an `error`, because it is not a
+  // mistake anybody made and it wants a different thing on screen.
+  //
+  // Both sides can work sleep out for themselves from the seed and the group's
+  // createdAt, and they must, or the countdown would only exist for whoever got
+  // refused. This message is not the answer, it is the correction: the server
+  // decides, and a phone whose clock is a few minutes out would otherwise show
+  // a creature awake that will not take an action, with nothing on screen to
+  // explain it. `now` is the server's own clock at the moment it refused, so a
+  // client can put its countdown back on the right footing rather than counting
+  // down to a moment that has already passed.
+  | { type: 'asleep'; since: number; until: number; now: number }
 
 // Client -> server.
 export type ClientMessage =

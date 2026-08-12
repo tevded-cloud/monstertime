@@ -16,12 +16,30 @@
 // to make: the tap that used to submit is now the tap that says how. "No
 // particular way" is a real answer sitting alongside the rest, and it writes no
 // manner at all rather than a neutral one.
+//
+// A sleeping creature is the second reason a thing can be unavailable here, and
+// it is nothing like the first. The cooldown is a wait this person has just
+// earned and it is over in under a minute, so it is drawn as a hairline that
+// retreats and says nothing. Sleep is hours long, it applies to everybody in the
+// group at once, and nobody did anything to cause it, so it is said in words and
+// it is said before anybody presses anything. That distinction is the whole of
+// what this file has to get right: five dead buttons and no sentence is
+// indistinguishable from an app that has broken, and the person who reads it
+// that way does not come back to check.
+//
+// Which is why the wake action is routed through this same tray rather than put
+// somewhere of its own. It is an ordinary item with an ordinary manner step, so
+// waking it gently and waking it firmly are two different things a person can
+// choose between while their animal is down, which is the only interesting
+// decision on offer at that hour.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import { ACTION_KINDS } from '../core/types'
 import type { ActionKind, ActionVariant, Creature } from '../core/types'
 import { availableVariants, methodsForKind } from '../dna'
+import { wakingPhrase } from './describe'
+import { useSleep } from './useGroup'
 
 // Long enough that one person cannot walk a creature to adulthood on their own
 // in an afternoon, short enough that it never becomes the thing you are waiting
@@ -62,6 +80,14 @@ export default function ActionBar({ creature, actorId, live, onAct }: ActionBarP
   const [lastKind, setLastKind] = useState<ActionKind | null>(null)
   const [now, setNow] = useState(() => Date.now())
   const root = useRef<HTMLDivElement | null>(null)
+
+  // The same answer the Durable Object refuses actions with, off the same pure
+  // function, corrected against the same clock. This screen never works sleep
+  // out for itself: a tray that offered a button the server was going to turn
+  // away would be worse than a tray that offered nothing.
+  const sleep = useSleep()
+  const sleeping = sleep !== null && sleep.asleep ? sleep : null
+  const asleep = sleeping !== null
 
   // The cooldown is anchored to the server's timestamp for this person's last
   // action, so reloading the page does not hand anybody a fresh turn. The local
@@ -106,9 +132,26 @@ export default function ActionBar({ creature, actorId, live, onAct }: ActionBarP
   const byKind = useMemo(() => {
     const grouped = new Map<ActionKind, ActionVariant[]>()
     for (const kind of ACTION_KINDS) grouped.set(kind, [])
-    for (const variant of availableVariants(stage)) grouped.get(variant.kind)?.push(variant)
+    for (const variant of availableVariants(stage, asleep)) grouped.get(variant.kind)?.push(variant)
     return grouped
-  }, [stage])
+  }, [stage, asleep])
+
+  // The shortcut's target, taken from the catalogue rather than written down as
+  // an id. If a second thing a person may do to a sleeping animal is ever added,
+  // this points at the first of them instead of at a variant that used to be the
+  // only one, and the kind comes off the variant so the tray it opens is
+  // whichever tray that variant actually lives in.
+  const wake = useMemo(() => availableVariants(stage, true)[0] ?? null, [stage])
+
+  // It can fall asleep, or wake up, while somebody is standing in the tray with
+  // it open. The two states offer disjoint sets, so whatever was picked a second
+  // ago is not on the menu any more: leaving it picked would leave a manner list
+  // on screen that commits an action the server is about to refuse. Dropping
+  // back one level lands on the item list, which is the level that has just
+  // rewritten itself and is the only honest thing to be looking at.
+  useEffect(() => {
+    if (picked !== null && (picked.whileAsleep === true) !== asleep) setPicked(null)
+  }, [asleep])
 
   function shut(): void {
     setOpen(null)
@@ -124,15 +167,23 @@ export default function ActionBar({ creature, actorId, live, onAct }: ActionBarP
     shut()
   }
 
+  // Order matters here, and the cooldown deliberately sits ABOVE sleep. The
+  // sixty seconds after somebody wakes it are the one stretch where the two
+  // reasons are both true, and "It is asleep" arriving directly under the line
+  // that just said you woke it up reads as the app contradicting itself. The
+  // creature's attention is the nearer and the more recent answer, so it is the
+  // one on screen, and the sleep sentence comes back when it runs out.
   const note = !live
     ? 'Not connected to it right now.'
     : cooling
       ? lastKind
         ? SETTLE[lastKind]
         : 'It needs a moment.'
-      : creature && creature.actionCount === 0
-        ? 'Nothing has happened to it yet.'
-        : ''
+      : sleeping !== null
+        ? `It is asleep. Up again ${wakingPhrase(sleeping.until - sleeping.now)}.`
+        : creature && creature.actionCount === 0
+          ? 'Nothing has happened to it yet.'
+          : ''
 
   const inKind = open ? (byKind.get(open) ?? []) : []
   // Only shelves with something on them at this stage. An egg cannot be fed, so
@@ -144,6 +195,15 @@ export default function ActionBar({ creature, actorId, live, onAct }: ActionBarP
   }, [inKind])
   const onShelf = shelf !== null && shelves.includes(shelf) ? shelf : (shelves[0] ?? null)
   const shown = inKind.filter((variant) => variant.category === onShelf)
+
+  // Where the one live thing is offered when nothing else in view is. Either the
+  // tray is shut, or it is open on a kind that has just emptied under somebody's
+  // hand, and in both cases the alternative is a screen where every target is
+  // dead and the only way through is guessing which of the six kinds is the one
+  // that still answers. Never alongside a tray that is already showing the wake
+  // item, and never on the manner step: two ways to start the same act, both on
+  // screen at once, is how a tray turns into a control panel.
+  const offerWake = asleep && wake !== null && picked === null && (open === null || shown.length === 0)
 
   return (
     <div className="actionbar" ref={root}>
@@ -171,6 +231,14 @@ export default function ActionBar({ creature, actorId, live, onAct }: ActionBarP
                 </div>
               )}
               <div className="variants">
+                {shown.length === 0 && asleep && (
+                  // Reachable exactly one way: it went to sleep while this tray
+                  // was open, because a kind with nothing in it cannot be opened.
+                  // So the sentence says that rather than describing the state,
+                  // and the tray stays where it was instead of being yanked shut
+                  // under somebody who is mid-reach.
+                  <p className="empty">It has gone to sleep. Nothing here until it is up.</p>
+                )}
                 {shown.map((variant) => (
                   <button
                     key={variant.id}
@@ -226,6 +294,31 @@ export default function ActionBar({ creature, actorId, live, onAct }: ActionBarP
         {note}
       </p>
 
+      {offerWake && wake !== null && (
+        <div className="rouse">
+          <button
+            type="button"
+            className="btn"
+            disabled={cooling || !live}
+            onClick={() => {
+              // Straight to the manner step, which is the only question a wake
+              // actually asks. It opens the real tray on the real item, so the
+              // tap that commits is the same tap it is everywhere else and there
+              // is one path into commit() rather than two.
+              setOpen(wake.kind)
+              setShelf(null)
+              setPicked(wake)
+            }}
+          >
+            {/* The catalogue's own words, not a second copy of them. A shortcut
+                that said something else would be a second name for one act, and
+                the group would end up with two names for the thing they do on the
+                evenings their creature is down. */}
+            {wake.label}
+          </button>
+        </div>
+      )}
+
       <div className="kinds">
         {ACTION_KINDS.map((kind) => {
           const count = (byKind.get(kind) ?? []).length
@@ -241,7 +334,14 @@ export default function ActionBar({ creature, actorId, live, onAct }: ActionBarP
             >
               <KindIcon kind={kind} />
               <span>{KIND_LABEL[kind]}</span>
-              {count === 0 && <span className="sr">too young for this yet</span>}
+              {count === 0 && (
+                // Two different reasons a kind is shut, and a reader gets the
+                // right one. "Too young for this yet" said about a grown animal
+                // that is merely asleep would send somebody looking for a stage
+                // gate that is not there, and it is the only explanation a screen
+                // reader gets at all: the sighted cue is the sentence above.
+                <span className="sr">{asleep ? 'not while it is asleep' : 'too young for this yet'}</span>
+              )}
             </button>
           )
         })}

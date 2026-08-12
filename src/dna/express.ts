@@ -75,6 +75,7 @@ import type {
 import { VARIANT_MEMORY, pushOf, variantById } from './actions'
 import { affinityShape, alleleById, centredShape, cosine } from './alleles'
 import { makeRng } from './rng'
+import { deriveStance } from './stance'
 
 // ---------------------------------------------------------------------------
 // Tuning
@@ -979,6 +980,11 @@ export function deriveCreature(
     substance,
     traits: expressed,
     morphs: deriveMorphs(genome, pressures, count),
+    // Read off the pressures as they stand at the end of the log rather than
+    // fixed at a tick, because a pose is what the creature is doing now and not
+    // a record of anything. It is the one thing on here that a group can change
+    // in an evening, which is what makes an idle screen worth looking at.
+    stance: deriveStance(pressures),
     bonds,
     memories,
     actionCount: count,

@@ -30,6 +30,7 @@ import { BUILDABLE_PLANS, LOCI, PRESSURE_AXES } from '../core/types'
 import type { Allele, AlleleId, Genome, Locus, PressureDelta } from '../core/types'
 import { ACTION_VARIANTS } from './actions'
 import { makeRng } from './rng'
+import { rollActivity } from './sleep'
 
 // The draw weight is not part of the shared contract, because nothing outside
 // this file has any business knowing how likely an allele was. It lives on the
@@ -979,11 +980,36 @@ export function affinityShape(allele: Allele): number[] {
 // anybody having to remember to come back and edit a list. A group that leans on
 // one kind of action for months points very close to one of these; a group that
 // mixes points somewhere between them, where the answers to both sides still
-// apply. Genomes are drawn once and stored, so changing the catalogue never
-// reshapes a creature that already exists.
+// apply.
+//
+// THAT CONVENIENCE HAS A PRICE, and this comment used to get it exactly
+// backwards. It said genomes are drawn once and stored, so changing the
+// catalogue never reshapes a creature that already exists. Neither half is
+// true. Nothing stores a genome: the server calls rollGenome(seed) on every
+// read, so the genome is recomputed by whatever code is deployed when somebody
+// opens the app. Summing these off the catalogue therefore makes the catalogue
+// production state, and adding one ordinary variant re-deals the alleles some
+// existing groups are carrying. Measured: one variant moved 23 genomes in 500,
+// one group in twenty, with the whole suite green.
+//
+// test/dna/genome-pin.test.ts is what notices now. If it goes red after you
+// added a variant, this is the paragraph it is pointing at.
 const HABIT_SHAPES: number[][] = (() => {
   const totals = new Map<string, PressureDelta>()
   for (const variant of ACTION_VARIANTS) {
+    // Anything only offered to a sleeping creature is left out, and that is
+    // load bearing rather than tidy. These sums decide which alleles count as
+    // an answer to which habit, the gap-filling pass below draws on that, and
+    // the server rolls the genome from the seed on EVERY read rather than
+    // storing it. So a variant added here does not change what new groups get,
+    // it re-deals what existing ones are carrying, and there are groups who
+    // have been raising theirs for months. Measured when the wake variant went
+    // in: including it moved 27 genomes in 500, one in twenty, and those are
+    // real creatures that would have quietly become different animals with
+    // nothing anywhere going red. Leaving it out is also the
+    // truthful reading, because a habit is a direction a group can fall into
+    // and nobody can fall into waking a creature that is not asleep.
+    if (variant.whileAsleep === true) continue
     const total: PressureDelta = totals.get(variant.kind) ?? {}
     for (const axis of PRESSURE_AXES) {
       const push = variant.push[axis]
@@ -1090,6 +1116,12 @@ export function rollGenome(seed: string): Genome {
   const planRng = makeRng('plan:' + seed)
   const plan = BUILDABLE_PLANS[planRng.int(BUILDABLE_PLANS.length)]
 
+  // Which hours it keeps, on a third stream again, for the third time for the
+  // same reason. The draw itself lives in sleep.ts rather than here because the
+  // pattern is one of three things that come off that stream and the order they
+  // come off it in has to be stated once, in the file that owns them.
+  const activity = rollActivity(seed)
+
   for (const locus of LOCI) {
     const pool = ALLELES.filter((allele) => allele.locus === locus)
     const early = pool.filter((allele) => allele.minStage <= 1)
@@ -1152,5 +1184,5 @@ export function rollGenome(seed: string): Genome {
     carried[locus] = chosen.map((allele) => allele.id)
   }
 
-  return { seed, plan, carried }
+  return { seed, plan, activity, carried }
 }

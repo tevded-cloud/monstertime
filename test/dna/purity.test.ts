@@ -84,7 +84,21 @@ describe('src/dna stays engine independent', () => {
     // Guards the guard. A scanner pointed at an empty folder passes everything,
     // and would go on passing after a rename.
     const names = sources().map((s) => s.name).sort()
-    expect(names).toEqual(['actions.ts', 'alleles.ts', 'express.ts', 'index.ts', 'rng.ts'])
+    expect(names).toEqual([
+      'actions.ts',
+      'alleles.ts',
+      'express.ts',
+      'index.ts',
+      'rng.ts',
+      // sleep.ts is the one that had to be argued about. It is the only file in
+      // the module that is about wall clock time, so it is the file somebody
+      // will one day reach for Date.now in, and the rule it has to keep is
+      // exactly the one this suite checks: the instant is a parameter. A day
+      // cycle in here is a remainder, never a wave, because there is no sine
+      // that returns the same bits in a browser and in workerd.
+      'sleep.ts',
+      'stance.ts',
+    ])
   })
 
   it('blanks comments and strings before matching', () => {

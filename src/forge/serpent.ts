@@ -45,6 +45,34 @@ const SPINE_AT = [1, 3, 5, 7, 9, 11]
  *  third rather than being dropped on the floor. */
 const WING_AT = 2
 
+/**
+ * How hard each joint turns when the animal is fully coiled, from the neck end
+ * to the tail end.
+ *
+ * Sixteen segments is a hard ceiling on what a coil can be here. The file's own
+ * opening says a curve below about twelve joints reads as an elbow, and a real
+ * double coil wants sixty degrees a joint, which at this count is a fifteen
+ * sided polygon with seven corners a loop. So this is one ring and a bit,
+ * roughly three hundred and thirty degrees in total, and the turn TIGHTENS
+ * toward the tail so the thin end spirals inside the ring rather than running
+ * into its own neck. That is also what a snake actually does.
+ */
+const COIL_NECK = 0.28
+const COIL_TAIL = 0.5
+
+/** Which way it coils. Fixed rather than rolled for the same reason the
+ *  quadruped's is: buildSerpent is handed the generator view.ts then hands to
+ *  every part builder, so one more draw here re-jitters every part on every
+ *  serpent that already exists. */
+const CURL_SIDE = 1
+
+/** How much of the front of the animal a head gesture reaches back into. A
+ *  snake has no neck to stop at, so turning its head is really the first few
+ *  joints turning, and a head that swivels on a rigid body reads as an owl. */
+function frontWeight(along: number): number {
+  return Math.max(0, 1 - along * 3.6)
+}
+
 interface Rig {
   girth: number
   headLen: number
@@ -275,6 +303,10 @@ export function buildSerpent(
   }
 
   let clockOffset = rand() * 100
+  // The breath's own clock. See the body's, and the reason is the same: sleep
+  // has to slow the breath without slowing the trait grow-ins or the camera.
+  let lastClock = 0
+  let breathClock = 0
 
   function update(dt: number, clock: number, motion: number, drive: PoseDrive): void {
     if (fade < 1) {
@@ -282,29 +314,102 @@ export function buildSerpent(
       for (const t of tubes) t.applyColors(colorFrom.get(t)!, colorTo.get(t)!, fade)
     }
 
+    const settled = clamp(drive.settle, 0, 1)
+    const tuck = clamp(drive.tuck, 0, 1)
+    const asleep = clamp(drive.sleep, 0, 1)
+
+    const step = clock - lastClock
+    lastClock = clock
+    if (step > 0 && step < 1) breathClock += step * lerp(1, 0.44, asleep)
+
     const t = clock + clockOffset
+    // Damped out as it goes down, because a creature already on the plinth has
+    // nothing left to crouch with. Left undamped, the crouch a sleeping pose
+    // carries pitched segment zero nose down, and every one of the fifteen
+    // segments hanging off it inherited that pitch: the far end of a sleeping
+    // serpent finished a fifth of a body length under the floor.
+    const lift = (drive.lift * 0.5 - drive.crouch * 0.25) * (1 - settled)
+
     // A wave travelling from head to tail. This is the whole animation: a snake
     // at rest is never actually still, and the travelling phase is what stops
     // sixteen segments looking like one bent stick.
     for (let i = 1; i < SEGMENTS; i++) {
       const along = i / (SEGMENTS - 1)
+      const front = frontWeight(along)
       const base = rig.coil * Math.sin(along * Math.PI * 2.1 + 0.6)
       const wave = Math.sin(t * 1.15 - along * 4.2) * 0.09 * motion
       const flick = drive.tailFlick * along * along * 0.5
-      chain[i].rotation.y = base + wave + flick
-      chain[i].rotation.x = rig.rear * 0.12 * (1 - along) + drive.crouch * -0.04 * (1 - along)
+      // Coiling is a different operation from bending, and the two have to be
+      // crossfaded rather than added. The resting shape is an S, which is a
+      // turn that ALTERNATES sign along the body; a coil is the same sign at
+      // every joint. Added together, a half coiled snake is just a wavier
+      // snake, and the one pose that has to read at a glance reads as nothing.
+      const coil = CURL_SIDE * lerp(COIL_NECK, COIL_TAIL, along)
+      // Straightening the front is how this body reaches: there is no neck to
+      // put out, so it takes the bend out of the first few joints and points
+      // itself at whatever it is interested in.
+      const rest = (base + wave) * (1 - drive.reach * 0.7 * front)
+      chain[i].rotation.y =
+        lerp(rest, coil, tuck) + flick + (drive.headTurn * 0.24 + drive.lean * 0.2) * front
+      // Flattened as it goes down. The resting carriage lifts the front of the
+      // animal off the plinth by `rear`, and an animal asleep on the ground has
+      // put all of that down.
+      chain[i].rotation.x = lerp(rig.rear * 0.12 * (1 - along) + drive.crouch * -0.04 * (1 - along), 0, settled)
+      // Rolled onto one side, front of the animal only. Rolling segment zero
+      // would roll the entire chain hanging off it and tip the coil off the
+      // ground, so the lean is spread across the joints that can afford it.
+      chain[i].rotation.z = drive.lean * 0.12 * front
     }
 
-    const lift = drive.lift * 0.5 - drive.crouch * 0.25
-    chain[0].position.y = girthAt(0) * 0.9 + rig.rear + lift * 0.28
-    chain[0].rotation.x = -rig.rear * 0.9 - lift * 0.5
+    chain[0].position.y = girthAt(0) * 0.9 + rig.rear * (1 - settled) + lift * 0.28
+    chain[0].rotation.x = -rig.rear * 0.9 * (1 - settled) - lift * 0.5
     chain[0].rotation.y = drive.turn * 0.5
 
-    head.rotation.x = rig.rear * 0.5 + drive.headDip * 0.55 - lift * 0.2
-    head.rotation.y = drive.turn * 0.6
+    // The head rides up onto the top of the body as the coil closes, and turns
+    // the same way the coil does, so it comes to rest lying ACROSS the thinner
+    // loop the tail has spiralled inside it. That is where a snake actually
+    // puts its head, and it is the only place this rig can put it: raising the
+    // head clear of the body would leave a gap with no neck in it, because the
+    // head is a rigid child of segment zero and there is no geometry between
+    // them. Lifting segment zero instead is worse still, since every other
+    // segment hangs off it and the whole coil would stand up.
+    head.position.y = girthAt(0) * (0.15 + 0.35 * tuck)
+    head.rotation.y = drive.turn * 0.6 + drive.headTurn * 0.5 + tuck * CURL_SIDE * 0.55
+
+    // The same floor guard the quadruped's neck has, and needed for the same
+    // reason: a head can only dip as far as the height it is dipping from, and
+    // once this animal is flat on the plinth that height is one body thickness.
+    // Unguarded, a sleeping serpent puts its jaw through the floor directly
+    // under the part of it a viewer is already looking at.
+    const jawReach = rig.headLen * 0.52 + rig.snoutLen + rig.headRy
+    const room = Math.max(0, chain[0].position.y + head.position.y - rig.headRy * 0.5)
+    const maxDip = Math.asin(clamp(room / Math.max(0.05, jawReach), 0, 1))
+    head.rotation.x = Math.min(
+      rig.rear * 0.5 * (1 - settled) + drive.headDip * 0.55 - lift * 0.2 + tuck * 0.3,
+      maxDip,
+    )
     // The head sways a beat behind the body, which is what makes it look like
     // the body is carrying it rather than the two being one rigid piece.
-    head.rotation.z = Math.sin(t * 1.15 - 0.9) * 0.05 * motion
+    head.rotation.z = Math.sin(t * 1.15 - 0.9) * 0.05 * motion + drive.headTilt * 0.7 + drive.lean * 0.3
+
+    // The breath. A serpent has no chest to raise, so it is a swell that
+    // travels down the whole animal, and it is put on each segment's MESH
+    // rather than its node: the chain, the sockets and everything grown on them
+    // stay exactly where they were, so this is a breath and not a growth spurt.
+    // Deeper and slower asleep, with a floor that survives a reduced-motion
+    // preference, for the reason the quadruped's has one.
+    const deep = 0.03 * motion + 0.05 * asleep
+    for (let i = 0; i < SEGMENTS; i++) {
+      const along = i / (SEGMENTS - 1)
+      const swell = 1 + (Math.sin(breathClock * 1.05 - along * 1.3) * 0.5 + 0.5) * deep
+      segTubes[i].mesh.scale.set(swell, swell, 1)
+    }
+
+    // The eyes. The serpent's eye sockets sit unrotated on the head, so their
+    // local Y is the way the eye looks: flattening it presses the pupil into
+    // the ball and leaves a lidded slit lying along the side of the skull.
+    const shut = lerp(1, 0.12, asleep)
+    for (const s of sockets.eye) s.scale.set(rig.eyeScale, rig.eyeScale * shut, rig.eyeScale)
   }
 
   const _box = new THREE.Box3()

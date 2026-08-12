@@ -38,7 +38,18 @@
 // domain keeps being answered by the asset server exactly as it was before
 // this existed. See worker/README.md for what the site has to add.
 import { DurableObject } from 'cloudflare:workers'
-import { deriveCreature, methodFits, rollGenome, stageOfGrowth, variantById } from '../src/dna/index'
+import {
+  allowedWhileAsleep,
+  deriveCreature,
+  methodFits,
+  rollActivity,
+  rollGenome,
+  lastRouseAt,
+  sleepState,
+  stageOfGrowth,
+  variantById,
+} from '../src/dna/index'
+import type { SleepState } from '../src/dna/index'
 import { googleKeys, verifyIdToken, type KeySource } from './verify'
 import { cleanPasscode, hashPasscode, mintPasscode } from './passcode'
 import type {
@@ -242,6 +253,29 @@ const ACTS_PER_HOUR = 40
  */
 const GROUP_ACTS_PER_MINUTE = 12
 const GROUP_ACTS_PER_HOUR = 120
+
+// ---------------------------------------------------------------------------
+// Sleep
+// ---------------------------------------------------------------------------
+
+/**
+ * How long the creature stays up after somebody wakes it.
+ *
+ * Half an hour, and both ends of that are decided by what a group does with it.
+ * Long enough that waking it buys a visit rather than a single action: several
+ * people, a turn each, with the cooldown between them. Short enough that it
+ * stays a favour asked of a sleeping animal rather than a switch, so a group
+ * that wants the whole night gets it in half hour instalments, each one a row
+ * in the log pushing the same three axes. That is what putting the waking
+ * through the ordinary pipeline was for, and a rouse that lasted until morning
+ * would throw it away.
+ *
+ * It must stay UNDER AN HOUR, and that is not a taste. The window is answered
+ * out of the last GROUP_ACTS_PER_HOUR rows, which is an exact answer for an
+ * hour and a sample for anything longer; the proof is written out at rousedAt.
+ * Sitting it on the hour rather than under it would be the same defect waiting
+ * for somebody to shorten the read.
+ */
 
 /**
  * How many different people may ever act in one group. A friend group is not
@@ -556,6 +590,23 @@ interface Budget {
   used: number
 }
 
+/**
+ * The tail of the log, newest first, as `act` reads it once and then answers
+ * everything out of: the lifetime cap, both group windows, and when the
+ * creature was last woken. One read rather than four because every one of them
+ * is a question about the same handful of recent rows, and because the row
+ * count that makes the read exact is the same number in all four cases.
+ *
+ * A type and not an interface, which is not a style choice: the row generic on
+ * sql.exec wants a string index signature, and TypeScript infers one for a type
+ * alias and refuses to for an interface.
+ */
+type Recent = {
+  n: number
+  at: number
+  variantId: string
+}
+
 export class MonsterGroup extends DurableObject<MonsterEnv> {
   /**
    * Keyed by the socket object rather than by anything durable, and that is the
@@ -691,6 +742,36 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
    * reproduces is one that every existing creature hit at once, and a migration
    * with nothing exercising it is a migration nobody knows works.
    */
+  /**
+   * Move this group's whole life back by the given number of milliseconds.
+   *
+   * The second hook the test suite has, and it earns its place the same way the
+   * first one does: what it reaches cannot be reached any other way. Every
+   * creature is awake on the day its group is made, by construction and
+   * deliberately, so nothing anybody does to a fresh group can put it to sleep,
+   * and hours of real waiting is not a thing a test can do. A sleep gate with
+   * nothing exercising it is a gate nobody knows fires, and this app has already
+   * shipped one of those.
+   *
+   * The alternative was letting this object be told what time it is, which would
+   * put a settable clock on the path every real action takes. This touches
+   * stored instants only, and nothing in route() calls it, so it is exactly as
+   * far from the open internet as forgetGrowthColumn is.
+   *
+   * The birthday and every row move TOGETHER, because that is what "time has
+   * passed" means here: the schedule is measured from the birthday and the
+   * rouse from the last waking, and shifting one without the other would be a
+   * state this group could never have been in. Growth follows the same
+   * instants, so the creature comes out as old as the clock now says it is.
+   */
+  async age(byMs: number): Promise<void> {
+    if (!this.exists()) return
+    this.setMeta('createdAt', String(Number(this.metaValue('createdAt') ?? '0') - byMs))
+    const grownAt = this.metaValue('grownAt')
+    if (grownAt !== null) this.setMeta('grownAt', String(Number(grownAt) - byMs))
+    this.ctx.storage.sql.exec('UPDATE actions SET at = at - ?', byMs)
+  }
+
   async forgetGrowthColumn(): Promise<void> {
     this.ctx.storage.sql.exec('ALTER TABLE actions DROP COLUMN growth')
     this.ctx.storage.sql.exec('ALTER TABLE actions DROP COLUMN methodId')
@@ -995,8 +1076,8 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     // answer for the hour rather than a sample, because that limit is precisely
     // what stops a hundred and twenty first row being written inside one.
     const recent = this.ctx.storage.sql
-      .exec<{ n: number; at: number }>(
-        'SELECT n, at FROM actions ORDER BY n DESC LIMIT ?',
+      .exec<Recent>(
+        'SELECT n, at, variantId FROM actions ORDER BY n DESC LIMIT ?',
         GROUP_ACTS_PER_HOUR,
       )
       .toArray()
@@ -1008,6 +1089,54 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
           'This creature has a full life behind it. Nothing more can be added,' +
           ' but all of it stays exactly as it is, and a new group starts a new one.',
       })
+      return
+    }
+
+    // Whether it is awake, and it sits HERE rather than anywhere else in this
+    // sequence, for three reasons that all point at the same place.
+    //
+    // Below the two checks above it that say the message is nonsense, because
+    // "it is asleep" is a lie told to somebody who sent a variant that does not
+    // exist or a manner that does not belong to one. Below the lifetime cap,
+    // because the cap is permanent and sleep is not, and a group whose
+    // creature's life is complete must not be sent away to come back in three
+    // hours to the same closed door.
+    //
+    // ABOVE every brake below it, and that is the part a person actually feels.
+    // Sleep and the ten second cooldown are true at the same time constantly,
+    // and whichever answers first is the only reason anybody is ever given.
+    // "Give it a moment" sends somebody back in ten seconds, and in ten seconds,
+    // and in ten seconds, for four hours, with the real answer never once on
+    // screen. Above the stage gate for the same reason and one more: the stage
+    // gate can cost a read of the whole log, and this is arithmetic over two
+    // meta rows and the rows already in hand.
+    const sleep = this.sleepNow(now, recent)
+    // The catalogue decides what may be done to a sleeping animal, and it is
+    // asked BY NAME. This app has already shipped a refusal that was never
+    // wired up at all, with two tests green the whole time because a different
+    // rule turned the same message away first, and a negative test goes green
+    // the moment anything refuses. So the rule doing the refusing here has a
+    // name a test can point at, and there is no second list of what may be done
+    // while it is down.
+    const whileAsleep = allowedWhileAsleep(variantId)
+    if (sleep.asleep && !whileAsleep) {
+      // Not an `error`, because nobody made a mistake and the app wants to draw
+      // something else entirely. `since` and `until` are the stretch it is in,
+      // and `now` is THIS clock: a phone four minutes fast would otherwise count
+      // down to a moment that has already been and gone.
+      this.tell(ws, { type: 'asleep', since: sleep.since, until: sleep.until, now })
+      return
+    }
+    if (!sleep.asleep && whileAsleep) {
+      // The other half of the same gate, and it is the half the tray already
+      // enforces: availableVariants hands out disjoint sets, so waking it is
+      // simply not on screen while it is up. A client is not the only thing
+      // that can send a message, though, and this one carries a push, so
+      // without this line waking an awake creature is a button nobody can see
+      // that costs nothing and moves three axes. It is also how a group would
+      // bank a rouse: wake it in the last minute of the evening and the first
+      // half hour of the night is already spent.
+      this.tell(ws, { type: 'error', message: 'It is already awake.' })
       return
     }
 
@@ -1420,6 +1549,83 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
         .map(({ methodId, ...rest }) => (methodId === null ? rest : { ...rest, methodId })),
     }
   }
+
+  // -- sleep -----------------------------------------------------------------
+
+  /**
+   * Whether the creature is down at this instant, as this server will act on it.
+   *
+   * Two things folded together. Underneath is the schedule, which is sleep.ts,
+   * which the app runs too off the same seed and the same birthday: neither
+   * side can invent a different night, and that is the reason the server is
+   * allowed to be the one that decides. On top of it sits the rouse: somebody
+   * woke it, so it is up for a while whatever the timetable says.
+   *
+   * THE ROUSE IS READ BACK OUT OF THE LOG. It is not stored, not cached and not
+   * held in a field, and that is the whole of the design here. This object
+   * hibernates between one action and the next, so a woken creature kept in an
+   * instance variable is a creature that goes straight back to sleep the moment
+   * nobody is looking at it, which is exactly the moment before a group with
+   * the app shut opens it again. The waking is already a row: it went through
+   * the same pipeline as everything else, it is in the log forever, the log is
+   * the most durable thing this app has, and every client is sent all of it on
+   * connect. So there is nothing here to persist, and therefore nothing to
+   * migrate, and therefore no way for this to be the column that 500s every
+   * group that predates it.
+   */
+  private sleepNow(now: number, recent: Recent[]): SleepState {
+    const seed = this.metaValue('seed')
+    // A group with no seed has no schedule, and the answer to not knowing has
+    // to be awake every time: this is the only check in `act` that refuses
+    // outright for hours, so a row that cannot be read must never be able to
+    // shut a group out of their own animal. Nothing reaches this in practice,
+    // because a socket is only handed out for a group that read back a snapshot.
+    if (seed === null) return { asleep: false, since: now, until: now }
+
+    // Handed over as NaN when the row is missing, rather than as the zero that
+    // readSnapshot uses. Zero is a real instant, and a creature born in 1970 is
+    // fifty years into a schedule and asleep two evenings in five of them.
+    // NaN is the value sleep.ts already has a written answer for, and its
+    // answer is awake, decided in the one file both sides share.
+    const born = this.metaValue('createdAt')
+    // The rouse goes in as an argument rather than being applied here, and that
+    // is a correction rather than a refactor. It used to be folded on after the
+    // call, in this file only, so the app had no idea a waking lasted half an
+    // hour: for that half hour the server would take any ordinary action while
+    // every screen still drew a sleeping animal and offered the single button
+    // the server now refused. Two answers to one question, which is precisely
+    // what putting the schedule in a shared file was meant to prevent. There is
+    // one function now, and it is not possible to call it without saying when
+    // the creature was last woken.
+    return sleepState(
+      // rollActivity and not rollGenome: the same answer by construction, since
+      // rollGenome takes the pattern from this very function, at a fraction of
+      // the cost. This runs on every action, and a whole genome roll draws an
+      // allele at every locus to reach one field.
+      rollActivity(seed),
+      seed,
+      born === null ? Number.NaN : Number(born),
+      now,
+      lastRouseAt(recent, now, allowedWhileAsleep),
+    )
+  }
+
+  // Reading the last waking back out of the log used to live here. It moved to
+  // lastRouseAt in src/dna/sleep.ts, and the move is the fix rather than a
+  // tidy: the app could not see this method, so it did not know a waking lasted
+  // half an hour, and for that half hour it drew a sleeping animal the server
+  // would have let anybody feed.
+  //
+  // What the move does NOT change is why the answer here is exact rather than a
+  // sample, and that argument is still load bearing. It is answered out of
+  // `recent`, which `act` has already read, and three numbers tie together to
+  // make that complete: the read is the last GROUP_ACTS_PER_HOUR rows, the
+  // group's hourly cap refuses the row after that many inside one hour, and
+  // ROUSE_MS is under an hour. A row inside the waking window that was not
+  // among the ones read would mean more rows in an hour than the cap allows.
+  // Raise ROUSE_MS past an hour, or shorten this read, and wakings a group paid
+  // an action for start being missed. test/worker/sleep.test.ts holds that
+  // relationship down, because nothing else would go red.
 
   // -- connections -----------------------------------------------------------
 

@@ -383,6 +383,16 @@ button.creature-name {
   transition: transform 600ms ease;
 }
 
+/* Said in the top bar because that line is where the app states what the
+   creature currently is. Deliberately NOT in the micro-label voice the stage
+   name uses: uppercase and tracked out, the two would read as one string and a
+   group would think their animal had reached a stage called asleep. */
+.dozing {
+  font-size: 12px;
+  color: var(--ink-3);
+  font-style: italic;
+}
+
 .topbar-tools {
   display: flex;
   align-items: center;
@@ -630,6 +640,41 @@ button.creature-name {
   min-height: 20px;
 }
 
+/* The one live control on the evenings the creature is down.
+ *
+ * A row of its own rather than a seventh icon in the kinds row, because it is
+ * not a seventh thing you can do: it is the only thing, and it is there instead
+ * of the six rather than alongside them. It shows only while nothing else in
+ * view can be pressed, so it never sits next to a tray already offering the same
+ * item.
+ *
+ * The ember outline and nothing more. This is a thing a person is about to
+ * touch, which is what the accent is for, but a filled ember pill this size at
+ * the bottom of the screen would be the brightest object in the room and the
+ * creature is the only thing allowed to be that. */
+.rouse {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+/* The tap floor is applied here and nowhere else on a .btn, because this is the
+   only one that is ever the sole target on screen: a miss on Share costs a
+   second, a miss on this one reads as an app that does not respond.
+   (input-controls.touch-mobile-input sections 2.4 and 6.1, same floor as .kind.) */
+.rouse .btn {
+  min-height: var(--tap);
+  padding: 0 22px;
+  border-color: var(--ember-deep);
+  color: var(--ink);
+}
+
+@media (hover: hover) {
+  .rouse .btn:hover:not(:disabled) {
+    border-color: var(--ember);
+  }
+}
+
 .kinds {
   display: flex;
   justify-content: center;
@@ -703,6 +748,15 @@ button.creature-name {
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 0 8px 8px;
+}
+
+/* A tray whose kind emptied while it was open says so in place of its items.
+   Spanning both columns because it is a sentence and not a card, and it must not
+   read as one: a person who has just watched six buttons vanish should not be
+   offered a seventh thing that looks pressable and is not. */
+.variants .empty {
+  grid-column: 1 / -1;
+  padding: 4px 10px 10px;
 }
 
 .variant {
