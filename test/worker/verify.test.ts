@@ -32,11 +32,13 @@ interface Signer {
 }
 
 async function makeSigner(kid = KID): Promise<Signer> {
-  const pair = await crypto.subtle.generateKey(
+  // Asserted because generateKey's return type is the union of a key and a
+  // pair, and only the caller knows which an RSA request produces.
+  const pair = (await crypto.subtle.generateKey(
     { name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' },
     true,
     ['sign', 'verify'],
-  )
+  )) as CryptoKeyPair
   const jwk = (await crypto.subtle.exportKey('jwk', pair.publicKey)) as JsonWebKey
   return {
     source: { keys: async () => ({ [kid]: jwk }) },
