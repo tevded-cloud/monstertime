@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { JSX, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import type { ActionRecord } from '../core/types'
 import ActionBar from './ActionBar'
+import Beastpedia from './Beastpedia'
 import Chronicle from './Chronicle'
 import Crowd from './Crowd'
 import Landing, { Sigil } from './Landing'
@@ -22,7 +23,7 @@ export default function App(): JSX.Element {
   const group = useGroup()
   const named = useNamed()
   const compact = useMediaQuery('(max-width: 900px)')
-  const [sheet, setSheet] = useState<'group' | 'chronicle' | null>(null)
+  const [sheet, setSheet] = useState<'group' | 'chronicle' | 'pedia' | null>(null)
   const [waited, setWaited] = useState(false)
 
   const groupId = group.groupId
@@ -68,6 +69,7 @@ export default function App(): JSX.Element {
     />
   )
   const chronicle = <Chronicle creature={group.creature} actions={actions} />
+  const pedia = <Beastpedia creature={group.creature} genome={group.genome} />
   const panels = (
     <>
       {crowd}
@@ -90,6 +92,7 @@ export default function App(): JSX.Element {
           actorId={group.actor.id}
           onRename={group.rename}
           onOpenPanel={compact ? setSheet : null}
+          onOpenPedia={() => setSheet('pedia')}
         />
         <ActionBar
           creature={group.creature}
@@ -107,7 +110,7 @@ export default function App(): JSX.Element {
         </aside>
       )}
 
-      {compact && (
+      {(compact || sheet === 'pedia') && (
         // One panel at a time on a phone, chosen by which button was pressed.
         // Stacking both in one sheet meant two scroll regions fighting over 600
         // pixels: whichever one lost got squeezed, and the chronicle, which is
@@ -116,10 +119,10 @@ export default function App(): JSX.Element {
         // room for both.
         <Sheet
           open={sheet !== null}
-          title={sheet === 'chronicle' ? 'Chronicle' : 'The group'}
+          title={sheet === 'pedia' ? 'Its entry' : sheet === 'chronicle' ? 'Chronicle' : 'The group'}
           onClose={() => setSheet(null)}
         >
-          {sheet === 'chronicle' ? chronicle : crowd}
+          {sheet === 'pedia' ? pedia : sheet === 'chronicle' ? chronicle : crowd}
         </Sheet>
       )}
     </div>

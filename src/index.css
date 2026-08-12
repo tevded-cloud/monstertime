@@ -1425,3 +1425,79 @@ button.creature-name {
 .pace .hint {
   margin-top: 6px;
 }
+
+/* ----------------------------------------------------------------- pedia */
+
+/* The specimen entry. Reads as a page rather than a panel: serif for the lead
+   line, because that is the voice the creature's own name is written in. */
+.pedia-lead {
+  font-family: var(--font-display);
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--ink);
+  padding: 4px 0 14px;
+}
+
+.pedia-section {
+  padding: 12px 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+.pedia-section .label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.pedia-section p {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+.pedia-traits li,
+.pedia-people li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 0;
+}
+
+.pedia-traits li + li,
+.pedia-people li + li {
+  border-top: 1px solid var(--line-soft);
+}
+
+.pedia-locus {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  min-width: 52px;
+}
+
+.pedia-trait {
+  font-family: var(--font-display);
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.pedia-because,
+.pedia-role {
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+.pedia-who {
+  font-size: 14px;
+  color: var(--ink);
+  min-width: 84px;
+}
+
+.pedia-foot {
+  padding-top: 14px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 12.5px;
+  color: var(--ink-3);
+}

@@ -40,11 +40,13 @@ interface StageProps {
   onRename: (creatureName: string) => void
   // Which side panel to open, on a phone where they are a sheet rather than a
   // rail. Null on a desktop, where both are always on screen in the rail.
-  onOpenPanel: ((panel: 'group' | 'chronicle') => void) | null
+  onOpenPanel: ((panel: 'group' | 'chronicle' | 'pedia') => void) | null
+  /** Its own entry, which is offered everywhere because the rail has no room. */
+  onOpenPedia: () => void
 }
 
 export default function Stage(props: StageProps): JSX.Element {
-  const { creature, genome, actions, present, status, stale, offlineSince, groupId, actorId, onRename, onOpenPanel } =
+  const { creature, genome, actions, present, status, stale, offlineSince, groupId, actorId, onRename, onOpenPanel, onOpenPedia } =
     props
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -135,6 +137,17 @@ export default function Stage(props: StageProps): JSX.Element {
         <div className="topbar-tools">
           <Status status={status} here={present.length} />
           <ShareButton groupId={groupId} />
+          {/* Always offered, on a phone and on a desktop alike: the rail holds
+              the group and the chronicle, and there is no room in it for a
+              third panel this long. */}
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={() => onOpenPedia()}
+            aria-label="Open its entry"
+          >
+            <BookIcon />
+          </button>
           {onOpenPanel && (
             <>
               <button
@@ -309,6 +322,19 @@ function CheckIcon(): JSX.Element {
 
 // A stack of entries with a rule down the margin, which is what the chronicle
 // itself looks like. Drawn rather than a glyph, same as every other icon here.
+// A closed book, because that is what the page is: the specimen report for one
+// animal. Drawn rather than a glyph, same as the rest.
+function BookIcon(): JSX.Element {
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <g stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4.2 4.4c2.2-.8 4-.6 5.8.7 1.8-1.3 3.6-1.5 5.8-.7v10.4c-2.2-.8-4-.6-5.8.7-1.8-1.3-3.6-1.5-5.8-.7Z" />
+        <path d="M10 5.1v10.4" />
+      </g>
+    </svg>
+  )
+}
+
 function ChronicleIcon(): JSX.Element {
   return (
     <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
