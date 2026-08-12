@@ -229,22 +229,35 @@ and it is worth saying out loud once.
 
 ## 6. Order of work
 
-1. **Body plan spike.** Two rigs, `quadruped` and `serpent`, plan rolled from
-   the seed, placeholder geometry. This answers the only question that matters
-   before committing to any of the art: do two groups actually look like
-   different animals, or does the shared material and morph treatment make even
-   a snake read as a dragon?
-2. Poses and sleep, designed against both rigs.
-3. Time-driven growth and the log rework, which unlocks the pace dial.
-4. Accounts, which unlock everything in section 3.
-5. The substance channel and the expanded activity tree.
-6. The beastpedia, which is best written once there is something varied to
-   describe.
+1. ~~**Body plan spike.**~~ Done. Two rigs, `quadruped` and `serpent`, plan
+   rolled from its own rng stream so a third can be added without rerolling
+   every existing group. The question it was built to answer, whether two
+   groups read as different animals or the shared material treatment makes even
+   a snake look like a dragon, is still awaiting a verdict by eye.
+2. Poses and sleep, designed against both rigs. **Next.**
+3. ~~Time-driven growth and the log rework~~, which unlocked the pace dial.
+4. ~~Accounts.~~ Landed as passcodes instead, which retired the whole
+   dependency: the server mints a code, keeps only its hash, and shows it once.
+5. ~~The substance channel and the expanded activity tree.~~ Both done. The
+   tree is three levels, and the split underneath it is the part worth keeping
+   in mind for everything that comes after: an ITEM says what went into the
+   creature and pushes nourish and body, a MANNER says how it was done and only
+   ever pushes the relationship axes, at a third the weight. Manners inside one
+   kind sit on three different axes on purpose, so the leaves balance
+   compositionally and nobody has to hand-tune them. That is what makes the
+   tree extensible: a new shelf of items is a content decision, and the
+   measurement in `test/dna/tree.test.ts` is what says whether it was a good
+   one.
+6. ~~The beastpedia.~~ Done.
 
 ---
 
 ## 7. Still open
 
+0. Is the manner layer worth its extra tap? It is one point against an item's
+   three to five, and it changes which trait wins in 175 of 200 groups, so it
+   is not decoration. Whether it feels like a decision or like friction on a
+   45 second cooldown is a question only using it answers.
 1. Does the group set the body plan by what it does before the egg hatches, or
    does the plan come from the seed alone? A longer egg phase only earns its
    keep under the first answer.
