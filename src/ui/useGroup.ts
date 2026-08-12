@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import type { Creature, Genome, GroupSnapshot, PresentActor } from '../core/types'
 import { deriveCreature } from '../dna'
 import { connect, localActor, setLocalName } from '../net'
+import { codeFor, keepCode } from './passcode'
 import type { Connection, ConnectionStatus } from '../net'
 
 // A group id lives in the hash so the whole app can ship as one static file
@@ -291,6 +292,14 @@ export interface GroupHandle {
   act: (variantId: string) => void
   rename: (name: string) => void
   setPace: (pace: number) => void
+  /** Ask for a code that says which member this is. */
+  claim: () => void
+  /** The code, for as long as it is on screen. Held in memory only and never
+   *  put back after a reload: the server cannot reissue it, so a page that
+   *  could show it again would be lying about how many copies exist. */
+  freshCode: { actorId: string; code: string } | null
+  /** True once this person has a code, whether or not it was minted just now. */
+  claimed: boolean
   /** How fast this group has asked the creature to live. */
   pace: number
 }
@@ -306,6 +315,7 @@ export function useGroup(): GroupHandle {
   const [present, setPresent] = useState<PresentActor[]>(NO_ONE)
   const [status, setStatus] = useState<ConnectionStatus>('connecting')
   const [everConnected, setEverConnected] = useState(false)
+  const [freshCode, setFreshCode] = useState<{ actorId: string; code: string } | null>(null)
   const conn = useRef<Connection | null>(null)
 
   useEffect(() => {
@@ -315,8 +325,14 @@ export function useGroup(): GroupHandle {
     setStatus('connecting')
     setEverConnected(false)
 
-    const c = connect(groupId, actor)
+    const c = connect(groupId, actor, codeFor(groupId))
     conn.current = c
+    const offClaimed = c.onClaimed((next) => {
+      // Kept before it is shown, so a tab closed in the two seconds between the
+      // two does not lose a code that can never be reissued.
+      keepCode(groupId, next.code)
+      setFreshCode(next)
+    })
     const offSnapshot = c.subscribe((next, who) => {
       setSnapshot(next)
       setPresent(who)
@@ -327,6 +343,7 @@ export function useGroup(): GroupHandle {
     return () => {
       offSnapshot()
       offStatus()
+      offClaimed()
       c.close()
       conn.current = null
     }
@@ -391,6 +408,10 @@ export function useGroup(): GroupHandle {
     conn.current?.act(variantId)
   }, [])
 
+  const claim = useCallback(() => {
+    conn.current?.claim()
+  }, [])
+
   const setPace = useCallback((pace: number) => {
     conn.current?.setPace(pace)
   }, [])
@@ -413,6 +434,9 @@ export function useGroup(): GroupHandle {
     act,
     rename,
     setPace,
+    claim,
+    freshCode,
+    claimed: groupId !== null && codeFor(groupId) !== null,
     pace: shown ? shown.pace : 1,
   }
 }

@@ -11,6 +11,7 @@ import { PRESSURE_AXES } from '../core/types'
 import type { Bond, Creature, PressureAxis, PresentActor } from '../core/types'
 import { claimHandle } from '../net'
 import { useInstall } from './install'
+import { drawCard, saveCard } from './passcode'
 import { forgetGroup, groupLink, knownGroups, setGroupHash, useCopy } from './useGroup'
 
 const HABIT: Record<PressureAxis, string> = {
@@ -32,9 +33,25 @@ interface CrowdProps {
   handle: string | null
   pace: number
   onPace: (pace: number) => void
+  onClaim: () => void
+  freshCode: { actorId: string; code: string } | null
+  claimed: boolean
+  groupName: string | null
 }
 
-export default function Crowd({ creature, present, actorId, groupId, handle, pace, onPace }: CrowdProps): JSX.Element {
+export default function Crowd({
+  creature,
+  present,
+  actorId,
+  groupId,
+  handle,
+  pace,
+  onPace,
+  onClaim,
+  freshCode,
+  claimed,
+  groupName,
+}: CrowdProps): JSX.Element {
   const bonds: Record<string, Bond> = creature ? creature.bonds : {}
   const everyone = Object.values(bonds)
   const hereIds = new Set(present.map((p) => p.actorId))
@@ -83,6 +100,16 @@ export default function Crowd({ creature, present, actorId, groupId, handle, pac
         </>
       )}
 
+      <ClaimRow
+        onClaim={onClaim}
+        freshCode={freshCode}
+        claimed={claimed}
+        actorId={actorId}
+        present={present}
+        groupName={groupName ?? handle ?? 'your group'}
+        groupHandle={handle}
+      />
+
       <div className="invite">
         {alone ? (
           <p>One person's habits make a narrow animal. It needs somebody else pulling it a different way.</p>
@@ -96,6 +123,94 @@ export default function Crowd({ creature, present, actorId, groupId, handle, pac
         <InstallRow />
         <LeaveRow />
       </div>
+    </div>
+  )
+}
+
+/**
+ * Claiming a place, and the one moment the code exists.
+ *
+ * The server keeps only a hash and cannot reissue it, so everything about this
+ * component is shaped by the fact that closing it loses the code for good.
+ * There is no automatic dismissal, no timeout, and the way out says what it is
+ * agreeing to rather than "OK".
+ */
+function ClaimRow({
+  onClaim,
+  freshCode,
+  claimed,
+  actorId,
+  present,
+  groupName,
+  groupHandle,
+}: {
+  onClaim: () => void
+  freshCode: { actorId: string; code: string } | null
+  claimed: boolean
+  actorId: string
+  present: PresentActor[]
+  groupName: string
+  groupHandle: string | null
+}): JSX.Element | null {
+  const [saved, setSaved] = useState(false)
+  const [why, setWhy] = useState(false)
+
+  const me = present.find((p) => p.actorId === actorId)
+  const myName = me?.actorName ?? 'you'
+
+  if (freshCode !== null && !saved) {
+    return (
+      <div className="claim claim-fresh">
+        <span className="label">This is your code. It is shown once.</span>
+        <p className="claim-code">{freshCode.code}</p>
+        <p className="hint">
+          Type it to be yourself again on any phone. Nobody can look it up or send it again.
+        </p>
+        <div className="row">
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              const card = drawCard({
+                code: freshCode.code,
+                personName: myName,
+                groupName,
+                groupHandle,
+              })
+              if (card !== null) saveCard(card, myName)
+            }}
+          >
+            Save it as a picture
+          </button>
+          <button type="button" className="btn-text" onClick={() => setWhy(!why)} aria-label="Why">
+            ?
+          </button>
+        </div>
+        {why && (
+          <p className="hint">
+            Saving it puts it in your photos. Email it to yourself as well and you still have it if
+            you lose the phone, which is the one thing a saved picture cannot survive.
+          </p>
+        )}
+        <button type="button" className="btn-text" onClick={() => setSaved(true)}>
+          I have saved it
+        </button>
+      </div>
+    )
+  }
+
+  if (claimed || actorId.startsWith('@')) return null
+
+  return (
+    <div className="claim">
+      <span className="label">Make this yours</span>
+      <p>
+        Right now this browser is just a guest, so anybody could turn up as you. Claim a place and
+        the things you do stay yours.
+      </p>
+      <button type="button" className="btn" onClick={onClaim}>
+        Claim my place
+      </button>
     </div>
   )
 }

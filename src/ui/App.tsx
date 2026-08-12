@@ -66,6 +66,10 @@ export default function App(): JSX.Element {
       handle={group.snapshot ? group.snapshot.handle : null}
       pace={group.pace}
       onPace={group.setPace}
+      onClaim={group.claim}
+      freshCode={group.freshCode}
+      claimed={group.claimed}
+      groupName={group.snapshot ? group.snapshot.name : null}
     />
   )
   const chronicle = <Chronicle creature={group.creature} actions={actions} />

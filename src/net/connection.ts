@@ -25,6 +25,11 @@ export interface Connection {
   rename(name: string): void
   /** How fast the group wants the creature to live. Clamped by the server. */
   setPace(pace: number): void
+  /** Ask for a code that says which member of this group this is. Answered once
+   *  and never again, so the caller has to do something with it. */
+  claim(): void
+  /** Fires the one time a code is minted, and never after. */
+  onClaimed(fn: (claimed: { actorId: string; code: string }) => void): () => void
   close(): void
   onStatus(fn: (status: ConnectionStatus) => void): () => void
 }
@@ -50,6 +55,10 @@ function socketUrl(groupId: string): string {
 class SocketConnection implements Connection {
   private readonly groupId: string
   private readonly actor: { id: string; name: string }
+  /** Sent on every connect once there is one, which is what makes a reconnect
+   *  come back as the same person rather than as a fresh guest. */
+  private code: string | null
+  private readonly claimListeners = new Set<(c: { actorId: string; code: string }) => void>()
   private socket: WebSocket | null = null
   private snapshot: GroupSnapshot | null = null
   private present: PresentActor[] = []
@@ -70,9 +79,10 @@ class SocketConnection implements Connection {
   // over the same group.
   private closed = false
 
-  constructor(groupId: string, actor: { id: string; name: string }) {
+  constructor(groupId: string, actor: { id: string; name: string }, code: string | null = null) {
     this.groupId = groupId
     this.actor = actor
+    this.code = code
     this.open()
   }
 
@@ -89,6 +99,7 @@ class SocketConnection implements Connection {
         type: 'hello',
         actorId: this.actor.id,
         actorName: this.actor.name,
+        ...(this.code !== null ? { code: this.code } : {}),
       }
       socket.send(JSON.stringify(hello))
       this.setStatus('open')
@@ -159,6 +170,14 @@ class SocketConnection implements Connection {
         if (!this.snapshot) break
         this.snapshot = { ...this.snapshot, name: message.name }
         this.emitSnapshot()
+        break
+      }
+      case 'claimed': {
+        // The only moment this code exists outside the server's hash of it.
+        // Held so a reconnect presents it, and handed straight up so the UI can
+        // put it in front of somebody while it still can.
+        this.code = message.code
+        for (const fn of this.claimListeners) fn({ actorId: message.actorId, code: message.code })
         break
       }
       case 'present': {
@@ -249,6 +268,20 @@ class SocketConnection implements Connection {
     this.socket.send(JSON.stringify(message))
   }
 
+  claim(): void {
+    if (this.closed) return
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return
+    const message: ClientMessage = { type: 'claim' }
+    this.socket.send(JSON.stringify(message))
+  }
+
+  onClaimed(fn: (c: { actorId: string; code: string }) => void): () => void {
+    this.claimListeners.add(fn)
+    return () => {
+      this.claimListeners.delete(fn)
+    }
+  }
+
   setPace(pace: number): void {
     if (this.closed) return
     // Nothing optimistic: the server settles the growth accrued so far before
@@ -300,8 +333,12 @@ class SocketConnection implements Connection {
   }
 }
 
-export function connect(groupId: string, actor: { id: string; name: string }): Connection {
-  return new SocketConnection(groupId, actor)
+export function connect(
+  groupId: string,
+  actor: { id: string; name: string },
+  code: string | null = null,
+): Connection {
+  return new SocketConnection(groupId, actor, code)
 }
 
 interface CreateGroupResponse {
