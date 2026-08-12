@@ -53,6 +53,9 @@ export function groupLink(id: string): string {
 // keys are what close that, and they are the only reason either exists.
 const GROUP_KEY = 'monstertime.group'
 const SNAPSHOT_KEY = 'monstertime.snapshot'
+/** Every group this browser has been in, newest first, so somebody can move
+ *  between the creatures they are part of instead of hunting for links. */
+const KNOWN_KEY = 'monstertime.known'
 
 // How long the snapshot write waits for the log to stop moving. Actions arrive
 // in bursts when a group is together, and the log is the whole creature, so
@@ -76,9 +79,49 @@ function dropKey(key: string): void {
   }
 }
 
-export function rememberGroup(id: string): void {
+/** One group this browser has been in, for the list you switch between. */
+export interface KnownGroup {
+  id: string
+  /** What the group calls itself, if it has picked a name. */
+  handle: string | null
+  /** The creature's name, if it has one. */
+  name: string | null
+  seenAt: number
+}
+
+/** How many groups are kept. Far more than anybody is really in at once, and
+ *  bounded so a browser that has opened a hundred links does not carry them. */
+const KNOWN_MAX = 12
+
+export function knownGroups(): KnownGroup[] {
+  const raw = readKey(KNOWN_KEY)
+  if (raw === null) return []
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .filter((g): g is KnownGroup => {
+        const o = g as Partial<KnownGroup>
+        return typeof o.id === 'string' && ID_SHAPE.test(o.id) && typeof o.seenAt === 'number'
+      })
+      .sort((a, b) => b.seenAt - a.seenAt)
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Note that this browser is in a group, and what it was called when we looked.
+ *
+ * Newest first, and the entry is REPLACED rather than merged, so a group that
+ * has been renamed does not keep answering to the name it had last month.
+ */
+export function rememberGroup(id: string, handle: string | null = null, name: string | null = null): void {
   try {
     localStorage.setItem(GROUP_KEY, id)
+    const rest = knownGroups().filter((g) => g.id !== id)
+    const next = [{ id, handle, name, seenAt: Date.now() }, ...rest].slice(0, KNOWN_MAX)
+    localStorage.setItem(KNOWN_KEY, JSON.stringify(next))
   } catch {
     // Private mode. The person still plays, the install just opens cold.
   }
@@ -90,8 +133,18 @@ export function rememberGroup(id: string): void {
  * mean a later launch could paint a creature the person walked away from.
  */
 export function forgetGroup(): void {
+  // The current pointer and its cached creature go. The list of groups this
+  // browser has been in does NOT: walking away from one creature is not a
+  // reason to lose the way back to the others.
+  const leaving = readKey(GROUP_KEY)
   dropKey(GROUP_KEY)
   dropKey(SNAPSHOT_KEY)
+  if (leaving === null) return
+  try {
+    localStorage.setItem(KNOWN_KEY, JSON.stringify(knownGroups().filter((g) => g.id !== leaving)))
+  } catch {
+    // Nothing depends on this having worked.
+  }
 }
 
 /**
@@ -290,9 +343,11 @@ export function useGroup(): GroupHandle {
   // Once the group has actually answered, this id is worth reopening. Written
   // on everConnected rather than on the id resolving, so a mistyped or dead
   // link never becomes the thing every future launch opens.
+  const knownHandle = shown ? shown.handle : null
+  const knownName = shown ? shown.name : null
   useEffect(() => {
-    if (groupId && everConnected) rememberGroup(groupId)
-  }, [groupId, everConnected])
+    if (groupId && everConnected) rememberGroup(groupId, knownHandle, knownName)
+  }, [groupId, everConnected, knownHandle, knownName])
 
   // Keeping the log is what makes an installed copy worth opening with no
   // signal at all.

@@ -5,12 +5,13 @@
 // creature does not know who clicked most, it only carries the shape of what
 // was done to it.
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { JSX } from 'react'
 import { PRESSURE_AXES } from '../core/types'
 import type { Bond, Creature, PressureAxis, PresentActor } from '../core/types'
 import { claimHandle } from '../net'
-import { forgetGroup, groupLink, useCopy } from './useGroup'
+import { useInstall } from './install'
+import { forgetGroup, groupLink, knownGroups, setGroupHash, useCopy } from './useGroup'
 
 const HABIT: Record<PressureAxis, string> = {
   nourish: 'feeds it',
@@ -88,8 +89,79 @@ export default function Crowd({ creature, present, actorId, groupId, handle }: C
         )}
         <LinkRow groupId={groupId} />
         <HandleRow groupId={groupId} handle={handle} />
+        <OtherGroups here={groupId} />
+        <InstallRow />
         <LeaveRow />
       </div>
+    </div>
+  )
+}
+
+/**
+ * Putting it on the home screen.
+ *
+ * Offered here rather than as a banner across the top, because a banner is the
+ * thing people learn to dismiss without reading, and because this panel is
+ * already where somebody goes when they are thinking about keeping the
+ * creature rather than looking at it.
+ */
+function InstallRow(): JSX.Element | null {
+  const { state, install } = useInstall()
+  const [showRecipe, setShowRecipe] = useState(false)
+
+  if (state === 'installed' || state === 'unavailable') return null
+
+  if (state === 'ios') {
+    return (
+      <div className="install">
+        <button type="button" className="btn-text" onClick={() => setShowRecipe(!showRecipe)}>
+          Keep it on your home screen
+        </button>
+        {showRecipe && (
+          // No API for this on iOS. Saying the steps is the whole of what can
+          // honestly be done.
+          <p className="hint">
+            Tap Share at the bottom of Safari, then Add to Home Screen.
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="install">
+      <button type="button" className="btn-text" onClick={install}>
+        Keep it on your home screen
+      </button>
+    </div>
+  )
+}
+
+/**
+ * The other creatures this browser is part of.
+ *
+ * Somebody in three groups had three links to keep track of and no way back to
+ * any of them except the chat they were sent in. The list is local to this
+ * browser rather than to a person, which is the honest limit of it until there
+ * are accounts: it follows the device, not you.
+ */
+function OtherGroups({ here }: { here: string }): JSX.Element | null {
+  const others = useMemo(() => knownGroups().filter((g) => g.id !== here), [here])
+  if (others.length === 0) return null
+
+  return (
+    <div className="others">
+      <span className="label">Your other creatures</span>
+      <ul>
+        {others.map((g) => (
+          <li key={g.id}>
+            <button type="button" className="btn-text" onClick={() => setGroupHash(g.id)}>
+              {g.name ?? g.handle ?? 'an unnamed one'}
+              {g.name && g.handle && <span className="others-handle">{g.handle}</span>}
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

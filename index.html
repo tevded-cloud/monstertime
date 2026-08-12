@@ -28,6 +28,28 @@
          under the clock. -->
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <script>
+      // The install prompt is caught here for one reason: the browser fires
+      // beforeinstallprompt as soon as it decides the page is installable,
+      // which is routinely before React has mounted. Listening from a component
+      // means the event has already been and gone, and the app then reports,
+      // truthfully and uselessly, that it cannot be installed. So it is caught
+      // at the top of the document and parked on the window for the app to
+      // collect whenever it gets there.
+      ;(function () {
+        window.__mtInstall = null
+        window.addEventListener('beforeinstallprompt', function (e) {
+          // Refusing the browser's own banner is what makes the event reusable
+          // later, from a control the app puts where it makes sense.
+          e.preventDefault()
+          window.__mtInstall = e
+          window.dispatchEvent(new Event('mt:installable'))
+        })
+        window.addEventListener('appinstalled', function () {
+          window.__mtInstall = null
+          window.dispatchEvent(new Event('mt:installable'))
+        })
+      })()
+
       // Registered here rather than from the app bundle because it must not
       // wait on React, three.js or a socket. This is also the only place it can
       // live: src/ belongs to other work, and a registration is four lines of

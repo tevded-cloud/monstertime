@@ -38,11 +38,13 @@ interface StageProps {
   // Renames the CREATURE, not the caller. The person's own display name is a
   // separate identity (set at join time) and must never be overwritten by this.
   onRename: (creatureName: string) => void
-  onOpenGroup: (() => void) | null
+  // Which side panel to open, on a phone where they are a sheet rather than a
+  // rail. Null on a desktop, where both are always on screen in the rail.
+  onOpenPanel: ((panel: 'group' | 'chronicle') => void) | null
 }
 
 export default function Stage(props: StageProps): JSX.Element {
-  const { creature, genome, actions, present, status, stale, offlineSince, groupId, actorId, onRename, onOpenGroup } =
+  const { creature, genome, actions, present, status, stale, offlineSince, groupId, actorId, onRename, onOpenPanel } =
     props
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -133,10 +135,25 @@ export default function Stage(props: StageProps): JSX.Element {
         <div className="topbar-tools">
           <Status status={status} here={present.length} />
           <ShareButton groupId={groupId} />
-          {onOpenGroup && (
-            <button type="button" className="icon-btn" onClick={onOpenGroup} aria-label="Open the group and the chronicle">
-              <PeopleIcon />
-            </button>
+          {onOpenPanel && (
+            <>
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => onOpenPanel('chronicle')}
+                aria-label="Open the chronicle"
+              >
+                <ChronicleIcon />
+              </button>
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => onOpenPanel('group')}
+                aria-label="Open the group"
+              >
+                <PeopleIcon />
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -286,6 +303,21 @@ function CheckIcon(): JSX.Element {
   return (
     <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true">
       <path d="M4.5 10.4 8 14l7.5-8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+// A stack of entries with a rule down the margin, which is what the chronicle
+// itself looks like. Drawn rather than a glyph, same as every other icon here.
+function ChronicleIcon(): JSX.Element {
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <g stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+        <path d="M5 3.6v12.8" />
+        <path d="M8.4 5.6h7" />
+        <path d="M8.4 9.4h7" />
+        <path d="M8.4 13.2h4.6" />
+      </g>
     </svg>
   )
 }

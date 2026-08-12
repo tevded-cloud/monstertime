@@ -22,7 +22,7 @@ export default function App(): JSX.Element {
   const group = useGroup()
   const named = useNamed()
   const compact = useMediaQuery('(max-width: 900px)')
-  const [sheetOpen, setSheetOpen] = useState(false)
+  const [sheet, setSheet] = useState<'group' | 'chronicle' | null>(null)
   const [waited, setWaited] = useState(false)
 
   const groupId = group.groupId
@@ -56,16 +56,20 @@ export default function App(): JSX.Element {
   const offlineSince =
     group.offline && (group.status === 'closed' || group.status === 'error') ? group.cachedAt : null
 
+  const crowd = (
+    <Crowd
+      creature={group.creature}
+      present={group.present}
+      actorId={group.actor.id}
+      groupId={groupId}
+      handle={group.snapshot ? group.snapshot.handle : null}
+    />
+  )
+  const chronicle = <Chronicle creature={group.creature} actions={actions} />
   const panels = (
     <>
-      <Crowd
-        creature={group.creature}
-        present={group.present}
-        actorId={group.actor.id}
-        groupId={groupId}
-        handle={group.snapshot ? group.snapshot.handle : null}
-      />
-      <Chronicle creature={group.creature} actions={actions} />
+      {crowd}
+      {chronicle}
     </>
   )
 
@@ -83,7 +87,7 @@ export default function App(): JSX.Element {
           groupId={groupId}
           actorId={group.actor.id}
           onRename={group.rename}
-          onOpenGroup={compact ? () => setSheetOpen(true) : null}
+          onOpenPanel={compact ? setSheet : null}
         />
         <ActionBar
           creature={group.creature}
@@ -102,8 +106,18 @@ export default function App(): JSX.Element {
       )}
 
       {compact && (
-        <Sheet open={sheetOpen} onClose={() => setSheetOpen(false)}>
-          {panels}
+        // One panel at a time on a phone, chosen by which button was pressed.
+        // Stacking both in one sheet meant two scroll regions fighting over 600
+        // pixels: whichever one lost got squeezed, and the chronicle, which is
+        // the payoff surface of the whole app, is the one that kept losing.
+        // Apart on a phone, together in the rail on a desktop where there is
+        // room for both.
+        <Sheet
+          open={sheet !== null}
+          title={sheet === 'chronicle' ? 'Chronicle' : 'The group'}
+          onClose={() => setSheet(null)}
+        >
+          {sheet === 'chronicle' ? chronicle : crowd}
         </Sheet>
       )}
     </div>
@@ -119,7 +133,17 @@ const NO_ACTIONS: ActionRecord[] = []
 // while reading does not dismiss the thing being read.
 const DRAG_TO_CLOSE_PX = 80
 
-function Sheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }): JSX.Element {
+function Sheet({
+  open,
+  title,
+  onClose,
+  children,
+}: {
+  open: boolean
+  title: string
+  onClose: () => void
+  children: ReactNode
+}): JSX.Element {
   const ref = useRef<HTMLDialogElement | null>(null)
   const from = useRef<number | null>(null)
   const pulled = useRef(0)
@@ -219,7 +243,7 @@ function Sheet({ open, onClose, children }: { open: boolean; onClose: () => void
       onClose={onClose}
       onCancel={onClose}
       onPointerDown={onBackdrop}
-      aria-label="The group and the chronicle"
+      aria-label={title}
     >
       <div
         className="sheet-head"
@@ -229,7 +253,7 @@ function Sheet({ open, onClose, children }: { open: boolean; onClose: () => void
         onPointerCancel={onGrabCancel}
       >
         <span className="sheet-grip" aria-hidden="true" />
-        <span className="label">The group</span>
+        <span className="label">{title}</span>
         <button type="button" className="icon-btn" onClick={onClose} aria-label="Close">
           <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
             <path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
