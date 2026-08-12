@@ -234,7 +234,15 @@ and it is worth saying out loud once.
    every existing group. The question it was built to answer, whether two
    groups read as different animals or the shared material treatment makes even
    a snake look like a dragon, is still awaiting a verdict by eye.
-2. Poses and sleep, designed against both rigs. **Next.**
+2. ~~Poses and sleep, designed against both rigs.~~ Done. A creature keeps its
+   own hours (diurnal, nocturnal or crepuscular, rolled from the seed), the
+   server refuses everything except waking it while it is down, and waking it is
+   an ordinary action that takes manners. Idle stance comes off the dominant
+   pressure axis. **The next unit is the one this uncovered**, see 7.0 below:
+   the genome is re-rolled from the seed on every read, so the action catalogue
+   is production state and adding a variant re-deals live creatures. There is a
+   pin gate on it now; the real fix is to freeze the genome at creation, and
+   that is a migration over every existing group, so it gets its own unit.
 3. ~~Time-driven growth and the log rework~~, which unlocked the pace dial.
 4. ~~Accounts.~~ Landed as passcodes instead, which retired the whole
    dependency: the server mints a code, keeps only its hash, and shows it once.
@@ -254,7 +262,12 @@ and it is worth saying out loud once.
 
 ## 7. Still open
 
-0. Is the manner layer worth its extra tap? It is one point against an item's
+0. Should the genome be frozen at creation instead of re-rolled on every read?
+   Freezing it kills a whole class of accident (a content edit quietly changing
+   what living creatures carry) at the cost of a migration touching every group,
+   which has to reproduce today's roll exactly or it causes the very thing it
+   prevents. Recommended, as its own unit with its own skeptic pass.
+0b. Is the manner layer worth its extra tap? It is one point against an item's
    three to five, and it changes which trait wins in 175 of 200 groups, so it
    is not decoration. Whether it feels like a decision or like friction on a
    45 second cooldown is a question only using it answers.
