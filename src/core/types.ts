@@ -304,6 +304,9 @@ export type ServerMessage =
   | { type: 'named'; name: string }
   | { type: 'present'; present: PresentActor[] }
   | { type: 'error'; message: string }
+  // The one time a passcode is ever sent anywhere. Only the hash is kept, so
+  // this is the only moment it exists outside the browser that asked for it.
+  | { type: 'claimed'; actorId: string; code: string }
 
 // Client -> server.
 export type ClientMessage =
@@ -319,6 +322,10 @@ export type ClientMessage =
       // alongside it and issues its own. A signed-in person does not get to say
       // who they are, which is the entire difference between the two.
       token?: string
+      // The code that says which member of this group this is. Presented on
+      // every connect once somebody has one; absent for a guest who has not
+      // claimed a place yet.
+      code?: string
     }
   | { type: 'act'; variantId: string }
   | { type: 'name'; name: string }
@@ -326,6 +333,9 @@ export type ClientMessage =
   // set it: there are no roles here, and a pace one person imposed on everybody
   // else would be the first thing in this app that belonged to one member.
   | { type: 'pace'; pace: number }
+  // Claim a place in this group, minting a code that says this is you. Answered
+  // once, to the asker alone, and never obtainable again.
+  | { type: 'claim' }
 
 export interface PresentActor {
   actorId: string

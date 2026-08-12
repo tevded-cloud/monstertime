@@ -40,6 +40,7 @@
 import { DurableObject } from 'cloudflare:workers'
 import { deriveCreature, rollGenome, stageOfGrowth, variantById } from '../src/dna/index'
 import { googleKeys, verifyIdToken, type KeySource } from './verify'
+import { cleanPasscode, hashPasscode, mintPasscode } from './passcode'
 import type {
   ActionRecord,
   ClientMessage,
@@ -365,11 +366,13 @@ function readClient(raw: string): ClientMessage | null {
     // an id that would read as verified.
     if (!ACTOR_ID.test(actorId)) return null
     const token = typeof parsed.token === 'string' ? parsed.token : undefined
+    const code = typeof parsed.code === 'string' ? parsed.code : undefined
     return {
       type: 'hello',
       actorId,
       actorName: cleanText(parsed.actorName, ACTOR_NAME_MAX),
       token,
+      code,
     }
   }
   if (parsed.type === 'act') {
@@ -380,6 +383,7 @@ function readClient(raw: string): ClientMessage | null {
   if (parsed.type === 'name') {
     return { type: 'name', name: cleanText(parsed.name, GROUP_NAME_MAX) }
   }
+  if (parsed.type === 'claim') return { type: 'claim' }
   if (parsed.type === 'pace') {
     const pace = Number(parsed.pace)
     if (!Number.isFinite(pace)) return null
@@ -821,7 +825,7 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
       // The only handler that awaits. Verifying a token means a signature check
       // and, once an hour, fetching Google's keys; everything else in here is
       // synchronous and stays that way.
-      void this.hello(ws, said.actorId, said.actorName, said.token)
+      void this.hello(ws, said.actorId, said.actorName, said.token, said.code)
       return
     }
     if (said.type === 'act') {
@@ -834,6 +838,10 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     }
     if (said.type === 'pace') {
       this.repace(ws, said.pace)
+      return
+    }
+    if (said.type === 'claim') {
+      void this.claim(ws)
     }
   }
 
@@ -876,6 +884,7 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     claimed: string,
     actorName: string,
     token?: string,
+    code?: string,
   ): Promise<void> {
     const seat = this.seatOf(ws)
     if (seat === null) return
@@ -893,6 +902,21 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
       }
       actorId = verifiedActorId(user.uid)
     }
+
+    // A passcode, if they have one. Checked after a token, because a token is
+    // the stronger claim and there is no reason to look at both.
+    if (actorId === claimed && code !== undefined) {
+      const owner = await this.whoHolds(code)
+      if (owner === null) {
+        // Deliberately the same refusal whether the code was malformed, unknown
+        // or simply wrong. Telling somebody which of those it was is telling
+        // them how far through the wordlist they have got.
+        this.tell(ws, { type: 'error', message: 'That code does not open anything here.' })
+        return
+      }
+      actorId = owner
+    }
+
     if (seat.actorId !== null && seat.actorId !== actorId) {
       this.tell(ws, {
         type: 'error',
@@ -1211,6 +1235,63 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     if (snapshot !== null) {
       this.broadcast({ type: 'snapshot', snapshot, present: this.present(null) })
     }
+  }
+
+  // -- who somebody is -------------------------------------------------------
+
+  /**
+   * Mint a place in this group, and answer with the code once.
+   *
+   * Only the hash is kept, so this is the only moment the code exists anywhere
+   * but the browser that asked. There is no second chance to read it and no
+   * path in this file that could produce one, which is the property that makes
+   * the code worth anything at all.
+   */
+  private async claim(ws: WebSocket): Promise<void> {
+    const seat = this.seatOf(ws)
+    if (seat === null || seat.actorId === null) {
+      this.tell(ws, { type: 'error', message: 'Say who you are before claiming a place.' })
+      return
+    }
+    if (seat.actorId.startsWith(VERIFIED_PREFIX)) {
+      this.tell(ws, { type: 'error', message: 'You already have a place here.' })
+      return
+    }
+    if (!this.exists()) return
+
+    const code = mintPasscode()
+    const owner = verifiedActorId(`c${crypto.randomUUID().replace(/-/g, '').slice(0, 20)}`)
+    this.setMeta(`code:${await hashPasscode(this.groupId(), code)}`, owner)
+
+    // Known limit, written down rather than hidden: anything this person did
+    // BEFORE claiming stays in the log under their guest id, so they can appear
+    // twice in the bond list until they claim. Rewriting the log to point at
+    // the new id is the obvious fix and it is worse, because the log is the
+    // creature and editing it after the fact to settle an identity question is
+    // how a creature quietly becomes a different creature. The honest answer is
+    // to ask people to claim their place before they start, which is what the
+    // panel will do.
+
+    ws.serializeAttachment({ sid: seat.sid, actorId: owner, actorName: seat.actorName })
+    this.tell(ws, { type: 'claimed', actorId: owner, code })
+    this.broadcast({ type: 'present', present: this.present(null) })
+  }
+
+  /** Which member a code belongs to, or null. Reads and never writes, so
+   *  guessing at codes cannot make this app create storage. */
+  private async whoHolds(raw: string): Promise<string | null> {
+    const code = cleanPasscode(raw)
+    if (code === null) return null
+    if (!this.exists()) return null
+    // Looked up BY the hash rather than compared against one, so there is no
+    // secret comparison here to be timed. An earlier version of this line ran a
+    // constant-time compare of a value against itself, which did nothing except
+    // look reassuring, and reassuring-looking security code is worse than none.
+    return this.metaValue(`code:${await hashPasscode(this.groupId(), code)}`)
+  }
+
+  private groupId(): string {
+    return this.metaValue('groupId') ?? ''
   }
 
   // -- growth ----------------------------------------------------------------
