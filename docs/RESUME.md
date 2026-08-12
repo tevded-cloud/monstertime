@@ -6,6 +6,13 @@ original conversation, and it works from any account or machine.
 
 ---
 
+**A newer handoff supersedes parts of this.** `docs/HANDOFF-2026-08-12.md` was
+written mid-flight on 2026-08-12, while a large feature sat uncommitted in the
+working tree and a background job was still editing files. Read it FIRST if the
+tree is dirty or anything fails to typecheck: it says what is uncommitted, which
+files were being written, which defects are known, and which decision was made
+and then reverted so nobody redoes it.
+
 **Where it is going is a separate document.** `docs/DIRECTION.md` holds the
 design decisions taken after launch, with the reasons: body plans, time-driven
 growth, accounts, the economy and the substance channel. Two of the locked
