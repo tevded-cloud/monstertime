@@ -739,6 +739,72 @@ button.creature-name {
   margin-top: 2px;
 }
 
+/* The shelf row. Chips rather than a second screen, so switching shelves costs
+   nothing and reaching a thing you already know costs one tap, not two. */
+.shelves {
+  display: flex;
+  gap: 6px;
+  padding: 0 16px 10px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.shelves::-webkit-scrollbar {
+  display: none;
+}
+
+.shelf {
+  flex: 0 0 auto;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.shelf[aria-selected='true'] {
+  background: var(--ground-3);
+  border-color: var(--ink-3, var(--line));
+  color: var(--ink);
+}
+
+/* The back control doubles as the header, so the item you picked is what you
+   tap to unpick it. One target, and it says where you are. */
+.back {
+  display: block;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--ink);
+  font-size: 14.5px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.back span {
+  color: var(--ink-2);
+  margin-right: 2px;
+}
+
+/* Manners are one line each and there are four, so they get a single column
+   and more room to press. Nothing here has a blurb: how you did a thing is
+   already a whole sentence. */
+.manners {
+  grid-template-columns: 1fr;
+}
+
+.manner {
+  padding: 12px 10px;
+}
+
+.manner.plain strong {
+  color: var(--ink-2);
+  font-weight: 500;
+}
+
 @media (max-width: 560px) {
   .variants {
     grid-template-columns: 1fr;

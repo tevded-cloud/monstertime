@@ -1,15 +1,27 @@
-// ActionBar.tsx: the six things a person can do.
+// ActionBar.tsx: the six things a person can do, and the tree under each.
 //
 // The variants show their blurb and nothing else. No pressures, no numbers, no
 // hint of what a choice pushes toward, because the moment somebody can read the
 // mechanics off a button they start optimising, and an optimised creature is
 // the same creature every group gets. Instinct is the input this app wants.
+//
+// Three levels, and the middle one is deliberately not a gate. Shelves sit as a
+// row of chips inside the tray rather than as a screen you have to pass
+// through, so reaching a thing you already know you want is one tap and not
+// two. The level is there for browsing, which is what a category is actually
+// for; making it a checkpoint would only tax people who already knew.
+//
+// The manner is the last step and it is also the commit. Choosing the item does
+// not do anything yet, so nobody spends a tap on a decision they did not want
+// to make: the tap that used to submit is now the tap that says how. "No
+// particular way" is a real answer sitting alongside the rest, and it writes no
+// manner at all rather than a neutral one.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import { ACTION_KINDS } from '../core/types'
 import type { ActionKind, ActionVariant, Creature } from '../core/types'
-import { availableVariants } from '../dna'
+import { availableVariants, methodsForKind } from '../dna'
 
 // Long enough that one person cannot walk a creature to adulthood on their own
 // in an afternoon, short enough that it never becomes the thing you are waiting
@@ -39,11 +51,13 @@ interface ActionBarProps {
   creature: Creature | null
   actorId: string
   live: boolean
-  onAct: (variantId: string) => void
+  onAct: (variantId: string, methodId?: string) => void
 }
 
 export default function ActionBar({ creature, actorId, live, onAct }: ActionBarProps): JSX.Element {
   const [open, setOpen] = useState<ActionKind | null>(null)
+  const [shelf, setShelf] = useState<string | null>(null)
+  const [picked, setPicked] = useState<ActionVariant | null>(null)
   const [localAt, setLocalAt] = useState(0)
   const [lastKind, setLastKind] = useState<ActionKind | null>(null)
   const [now, setNow] = useState(() => Date.now())
@@ -70,10 +84,15 @@ export default function ActionBar({ creature, actorId, live, onAct }: ActionBarP
   useEffect(() => {
     if (!open) return
     const onDown = (e: PointerEvent) => {
-      if (root.current && !root.current.contains(e.target as Node)) setOpen(null)
+      if (root.current && !root.current.contains(e.target as Node)) shut()
     }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(null)
+      // Escape steps back one level rather than closing outright, because
+      // landing on the manner question and wanting a different item is the
+      // likeliest thing to happen in here.
+      if (e.key !== 'Escape') return
+      if (picked !== null) setPicked(null)
+      else shut()
     }
     document.addEventListener('pointerdown', onDown)
     document.addEventListener('keydown', onKey)
@@ -81,7 +100,7 @@ export default function ActionBar({ creature, actorId, live, onAct }: ActionBarP
       document.removeEventListener('pointerdown', onDown)
       document.removeEventListener('keydown', onKey)
     }
-  }, [open])
+  }, [open, picked])
 
   const stage = creature ? creature.stage : 0
   const byKind = useMemo(() => {
@@ -91,11 +110,18 @@ export default function ActionBar({ creature, actorId, live, onAct }: ActionBarP
     return grouped
   }, [stage])
 
-  function choose(variant: ActionVariant): void {
-    onAct(variant.id)
+  function shut(): void {
+    setOpen(null)
+    setShelf(null)
+    setPicked(null)
+  }
+
+  /** Committed here and only here, whichever way somebody arrived. */
+  function commit(variant: ActionVariant, methodId?: string): void {
+    onAct(variant.id, methodId)
     setLocalAt(Date.now())
     setLastKind(variant.kind)
-    setOpen(null)
+    shut()
   }
 
   const note = !live
@@ -108,29 +134,87 @@ export default function ActionBar({ creature, actorId, live, onAct }: ActionBarP
         ? 'Nothing has happened to it yet.'
         : ''
 
-  const shown = open ? (byKind.get(open) ?? []) : []
+  const inKind = open ? (byKind.get(open) ?? []) : []
+  // Only shelves with something on them at this stage. An egg cannot be fed, so
+  // showing it an empty "caught" shelf would be advertising a locked door.
+  const shelves = useMemo(() => {
+    const seen: string[] = []
+    for (const variant of inKind) if (!seen.includes(variant.category)) seen.push(variant.category)
+    return seen
+  }, [inKind])
+  const onShelf = shelf !== null && shelves.includes(shelf) ? shelf : (shelves[0] ?? null)
+  const shown = inKind.filter((variant) => variant.category === onShelf)
 
   return (
     <div className="actionbar" ref={root}>
       {open && (
         <div className="tray" id={`tray-${open}`} role="group" aria-label={`${KIND_LABEL[open]} options`}>
-          <div className="tray-head">
-            <span className="label">{KIND_LABEL[open]}</span>
-          </div>
-          <div className="variants">
-            {shown.map((variant) => (
-              <button
-                key={variant.id}
-                type="button"
-                className="variant"
-                disabled={cooling || !live}
-                onClick={() => choose(variant)}
-              >
-                <strong>{variant.label}</strong>
-                <em>{variant.blurb}</em>
-              </button>
-            ))}
-          </div>
+          {picked === null ? (
+            <>
+              <div className="tray-head">
+                <span className="label">{KIND_LABEL[open]}</span>
+              </div>
+              {shelves.length > 1 && (
+                <div className="shelves" role="tablist" aria-label="Kinds of thing">
+                  {shelves.map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      role="tab"
+                      className="shelf"
+                      aria-selected={name === onShelf}
+                      onClick={() => setShelf(name)}
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="variants">
+                {shown.map((variant) => (
+                  <button
+                    key={variant.id}
+                    type="button"
+                    className="variant"
+                    disabled={cooling || !live}
+                    onClick={() => setPicked(variant)}
+                  >
+                    <strong>{variant.label}</strong>
+                    <em>{variant.blurb}</em>
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="tray-head">
+                <button type="button" className="back" onClick={() => setPicked(null)}>
+                  <span aria-hidden="true">‹</span> {picked.label}
+                </button>
+              </div>
+              <div className="variants manners">
+                {methodsForKind(picked.kind).map((method) => (
+                  <button
+                    key={method.id}
+                    type="button"
+                    className="variant manner"
+                    disabled={cooling || !live}
+                    onClick={() => commit(picked, method.id)}
+                  >
+                    <strong>{method.label}</strong>
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="variant manner plain"
+                  disabled={cooling || !live}
+                  onClick={() => commit(picked)}
+                >
+                  <strong>no particular way</strong>
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -153,7 +237,7 @@ export default function ActionBar({ creature, actorId, live, onAct }: ActionBarP
               disabled={count === 0}
               aria-expanded={open === kind}
               aria-controls={open === kind ? `tray-${kind}` : undefined}
-              onClick={() => setOpen(open === kind ? null : kind)}
+              onClick={() => (open === kind ? shut() : (setOpen(kind), setShelf(null), setPicked(null)))}
             >
               <KindIcon kind={kind} />
               <span>{KIND_LABEL[kind]}</span>

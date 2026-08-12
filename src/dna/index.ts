@@ -7,5 +7,16 @@
 // client render optimistically and the Durable Object stay a dumb, small log.
 
 export { ALLELES, alleleById, rollGenome } from './alleles'
-export { ACTION_VARIANTS, availableVariants, pastTense, variantById } from './actions'
+export {
+  ACTION_METHODS,
+  ACTION_VARIANTS,
+  availableVariants,
+  categoriesForKind,
+  methodById,
+  methodFits,
+  methodsForKind,
+  pastTense,
+  pushOf,
+  variantById,
+} from './actions'
 export { deriveCreature, emptyPressures, emptySubstance, stageOfGrowth } from './express'

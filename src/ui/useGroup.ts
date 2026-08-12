@@ -289,7 +289,7 @@ export interface GroupHandle {
   // group's own, it is just as of `cachedAt` rather than as of now.
   offline: boolean
   cachedAt: number | null
-  act: (variantId: string) => void
+  act: (variantId: string, methodId?: string) => void
   rename: (name: string) => void
   setPace: (pace: number) => void
   /** Ask for a code that says which member this is. */
@@ -404,8 +404,8 @@ export function useGroup(): GroupHandle {
     [shown, actionCount, givenName, grown],
   )
 
-  const act = useCallback((variantId: string) => {
-    conn.current?.act(variantId)
+  const act = useCallback((variantId: string, methodId?: string) => {
+    conn.current?.act(variantId, methodId)
   }, [])
 
   const claim = useCallback(() => {

@@ -44,12 +44,14 @@
 // balance argument above still governs every pool from the hatchling on, which
 // is where all but a handful of a creature's actions land.
 
-import type { ActionVariant } from '../core/types'
+import { PRESSURE_AXES } from '../core/types'
+import type { ActionKind, ActionMethod, ActionVariant, PressureDelta } from '../core/types'
 
 export const ACTION_VARIANTS: ActionVariant[] = [
   // --- feed ---------------------------------------------------------------
   {
     id: 'feed.emberfruit',
+    category: 'grown',
     kind: 'feed',
     label: 'ember-fruit',
     blurb: 'Split one open. It steams.',
@@ -59,6 +61,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'feed.riverGreens',
+    category: 'grown',
     kind: 'feed',
     label: 'river greens',
     blurb: 'Cold, and still dripping.',
@@ -68,6 +71,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'feed.marrowBone',
+    category: 'caught',
     kind: 'feed',
     label: 'a marrow bone',
     blurb: 'Heavy. It takes all evening.',
@@ -77,6 +81,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'feed.honeycomb',
+    category: 'grown',
     kind: 'feed',
     label: 'honeycomb',
     blurb: 'Sticky, and it will not share.',
@@ -86,6 +91,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'feed.saltedFish',
+    category: 'caught',
     kind: 'feed',
     label: 'salted fish',
     blurb: 'Kept back from the long walk home.',
@@ -95,8 +101,9 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'feed.fromYourHand',
+    category: 'yours',
     kind: 'feed',
-    label: 'from your own hand',
+    label: 'whatever you were eating',
     blurb: 'Slow. It has to lean in for it.',
     push: { nourish: 2.5, bond: 2, stillness: 0.5 },
     gives: { ember: 1, verdure: 1 },
@@ -106,6 +113,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   // --- train --------------------------------------------------------------
   {
     id: 'train.chaseYard',
+    category: 'running',
     kind: 'train',
     label: 'chase it round the yard',
     blurb: 'You will lose. Go anyway.',
@@ -114,6 +122,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'train.liftStones',
+    category: 'strength',
     kind: 'train',
     label: 'lift stones with it',
     blurb: 'Start with ones you can carry.',
@@ -122,6 +131,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'train.sparPadded',
+    category: 'strength',
     kind: 'train',
     label: 'spar with a padded arm',
     blurb: 'Let it win once. Not twice.',
@@ -130,6 +140,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'train.holdStill',
+    category: 'discipline',
     kind: 'train',
     label: 'teach it to hold still',
     blurb: 'Count to ten out loud.',
@@ -138,6 +149,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'train.climbRope',
+    category: 'running',
     kind: 'train',
     label: 'send it up the rope',
     blurb: 'It gets stuck halfway the first time.',
@@ -146,6 +158,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'train.standGround',
+    category: 'discipline',
     kind: 'train',
     label: 'make it stand its ground',
     blurb: 'Do not step back first.',
@@ -156,6 +169,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   // --- explore ------------------------------------------------------------
   {
     id: 'explore.riverbank',
+    category: 'water',
     kind: 'explore',
     label: 'the riverbank',
     blurb: 'Follow it until the water turns.',
@@ -165,6 +179,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'explore.oldQuarry',
+    category: 'high ground',
     kind: 'explore',
     label: 'the old quarry',
     blurb: 'Everything down there says itself twice.',
@@ -174,6 +189,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'explore.nightField',
+    category: 'wild',
     kind: 'explore',
     label: 'the night field',
     blurb: 'Nothing to see. That is the point.',
@@ -183,6 +199,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'explore.market',
+    category: 'town',
     kind: 'explore',
     label: 'the market',
     blurb: 'Crowds. It will not like it at first.',
@@ -192,6 +209,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'explore.ridgeline',
+    category: 'high ground',
     kind: 'explore',
     label: 'the ridgeline',
     blurb: 'Two hours up, ten minutes at the top.',
@@ -201,6 +219,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'explore.burnedWood',
+    category: 'wild',
     kind: 'explore',
     label: 'the burned wood',
     blurb: 'Black trunks, new green underneath.',
@@ -212,6 +231,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   // --- sing ---------------------------------------------------------------
   {
     id: 'sing.humDusk',
+    category: 'voice',
     kind: 'sing',
     label: 'hum to it at dusk',
     blurb: 'Nothing with words. Just the low part.',
@@ -219,6 +239,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'sing.clapRhythm',
+    category: 'rhythm',
     kind: 'sing',
     label: 'clap a rhythm',
     blurb: 'Keep it simple enough to copy.',
@@ -226,6 +247,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'sing.sayItsName',
+    category: 'voice',
     kind: 'sing',
     label: 'say its name, over and over',
     blurb: 'Until it turns its head.',
@@ -234,6 +256,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'sing.whistleFar',
+    category: 'from far off',
     kind: 'sing',
     label: 'whistle from across the field',
     blurb: 'Then wait. Do not whistle twice.',
@@ -241,6 +264,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'sing.drumFloor',
+    category: 'rhythm',
     kind: 'sing',
     label: 'drum on the floor',
     blurb: 'Palms flat. It feels it before it hears it.',
@@ -248,6 +272,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'sing.readAloud',
+    category: 'voice',
     kind: 'sing',
     label: 'read to it badly',
     blurb: 'It does not mind that you stumble.',
@@ -257,6 +282,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   // --- give ---------------------------------------------------------------
   {
     id: 'give.riverStone',
+    category: 'stones',
     kind: 'give',
     label: 'a river stone',
     blurb: 'One that fit your hand right.',
@@ -265,6 +291,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'give.crackedBell',
+    category: 'made things',
     kind: 'give',
     label: 'a cracked bell',
     blurb: 'Still rings. Wrong note.',
@@ -273,6 +300,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'give.knottedRope',
+    category: 'made things',
     kind: 'give',
     label: 'a knotted rope',
     blurb: 'You tied it yourself. Badly.',
@@ -281,6 +309,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'give.shedSkin',
+    category: 'found things',
     kind: 'give',
     label: 'a shed skin',
     blurb: 'Whole, if you were careful lifting it.',
@@ -289,6 +318,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'give.mirrorBit',
+    category: 'stones',
     kind: 'give',
     label: 'a bit of mirror',
     blurb: 'Tape over the sharp edge first.',
@@ -297,6 +327,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'give.mapScrap',
+    category: 'found things',
     kind: 'give',
     label: 'a scrap of map',
     blurb: 'Somewhere neither of you has been.',
@@ -308,6 +339,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   // --- tend ---------------------------------------------------------------
   {
     id: 'tend.brushDown',
+    category: 'washing',
     kind: 'tend',
     label: 'brush it down',
     blurb: 'Long strokes, with the grain.',
@@ -316,6 +348,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'tend.cleanScrapes',
+    category: 'washing',
     kind: 'tend',
     label: 'clean its scrapes',
     blurb: 'It will pull away. Hold on.',
@@ -324,6 +357,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'tend.sitNearby',
+    category: 'company',
     kind: 'tend',
     label: 'sit near it and do nothing',
     blurb: 'Bring a book if you need one.',
@@ -331,6 +365,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'tend.trimClaws',
+    category: 'the body',
     kind: 'tend',
     label: 'trim its claws',
     blurb: 'Only the tips. You will know.',
@@ -339,6 +374,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'tend.freshBedding',
+    category: 'washing',
     kind: 'tend',
     label: 'change its bedding',
     blurb: 'Dry straw, packed loose.',
@@ -346,6 +382,7 @@ export const ACTION_VARIANTS: ActionVariant[] = [
   },
   {
     id: 'tend.checkTeeth',
+    category: 'the body',
     kind: 'tend',
     label: 'check its teeth',
     blurb: 'Both hands. Be quick about it.',
@@ -377,7 +414,7 @@ export const VARIANT_MEMORY: Record<string, string> = {
   'feed.marrowBone': 'leaving marrow bones out',
   'feed.honeycomb': 'feeding it honeycomb',
   'feed.saltedFish': 'carrying salted fish back for it',
-  'feed.fromYourHand': 'feeding it by hand',
+  'feed.fromYourHand': 'sharing its meals with it',
 
   'train.chaseYard': 'chasing it round the yard',
   'train.liftStones': 'getting it to lift stones',
@@ -435,7 +472,7 @@ export const VARIANT_PAST: Record<string, string> = {
   'feed.marrowBone': 'left out a marrow bone',
   'feed.honeycomb': 'fed it honeycomb',
   'feed.saltedFish': 'carried salted fish back for it',
-  'feed.fromYourHand': 'fed it from their own hand',
+  'feed.fromYourHand': 'shared what they were eating',
 
   'train.chaseYard': 'chased it round the yard',
   'train.liftStones': 'got it lifting stones',
@@ -479,7 +516,7 @@ export const VARIANT_PAST: Record<string, string> = {
  * reads correctly after "You" already.
  */
 const VARIANT_PAST_YOU: Record<string, string> = {
-  'feed.fromYourHand': 'fed it from your own hand',
+  'feed.fromYourHand': 'shared what you were eating',
 }
 
 export function pastTense(variantId: string, byYou: boolean): string | null {
@@ -488,4 +525,105 @@ export function pastTense(variantId: string, byYou: boolean): string | null {
     if (mine !== undefined) return mine
   }
   return VARIANT_PAST[variantId] ?? null
+}
+
+// --- how, as opposed to what ------------------------------------------------
+//
+// Three per kind, one point each, spread across different axes on purpose.
+//
+// The spread is the whole balance argument. Handing a thing over leans bond,
+// leaving it out leans stillness, throwing it leans vigor; a group that uses
+// all three evenly has said nothing, and a group that always hands things over
+// has said something real about itself. Nobody balanced these leaves one by
+// one, which is the only way this survives being twenty times longer.
+//
+// One point rather than three, also on purpose. What goes into the creature
+// should still matter more than the manner of it, or the item list collapses
+// back into decoration on six buttons.
+//
+// Nothing here touches nourish. That axis is what an item IS, and no way of
+// handing something over makes it more food than it was.
+export const ACTION_METHODS: ActionMethod[] = [
+  { id: 'feed.byHand', kind: 'feed', label: 'by hand', push: { bond: 1 } },
+  { id: 'feed.inABowl', kind: 'feed', label: 'in a bowl', push: { stillness: 1 } },
+  { id: 'feed.thrown', kind: 'feed', label: 'thrown for it to catch', push: { vigor: 1 } },
+
+  { id: 'train.hard', kind: 'train', label: 'hard', push: { ferocity: 1 } },
+  { id: 'train.patiently', kind: 'train', label: 'patiently', push: { stillness: 1 } },
+  { id: 'train.tired', kind: 'train', label: 'until it is tired', push: { vigor: 1 } },
+
+  { id: 'explore.leading', kind: 'explore', label: 'leading the way', push: { craft: 1 } },
+  { id: 'explore.following', kind: 'explore', label: 'letting it lead', push: { roam: 1 } },
+  { id: 'explore.carried', kind: 'explore', label: 'carried the whole way', push: { bond: 1 } },
+
+  { id: 'sing.close', kind: 'sing', label: 'up close', push: { bond: 1 } },
+  { id: 'sing.across', kind: 'sing', label: 'from across the room', push: { roam: 1 } },
+  { id: 'sing.underBreath', kind: 'sing', label: 'under your breath', push: { resonance: 1 } },
+
+  { id: 'give.leftOut', kind: 'give', label: 'left where it will find it', push: { stillness: 1 } },
+  { id: 'give.hidden', kind: 'give', label: 'hidden first, so it hunts', push: { craft: 1 } },
+  { id: 'give.fuss', kind: 'give', label: 'with a great fuss', push: { resonance: 1 } },
+
+  { id: 'tend.quickly', kind: 'tend', label: 'quickly', push: { vigor: 1 } },
+  { id: 'tend.talking', kind: 'tend', label: 'talking to it the whole time', push: { resonance: 1 } },
+  { id: 'tend.firmly', kind: 'tend', label: 'firmly', push: { ferocity: 1 } },
+]
+
+const METHOD_BY_ID = new Map(ACTION_METHODS.map((m) => [m.id, m]))
+
+export function methodById(id: string): ActionMethod | null {
+  return METHOD_BY_ID.get(id) ?? null
+}
+
+/** The methods offered for one kind, in catalogue order. */
+export function methodsForKind(kind: ActionKind): ActionMethod[] {
+  return ACTION_METHODS.filter((m) => m.kind === kind)
+}
+
+/** The categories inside one kind, in the order their first item appears. */
+export function categoriesForKind(kind: ActionKind): string[] {
+  const seen: string[] = []
+  for (const v of ACTION_VARIANTS) {
+    if (v.kind === kind && !seen.includes(v.category)) seen.push(v.category)
+  }
+  return seen
+}
+
+/**
+ * Whether a method may be attached to a variant.
+ *
+ * Kind-matched rather than free, so nothing can arrive off the wire claiming it
+ * fed the creature firmly. The check runs on the server before an action is
+ * written and again here before a push is composed, because a stored row that
+ * fails it would change what the creature is on every future replay.
+ */
+export function methodFits(variantId: string, methodId: string): boolean {
+  const variant = variantById(variantId)
+  const method = methodById(methodId)
+  return variant !== undefined && method !== null && variant.kind === method.kind
+}
+
+/**
+ * What one action actually pushed: the item, plus the manner if one was given.
+ *
+ * The single place the two halves meet. Everything that reads a push, the
+ * expression pass and every measurement over the catalogue, goes through here,
+ * so there is no way to add methods to one and forget the other.
+ */
+export function pushOf(variantId: string, methodId?: string): PressureDelta {
+  const variant = variantById(variantId)
+  if (variant === undefined) return {}
+  if (methodId === undefined || !methodFits(variantId, methodId)) return variant.push
+  const method = methodById(methodId)
+  if (method === null) return variant.push
+  // Walked in the catalogue's own axis order rather than the object's, because
+  // key order is an engine detail and two clients disagreeing about it would
+  // add these in different orders and drift apart in the last bit.
+  const out: PressureDelta = { ...variant.push }
+  for (const axis of PRESSURE_AXES) {
+    const amount = method.push[axis]
+    if (amount === undefined) continue
+    out[axis] = (out[axis] ?? 0) + amount
+  }
+  return out
 }

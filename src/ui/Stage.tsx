@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import type { ActionKind, ActionRecord, Creature, Genome, PresentActor } from '../core/types'
-import { pastTense, variantById } from '../dna'
+import { methodById, methodFits, pastTense, variantById } from '../dna'
 import { CreatureView } from '../forge'
 import type { ConnectionStatus } from '../net'
 import { groupLink, useCopy } from './useGroup'
@@ -93,7 +93,14 @@ export default function Stage(props: StageProps): JSX.Element {
     // copy. The labels are not all the same part of speech, so gluing produced
     // "Teddy gave it something. a marrow bone."
     const said = pastTense(last.variantId, mine) ?? KIND_VERB[variant?.kind ?? 'tend']
-    setTicker({ id: last.id, text: `${who} ${said}.` })
+    // The manner reads as a trailing clause rather than being woven in, which
+    // is the only form that composes across six kinds without hand-writing a
+    // sentence per pairing. "Teddy brushed it down, firmly."
+    const how =
+      last.methodId !== undefined && methodFits(last.variantId, last.methodId)
+        ? `, ${methodById(last.methodId)?.label ?? ''}`
+        : ''
+    setTicker({ id: last.id, text: `${who} ${said}${how}.` })
   }, [actions, actions.length, actorId])
 
   useEffect(() => {

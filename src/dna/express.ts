@@ -72,7 +72,7 @@ import type {
   Substance,
   SubstanceDelta,
 } from '../core/types'
-import { VARIANT_MEMORY, variantById } from './actions'
+import { VARIANT_MEMORY, pushOf, variantById } from './actions'
 import { affinityShape, alleleById, centredShape, cosine } from './alleles'
 import { makeRng } from './rng'
 
@@ -884,8 +884,12 @@ export function deriveCreature(
     // An unrecognised variant still counts as somebody showing up, it just does
     // not push anything. Old logs stay replayable when the catalogue changes.
     if (variant !== undefined) {
-      addDelta(pressures, variant.push)
-      addDelta(actor.contribution, variant.push)
+      // Composed, not read off the variant: how a thing was done is half the
+      // push. Reading variant.push here instead would leave the whole method
+      // layer as decoration that changes nothing about the animal.
+      const push = pushOf(action.variantId, action.methodId)
+      addDelta(pressures, push)
+      addDelta(actor.contribution, push)
       // Only feeding, giving and going places put anything in. Singing to it
       // does not, which is the point of the channel being separate.
       if (variant.gives !== undefined) addSubstance(substance, variant.gives)

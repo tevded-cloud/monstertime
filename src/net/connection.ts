@@ -21,7 +21,7 @@ export type ConnectionStatus = 'connecting' | 'open' | 'closed' | 'error'
 
 export interface Connection {
   subscribe(fn: (snapshot: GroupSnapshot, present: PresentActor[]) => void): () => void
-  act(variantId: string): void
+  act(variantId: string, methodId?: string): void
   rename(name: string): void
   /** How fast the group wants the creature to live. Clamped by the server. */
   setPace(pace: number): void
@@ -261,10 +261,14 @@ class SocketConnection implements Connection {
     }
   }
 
-  act(variantId: string): void {
+  act(variantId: string, methodId?: string): void {
     if (this.closed) return
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return
-    const message: ClientMessage = { type: 'act', variantId }
+    // Omitted rather than sent as undefined: the server treats an absent
+    // manner and a null one the same, but a key that is present and empty is
+    // the shape most likely to grow a default under it later.
+    const message: ClientMessage =
+      methodId === undefined ? { type: 'act', variantId } : { type: 'act', variantId, methodId }
     this.socket.send(JSON.stringify(message))
   }
 

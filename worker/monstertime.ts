@@ -38,7 +38,7 @@
 // domain keeps being answered by the asset server exactly as it was before
 // this existed. See worker/README.md for what the site has to add.
 import { DurableObject } from 'cloudflare:workers'
-import { deriveCreature, rollGenome, stageOfGrowth, variantById } from '../src/dna/index'
+import { deriveCreature, methodFits, rollGenome, stageOfGrowth, variantById } from '../src/dna/index'
 import { googleKeys, verifyIdToken, type KeySource } from './verify'
 import { cleanPasscode, hashPasscode, mintPasscode } from './passcode'
 import type {
@@ -378,7 +378,12 @@ function readClient(raw: string): ClientMessage | null {
   if (parsed.type === 'act') {
     if (typeof parsed.variantId !== 'string') return null
     if (parsed.variantId.length === 0 || parsed.variantId.length > VARIANT_ID_MAX) return null
-    return { type: 'act', variantId: parsed.variantId }
+    if (parsed.methodId === undefined || parsed.methodId === null) {
+      return { type: 'act', variantId: parsed.variantId }
+    }
+    if (typeof parsed.methodId !== 'string') return null
+    if (parsed.methodId.length === 0 || parsed.methodId.length > VARIANT_ID_MAX) return null
+    return { type: 'act', variantId: parsed.variantId, methodId: parsed.methodId }
   }
   if (parsed.type === 'name') {
     return { type: 'name', name: cleanText(parsed.name, GROUP_NAME_MAX) }
@@ -631,8 +636,8 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     )
     this.ctx.storage.sql.exec(
       'CREATE TABLE IF NOT EXISTS actions(n INTEGER PRIMARY KEY, id TEXT NOT NULL,' +
-        ' variantId TEXT NOT NULL, actorId TEXT NOT NULL, actorName TEXT NOT NULL,' +
-        ' at INTEGER NOT NULL, growth REAL NOT NULL DEFAULT 0)',
+        ' variantId TEXT NOT NULL, methodId TEXT, actorId TEXT NOT NULL,' +
+        ' actorName TEXT NOT NULL, at INTEGER NOT NULL, growth REAL NOT NULL DEFAULT 0)',
     )
     // The per person brake is read straight back out of the log rather than
     // kept anywhere, which is what makes it survive hibernation for free. This
@@ -688,6 +693,7 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
    */
   async forgetGrowthColumn(): Promise<void> {
     this.ctx.storage.sql.exec('ALTER TABLE actions DROP COLUMN growth')
+    this.ctx.storage.sql.exec('ALTER TABLE actions DROP COLUMN methodId')
     this.ctx.storage.sql.exec("DELETE FROM meta WHERE k = 'growth'")
     this.ctx.storage.sql.exec("DELETE FROM meta WHERE k = 'grownAt'")
     this.migrated = false
@@ -697,6 +703,15 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
   private migrate(): void {
     if (this.migrated) return
     this.migrated = true
+    this.addGrowthColumn()
+    // Each column is tried on its own. Sharing one try block would mean a
+    // group that already has growth returns before methodId is ever attempted,
+    // which is every group that exists: the second migration would silently
+    // never run anywhere it was needed.
+    this.addMethodColumn()
+  }
+
+  private addGrowthColumn(): void {
     try {
       this.ctx.storage.sql.exec('ALTER TABLE actions ADD COLUMN growth REAL NOT NULL DEFAULT 0')
       // Only reached the once, when the column has just been added and every
@@ -716,6 +731,23 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
       const grown = rows.length > 0 && rows[0].n !== null ? Number(rows[0].n) : 0
       this.setMeta('growth', String(grown))
       this.setMeta('grownAt', String(Date.now()))
+    }
+  }
+
+  /**
+   * How a thing was done, added to every group that predates methods existing.
+   *
+   * Nullable with no backfill, and that is the correct history rather than a
+   * shortcut: nobody who acted before this shipped was ever asked how, so
+   * writing a manner onto their rows would invent a fact about them and change
+   * the creature they raised. A null composes to the item's push alone, which
+   * is exactly what those actions did at the time.
+   */
+  private addMethodColumn(): void {
+    try {
+      this.ctx.storage.sql.exec('ALTER TABLE actions ADD COLUMN methodId TEXT')
+    } catch {
+      // Already has it.
     }
   }
 
@@ -829,7 +861,7 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
       return
     }
     if (said.type === 'act') {
-      this.act(ws, said.variantId)
+      this.act(ws, said.variantId, said.methodId)
       return
     }
     if (said.type === 'name') {
@@ -932,7 +964,7 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     this.broadcast({ type: 'present', present: this.present(null) })
   }
 
-  private act(ws: WebSocket, variantId: string): void {
+  private act(ws: WebSocket, variantId: string, methodId?: string): void {
     const seat = this.seatOf(ws)
     if (seat === null || seat.actorId === null) {
       this.tell(ws, { type: 'error', message: 'Say hello before acting.' })
@@ -944,6 +976,13 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     const variant = variantById(variantId)
     if (variant === undefined) {
       this.tell(ws, { type: 'error', message: 'That is not something anybody can do.' })
+      return
+    }
+    // A manner has to belong to the thing it describes. Nobody fed a creature
+    // firmly, and a row saying so would be replayed forever by every client,
+    // each composing a push out of a pairing the catalogue does not contain.
+    if (methodId !== undefined && !methodFits(variantId, methodId)) {
+      this.tell(ws, { type: 'error', message: 'That is not a way of doing that.' })
       return
     }
 
@@ -1052,6 +1091,7 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     const action: ActionRecord = {
       id: crypto.randomUUID(),
       variantId,
+      ...(methodId === undefined ? {} : { methodId }),
       actorId: seat.actorId,
       actorName: seat.actorName,
       at,
@@ -1061,9 +1101,10 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     // failed to save would leave everybody looking at a creature that nobody
     // arriving later would ever see.
     this.ctx.storage.sql.exec(
-      'INSERT INTO actions(id, variantId, actorId, actorName, at, growth) VALUES(?, ?, ?, ?, ?, ?)',
+      'INSERT INTO actions(id, variantId, methodId, actorId, actorName, at, growth) VALUES(?, ?, ?, ?, ?, ?, ?)',
       action.id,
       action.variantId,
+      action.methodId ?? null,
       action.actorId,
       action.actorName,
       action.at,
@@ -1367,12 +1408,16 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
         .exec<{
           id: string
           variantId: string
+          methodId: string | null
           actorId: string
           actorName: string
           at: number
           growth: number
-        }>('SELECT id, variantId, actorId, actorName, at, growth FROM actions ORDER BY n')
-        .toArray(),
+        }>('SELECT id, variantId, methodId, actorId, actorName, at, growth FROM actions ORDER BY n')
+        .toArray()
+        // SQL says null, the contract says absent. Left as null it would reach
+        // methodFits as a value and read as a manner nobody chose.
+        .map(({ methodId, ...rest }) => (methodId === null ? rest : { ...rest, methodId })),
     }
   }
 

@@ -87,8 +87,35 @@ export interface ActionVariant {
   // most of the catalogue and is correct: sitting quietly with an animal
   // changes what it is like, not what it is made of.
   gives?: SubstanceDelta
+  // Which shelf this sits on inside its kind. Grouping only: two items in one
+  // category have nothing mechanically in common, they are simply the ones a
+  // person would look for in the same place.
+  category: string
   // Stage below which this variant is not offered.
   minStage?: number
+}
+
+/**
+ * HOW a thing is done, as opposed to what the thing is.
+ *
+ * The other half of the split this app runs on. What goes into the creature
+ * shapes its body, which is `gives`; how it is treated shapes its temperament,
+ * which is the eight pressure axes. An item says what; a method says how, and
+ * only ever pushes on the relationship.
+ *
+ * The pushes are small next to an item's, deliberately. Handing something over
+ * rather than leaving it out should colour a decision, not be the decision, or
+ * the item stops mattering and the tree collapses back into six buttons.
+ *
+ * Within one kind the methods are spread across different axes on purpose, so a
+ * group that uses all of them evenly adds no lean at all. That is what keeps
+ * the catalogue balanced without anybody hand-balancing hundreds of leaves.
+ */
+export interface ActionMethod {
+  id: string
+  kind: ActionKind
+  label: string
+  push: PressureDelta
 }
 
 // An action that actually happened. Server-authored: the client never invents
@@ -99,6 +126,10 @@ export interface ActionRecord {
   actorId: string
   actorName: string
   at: number
+  // How it was done, if the person said. Optional throughout: the fast path is
+  // two taps and a method is the third, so most rows will not carry one and
+  // every row written before methods existed does not.
+  methodId?: string
   // How grown the creature was when this happened, in growth points. Written by
   // the server, like id and at, and for the same reason: it decides which stage
   // the pressure landed in.
@@ -327,7 +358,7 @@ export type ClientMessage =
       // claimed a place yet.
       code?: string
     }
-  | { type: 'act'; variantId: string }
+  | { type: 'act'; variantId: string; methodId?: string }
   | { type: 'name'; name: string }
   // How fast this group wants its creature to live. Anybody in the group may
   // set it: there are no roles here, and a pace one person imposed on everybody
