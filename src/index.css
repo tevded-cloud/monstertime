@@ -1803,6 +1803,20 @@ button.creature-name {
    and somebody else's move cannot both be on screen arguing. Holds its height
    when empty: a line that appears and disappears would shove three cards up and
    down the page every time anybody moved a coin. */
+/* What the object said, on the two surfaces that could not say it.
+   Placed rather than styled: it inherits the panel's own type so a refusal
+   reads as the app talking, not as an error box bolted on. */
+.said {
+  margin: 10px 0 2px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+.said-panel {
+  margin: 0 0 10px;
+}
+
 .market-say {
   min-height: 20px;
   margin: 12px 0 4px;

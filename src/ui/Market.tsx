@@ -85,6 +85,7 @@ import {
   totalsOf,
   withPledge,
 } from '../market/rules'
+import { useSaid } from './Said'
 import { drawCard, saveCard } from './passcode'
 import { forgetGroup, groupLink, useCopy } from './useGroup'
 
@@ -159,6 +160,21 @@ interface MarketProps {
   /** Called once the purchase has been given its moment. The app crosses to the
    *  creature on this, not on the message that bought it. */
   onSettled: () => void
+}
+
+/**
+ * What the live region says while the purchase plays out.
+ *
+ * It used to say nothing: the region was blanked for the whole of `settling`,
+ * so somebody using a screen reader heard every five coin pledge and then
+ * silence at the exact moment the group bought the animal. The eggs leave the
+ * screen during this, so the sentence has to carry what they carried.
+ */
+function boughtLine(bought: { egg: number; spent: number } | null, eggs: EggLook[]): string {
+  if (bought === null) return ''
+  const look = eggs.find((e) => e.egg === bought.egg)
+  const name = look === undefined ? 'One of them' : `The ${look.name} one`
+  return `${name} is the one. ${bought.spent} coins between you, and it is going to hatch.`
 }
 
 export default function Market({
@@ -507,10 +523,30 @@ export default function Market({
     setWant(next)
   }
 
+  // The object's own sentences land here too, and until they did this screen
+  // was the likeliest place in the app to be refused and the only one that
+  // could not say so. Seventeen sentences reach a store; ActionBar was the one
+  // reader, and ActionBar is not rendered on the market at all. So a group
+  // hitting the hourly cap, or a full group, or a rename too soon, while
+  // choosing the animal they are going to keep for months, was answered in a
+  // console.
+  //
+  // Newest wins over the market's own refusal, because both are answers to
+  // something somebody just did and two of them at once is the app arguing with
+  // itself. That rule is ActionBar's, written down there for the same reason.
+  const fromObject = useSaid()
+  const fromHere = flash === null ? null : { text: refusalLine(flash.reason), at: flash.at }
+  const answer =
+    fromHere === null
+      ? fromObject
+      : fromObject === null || fromHere.at >= fromObject.at
+        ? fromHere
+        : fromObject
+
   const said = !live
     ? 'Not connected to the market just now.'
-    : flash !== null
-      ? refusalLine(flash.reason)
+    : answer !== null
+      ? answer.text
       : note !== null
         ? noteLine(note, eggs)
         : ''
@@ -539,7 +575,7 @@ export default function Market({
         )}
 
         <p className="market-say" aria-live="polite">
-          {settling ? '' : said}
+          {settling ? boughtLine(bought, eggs) : said}
         </p>
 
         {freshCode !== null && !settling && (

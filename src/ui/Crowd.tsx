@@ -14,6 +14,7 @@ import { useInstall } from './install'
 import { drawCard, saveCard } from './passcode'
 import { enterPasscode, forgetGroup, groupLink, knownGroups, setGroupHash, useCopy } from './useGroup'
 import type { EnteredCode } from './useGroup'
+import Said from './Said'
 
 const HABIT: Record<PressureAxis, string> = {
   nourish: 'feeds it',
@@ -66,6 +67,14 @@ export default function Crowd({
         <span className="label">Here now</span>
         <span className="count">{present.length}</span>
       </div>
+
+      {/* This panel is a modal dialog, so it sits in the top layer OVER the
+          action bar, and the action bar's line was the only thing in the app
+          reading the object's sentences. Every refusal a person can earn in
+          here (a claim from a device that already holds a place, a full group,
+          a rename too soon) was being written to a line underneath the panel
+          that caused it. */}
+      <Said where="panel" />
 
       {present.length === 0 ? (
         <p className="empty">Nobody, not even you yet.</p>
