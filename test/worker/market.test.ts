@@ -1252,3 +1252,72 @@ describe('how many people a group can hold', () => {
     late.close()
   }, 60_000)
 })
+
+describe('two claims arriving together', () => {
+  // A real race, found by review and confirmed by reading the code rather than
+  // by anything going red. `claim()` used to await hashPasscode BETWEEN reading
+  // its two bounds and writing them. Every storage call in this object is
+  // synchronous, so a turn with no await runs to completion before the next
+  // message is delivered, but an await hands the turn back: two claims in one
+  // batch both saw the place row absent and the count under the cap, and both
+  // wrote. One device with two purses, and a group able to walk past its own
+  // member limit, which is what every price in the market rests on.
+  //
+  // THESE TWO DO NOT CATCH THAT RACE, and that is written here rather than
+  // discovered later. They were the first attempt at it and they pass with the
+  // defect reintroduced, which was proved by moving the await back and watching
+  // all 41 tests in this file stay green. The race needs a second message
+  // DELIVERED while the first turn is suspended at its await, and nothing a
+  // test can say makes the runtime schedule that; the window is one microtask
+  // wide. A green run here means the scheduler did not interleave, which is a
+  // different claim from interleaving being safe.
+  //
+  // test/source/claim-atomicity.test.ts is what actually holds it, by asserting
+  // there is no await between the guards and the writes. What these two are
+  // worth is the ordinary case: a double tap gets one place and one refusal,
+  // and the count the market prices off is right.
+
+  it('mints one place for one device, not two', async () => {
+    const groupId = await makeGroup()
+    const w = await guest(groupId, 'double-tapper')
+    w.send({ type: 'claim' })
+    w.send({ type: 'claim' })
+    for (let i = 0; i < 60; i++) await scheduler.wait(25)
+
+    const said = w.all()
+    const claimed = said.filter((one) => one.type === 'claimed')
+    const refused = said.filter((one) => one.type === 'error')
+    // One answer of each kind. Two 'claimed' is the defect; two refusals would
+    // mean the first one never landed either.
+    expect(claimed.length).toBe(1)
+    expect(refused.length).toBe(1)
+
+    // And the count the market prices off is 1, not 2. This is the assertion
+    // that would have gone red before the fix: a second purse raises the price
+    // of both scaling eggs for the rest of the group's life.
+    expect((await marketOf(groupId)).claimed).toBe(1)
+    w.close()
+  })
+
+  it('cannot be walked past the member limit by a burst', async () => {
+    // The same race against the other bound. Sending a burst from several
+    // sockets at once, all before any answer comes back, must still leave the
+    // group at or under MAX_CLAIMED rather than one over it per racer.
+    const groupId = await makeGroup()
+    const wires: Wire[] = []
+    for (let i = 0; i < 6; i++) wires.push(await guest(groupId, `rusher-${i}`))
+    for (const w of wires) w.send({ type: 'claim' })
+    for (let i = 0; i < 80; i++) await scheduler.wait(25)
+
+    const market = await marketOf(groupId)
+    // Six distinct devices, so six places is the correct answer here; the point
+    // is that the number is exactly the number of devices and never more.
+    expect(market.claimed).toBe(6)
+    const claimedBacks = wires.reduce(
+      (n, w) => n + w.all().filter((one) => one.type === 'claimed').length,
+      0,
+    )
+    expect(claimedBacks).toBe(6)
+    for (const w of wires) w.close()
+  })
+})

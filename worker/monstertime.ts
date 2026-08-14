@@ -2139,6 +2139,26 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
       return
     }
     if (!this.exists()) return
+
+    // MINTED AND HASHED BEFORE ANY GUARD IS READ, and that ordering is the fix
+    // for a real race rather than a tidy-up.
+    //
+    // The await used to sit between the two bounds below and the writes that
+    // enforce them. Every storage call here is synchronous, so a turn with no
+    // await in it runs to completion before another message is delivered, but
+    // an await gives the turn up: two claim messages arriving in one batch both
+    // read the place row as absent and both read the count as under the cap,
+    // then both write. One device minted two purses, and a group could push
+    // past MAX_CLAIMED, and the market's whole price floor rests on that count.
+    //
+    // Neither of these depends on anything the guards read, so hoisting them
+    // costs nothing: the code is random and the hash is over the group id,
+    // which cannot change. What is left below is guard, guard, write, write,
+    // write, with no suspension point anywhere in it.
+    const code = mintPasscode()
+    const owner = verifiedActorId(`c${crypto.randomUUID().replace(/-/g, '').slice(0, 20)}`)
+    const held = `code:${await hashPasscode(this.groupId(), code)}`
+
     // A SECOND CLAIM FROM THE SAME BROWSER IS NOT A SECOND MEMBER. The count is
     // added to every time this method gets past here and nothing anywhere takes
     // one away, so somebody who tapped the button twice raised the price of the
@@ -2170,10 +2190,6 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
       })
       return
     }
-
-    const code = mintPasscode()
-    const owner = verifiedActorId(`c${crypto.randomUUID().replace(/-/g, '').slice(0, 20)}`)
-    const held = `code:${await hashPasscode(this.groupId(), code)}`
 
     // Counted BEFORE the code row goes in, and that order is the whole of the
     // correctness. A group that predates the counter has its members counted off
