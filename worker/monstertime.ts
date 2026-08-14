@@ -50,6 +50,7 @@ import {
   variantById,
 } from '../src/dna/index'
 import type { SleepState } from '../src/dna/index'
+import type { Genome } from '../src/core/types'
 import { googleKeys, verifyIdToken, type KeySource } from './verify'
 import { cleanPasscode, hashPasscode, mintPasscode } from './passcode'
 // The market's arithmetic and its legality, imported rather than restated. The
@@ -2000,6 +2001,56 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     return this.metaValue('bornAt') ?? this.metaValue('createdAt')
   }
 
+  /**
+   * The genome, WRITTEN DOWN the first time it is asked for and never rolled
+   * again.
+   *
+   * This closes the worst latent defect in the app, and it is worth stating
+   * plainly because nothing about it is visible from the call site it replaces.
+   * A genome was never stored: `rollGenome(seed)` ran on every single read, so
+   * the creature a group is raising was recomputed by whatever code happened to
+   * be deployed at the moment somebody opened the app.
+   *
+   * That made SEVERAL FILES production state rather than source. `HABIT_SHAPES`
+   * in alleles.ts is summed off ACTION_VARIANTS so that a genome has to answer
+   * to the habits a group can actually fall into, which is a good design and
+   * exactly what makes it dangerous: adding one ordinary action variant, which
+   * feels like pure content work, re-dealt the alleles of creatures that
+   * already existed. Measured at 23 in 500, one group in twenty, with the whole
+   * suite green. The comment above that code asserted the opposite for months.
+   *
+   * Frozen, the catalogue can grow to any size without a single existing
+   * creature changing, which is the only reason the action tree can be built
+   * out at all.
+   *
+   * LAZY, on read, rather than at create(). Groups that predate this have no
+   * stored genome and there is no migration hook that runs for all of them, so
+   * the first read is the only moment that reliably happens for every group.
+   * What it stores is exactly what that group already derives today, so nobody
+   * sees anything change.
+   *
+   * THE SEQUENCING IS THE WHOLE THING and it does not survive being ignored:
+   * this must be DEPLOYED, and every live group READ ONCE, before any catalogue
+   * change ships. A group first read after new items land would be frozen
+   * against the new catalogue and re-dealt in the same breath as being
+   * protected from it.
+   */
+  private genome(seed: string): Genome {
+    const held = this.metaValue('genome')
+    if (held !== null) {
+      try {
+        return JSON.parse(held) as Genome
+      } catch {
+        // Unreadable rather than absent. Falling through re-rolls and rewrites
+        // it, which is the same answer this group got before it was ever
+        // frozen, and is strictly better than serving a broken creature.
+      }
+    }
+    const rolled = rollGenome(seed)
+    this.setMeta('genome', JSON.stringify(rolled))
+    return rolled
+  }
+
   private metaValue(key: string): string | null {
     const rows = this.ctx.storage.sql
       .exec<{ v: string }>('SELECT v FROM meta WHERE k = ?', key)
@@ -2409,7 +2460,7 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
       handle: this.metaValue('handle'),
       growth: this.grown(Date.now()),
       pace: this.pace(),
-      genome: rollGenome(seed),
+      genome: this.genome(seed),
       actions: this.ctx.storage.sql
         .exec<{
           id: string

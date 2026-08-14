@@ -93,6 +93,14 @@ export interface ActionVariant {
   category: string
   // Stage below which this variant is not offered.
   minStage?: number
+  // Which manners may be attached, when this item is narrower than its kind.
+  //
+  // Manners hang off the KIND, so all three singing manners were offered for
+  // every singing item, and "whistle from across the field" was offered both
+  // "up close" and "from across the room". An item that already contains a
+  // manner names the ones that can still be true of it. Absent means the whole
+  // of its kind, which is the ordinary case.
+  methods?: string[]
   // Whether this may be done to a creature that is asleep. The sleep gate
   // refuses every variant without it, so this is the flag that decides what a
   // group can still reach while their animal is down.

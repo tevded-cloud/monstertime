@@ -87,15 +87,11 @@ describe('src/dna stays engine independent', () => {
     expect(names).toEqual([
       'actions.ts',
       'alleles.ts',
+      'catalogue.ts',
       'express.ts',
       'index.ts',
       'rng.ts',
-      // sleep.ts is the one that had to be argued about. It is the only file in
-      // the module that is about wall clock time, so it is the file somebody
-      // will one day reach for Date.now in, and the rule it has to keep is
-      // exactly the one this suite checks: the instant is a parameter. A day
-      // cycle in here is a remainder, never a wave, because there is no sine
-      // that returns the same bits in a browser and in workerd.
+      'shelves-feed.ts',
       'sleep.ts',
       'stance.ts',
     ])

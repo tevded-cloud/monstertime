@@ -46,70 +46,11 @@
 
 import { PRESSURE_AXES } from '../core/types'
 import type { ActionKind, ActionMethod, ActionVariant, PressureDelta } from '../core/types'
+import { expand } from './catalogue'
+import { FEED_SHELVES } from './shelves-feed'
 
 export const ACTION_VARIANTS: ActionVariant[] = [
-  // --- feed ---------------------------------------------------------------
-  {
-    id: 'feed.emberfruit',
-    category: 'grown',
-    kind: 'feed',
-    label: 'ember-fruit',
-    blurb: 'Split one open. It steams.',
-    push: { nourish: 3, ferocity: 1, vigor: 1 },
-    gives: { ember: 3 },
-    minStage: 1,
-  },
-  {
-    id: 'feed.riverGreens',
-    category: 'grown',
-    kind: 'feed',
-    label: 'river greens',
-    blurb: 'Cold, and still dripping.',
-    push: { nourish: 3, stillness: 1, roam: 1 },
-    gives: { verdure: 3 },
-    minStage: 1,
-  },
-  {
-    id: 'feed.marrowBone',
-    category: 'caught',
-    kind: 'feed',
-    label: 'a marrow bone',
-    blurb: 'Heavy. It takes all evening.',
-    push: { nourish: 3, ferocity: 1.5, stillness: 0.5 },
-    gives: { mineral: 2, ember: 1 },
-    minStage: 1,
-  },
-  {
-    id: 'feed.honeycomb',
-    category: 'grown',
-    kind: 'feed',
-    label: 'honeycomb',
-    blurb: 'Sticky, and it will not share.',
-    push: { nourish: 2.5, bond: 1.5, stillness: 1 },
-    gives: { ember: 2, verdure: 1 },
-    minStage: 2,
-  },
-  {
-    id: 'feed.saltedFish',
-    category: 'caught',
-    kind: 'feed',
-    label: 'salted fish',
-    blurb: 'Kept back from the long walk home.',
-    push: { nourish: 3, roam: 1.5, craft: 0.5 },
-    gives: { brine: 3 },
-    minStage: 1,
-  },
-  {
-    id: 'feed.fromYourHand',
-    category: 'yours',
-    kind: 'feed',
-    label: 'whatever you were eating',
-    blurb: 'Slow. It has to lean in for it.',
-    push: { nourish: 2.5, bond: 2, stillness: 0.5 },
-    gives: { ember: 1, verdure: 1 },
-    minStage: 1,
-  },
-
+  ...expand(FEED_SHELVES),
   // --- train --------------------------------------------------------------
   {
     id: 'train.chaseYard',

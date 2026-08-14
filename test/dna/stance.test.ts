@@ -31,9 +31,27 @@ function pressuresFromLog(log: ActionRecord[]): Pressures {
 // Every variant in the catalogue, cycled evenly. This is the log a group that
 // truly does a bit of everything would produce, and stance.ts's own header
 // comment measures its lean at +0.005: comfortably under LEAN_MIN.
+/**
+ * A group that genuinely does everything evenly.
+ *
+ * Walks the KINDS in turn, not the variants. One of every variant used to mean
+ * the same thing and stopped the day a kind was filled out properly: feeding
+ * went to sixty-one items against six for the others, so one-of-each became a
+ * group that mostly feeds, and the pose came back `nosing`. Which was correct.
+ * The fixture was what had gone wrong, not the rule it was testing.
+ *
+ * Within a kind it rotates through that kind's items, so no single item carries
+ * the whole of its kind's share either.
+ */
 function evenLog(n: number): ActionRecord[] {
+  const kinds = [...new Set(ACTION_VARIANTS.map((v) => v.kind))]
+  const byKind = new Map(kinds.map((k) => [k, ACTION_VARIANTS.filter((v) => v.kind === k)]))
   const out: ActionRecord[] = []
-  for (let i = 0; i < n; i++) out.push(action(i, ACTION_VARIANTS[i % ACTION_VARIANTS.length].id, 'ann'))
+  for (let i = 0; i < n; i++) {
+    const kind = kinds[i % kinds.length]
+    const here = byKind.get(kind)!
+    out.push(action(i, here[Math.floor(i / kinds.length) % here.length].id, 'ann'))
+  }
   return out
 }
 

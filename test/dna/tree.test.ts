@@ -22,12 +22,11 @@ import {
   pushOf,
 } from '../../src/dna/actions'
 import { ACTION_KINDS, PRESSURE_AXES } from '../../src/core/types'
-import type { ActionRecord, PressureAxis } from '../../src/core/types'
+import type { ActionRecord, ActionVariant, PressureAxis } from '../../src/core/types'
 import { deriveCreature, rollGenome } from '../../src/dna'
 import { oneButtonLog, seedFor } from '../helpers'
 
-/** Every item, plus every item crossed with every manner its kind allows. The
- *  pool a group actually draws from now, which is not the item list. */
+/** Every item, plus every item crossed with every manner its kind allows. */
 function everyPairing(): Array<{ variantId: string; methodId?: string }> {
   const out: Array<{ variantId: string; methodId?: string }> = []
   for (const variant of ACTION_VARIANTS) {
@@ -39,15 +38,44 @@ function everyPairing(): Array<{ variantId: string; methodId?: string }> {
   return out
 }
 
+/**
+ * How likely each item is to be the one somebody picks.
+ *
+ * NOT one vote per item, and the difference is the whole measurement. The tray
+ * asks in order: which of the six kinds, then which shelf, then which thing on
+ * it. So a kind with sixty items does not become ten times likelier than a kind
+ * with six; it becomes the same one in six, spread thinner.
+ *
+ * Counting items flat was right while every kind held six of them and wrong the
+ * moment one was filled out properly: feeding went to sixty-one items and the
+ * flat count read the catalogue as two thirds about food, which is not what a
+ * person meets. Weighting by the path through the tray is what the numbers below
+ * are actually about, and it stays true whatever size the shelves grow to.
+ */
+function weightOf(variant: ActionVariant): number {
+  const kinds = new Set(ACTION_VARIANTS.map((v) => v.kind)).size
+  const shelvesHere = new Set(
+    ACTION_VARIANTS.filter((v) => v.kind === variant.kind).map((v) => v.category),
+  ).size
+  const itemsHere = ACTION_VARIANTS.filter(
+    (v) => v.kind === variant.kind && v.category === variant.category,
+  ).length
+  return 1 / (kinds * shelvesHere * itemsHere)
+}
+
 function shareByAxis(
   pairs: Array<{ variantId: string; methodId?: string }>,
 ): Record<PressureAxis, number> {
   const tally = Object.fromEntries(PRESSURE_AXES.map((a) => [a, 0])) as Record<PressureAxis, number>
+  const byId = new Map(ACTION_VARIANTS.map((v) => [v.id, v]))
   let total = 0
   for (const pair of pairs) {
+    const variant = byId.get(pair.variantId)
+    if (variant === undefined) continue
+    const weight = weightOf(variant)
     const push = pushOf(pair.variantId, pair.methodId)
     for (const axis of PRESSURE_AXES) {
-      const amount = push[axis] ?? 0
+      const amount = (push[axis] ?? 0) * weight
       tally[axis] += amount
       total += amount
     }
