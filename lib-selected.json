@@ -1,0 +1,5163 @@
+[
+{
+"id": "asset-forge.3d-arena-blockout-assembly-recipes",
+"domain": "asset-forge",
+"title": "3D Arena Blockout Assembly Recipes",
+"tags": [
+"colour"
+]
+},
+{
+"id": "asset-forge.ambience-loop-recipes",
+"domain": "asset-forge",
+"title": "Ambience Loop Recipes \u2014 Seamless Biome Beds as Synthesis Parameters",
+"tags": [
+"time",
+"sound"
+]
+},
+{
+"id": "asset-forge.audio-engineering-recipes",
+"domain": "asset-forge",
+"title": "Audio Engineering Recipes: Offline DSP Effects, Mix Budget, and Stem Emission as Buffer Math",
+"tags": [
+"time",
+"sound"
+]
+},
+{
+"id": "asset-forge.billboard-sprite-actors-in-3d-recipes",
+"domain": "asset-forge",
+"title": "Billboard Sprite Actors in a 3D World",
+"tags": [
+"creature"
+]
+},
+{
+"id": "asset-forge.bitmap-font-family-recipes",
+"domain": "asset-forge",
+"title": "Bitmap Font Family Recipes, Bold, Display-Grid, and Treatment-Pass Transforms of the Shipped 5x7 Glyph Table",
+"tags": [
+"colour",
+"sound"
+]
+},
+{
+"id": "asset-forge.board-game-screen-recipes",
+"domain": "asset-forge",
+"title": "Board Game Screen Recipes: A Composed Board ScreenKind for Regular Grid Boards",
+"tags": [
+"time",
+"words"
+]
+},
+{
+"id": "asset-forge.boot-splash-and-window-boot-conventions",
+"domain": "asset-forge",
+"title": "Boot Splash & Window Boot Conventions: The First Seconds of a Forged Game",
+"tags": [
+"colour",
+"words"
+]
+},
+{
+"id": "asset-forge.boss-encounter-recipes",
+"domain": "asset-forge",
+"title": "Boss Encounter Recipes: Phase State Machines, Telegraph Timing, Arena Lockdown, and the Boss Health Bar",
+"tags": [
+"sound"
+]
+},
+{
+"id": "asset-forge.botanical-specimen-recipes",
+"domain": "asset-forge",
+"title": "Botanical Specimen Recipes: Trees, Plants, Rocks, and Clouds Drawn Forward as Specimen and Cluster Shape Stacks",
+"tags": [
+"creature",
+"colour",
+"generated",
+"code"
+]
+},
+{
+"id": "asset-forge.clothing-and-outfit-identity-recipes",
+"domain": "asset-forge",
+"title": "Clothing and Outfit Identity Recipes: Garment Deltas Over the Identikit Rig, and the Dress Codes That Make a Town Read as People",
+"tags": [
+"creature",
+"colour",
+"generated"
+]
+},
+{
+"id": "asset-forge.combat-and-content-icon-recipes",
+"domain": "asset-forge",
+"title": "Combat and Content Icon Recipes, A Closed Gameplay-Meaning Glyph Vocabulary Beyond the Four HUD Chrome Icons",
+"tags": [
+"colour",
+"words"
+]
+},
+{
+"id": "asset-forge.companion-pet-recipes",
+"domain": "asset-forge",
+"title": "Companion & Pet Recipes: The Follower Entity, Command Interface, and Party-Slot Floor",
+"tags": [
+"time",
+"group"
+]
+},
+{
+"id": "asset-forge.composed-scene-readability-audit-recipes",
+"domain": "asset-forge",
+"title": "Composed-Scene Readability Audit Recipes, The Value-Structure and Figure-Ground Contract Every Composed Frame Must Clear at Forge Time",
+"tags": [
+"creature",
+"colour"
+]
+},
+{
+"id": "asset-forge.composite-route-probe",
+"domain": "asset-forge",
+"title": "The Composite Route Probe: three probes against the shipped functional-object grammar",
+"tags": [
+"creature",
+"words"
+]
+},
+{
+"id": "asset-forge.cutscene-camera-move-recipes",
+"domain": "asset-forge",
+"title": "Cutscene Camera Move Recipes: A Camera2D Tween Table for Directed Beats",
+"tags": [
+"creature",
+"words"
+]
+},
+{
+"id": "asset-forge.day-night-weather-cycle-recipes",
+"domain": "asset-forge",
+"title": "Day/Night and Weather Cycle Recipes: the Runtime State Machine Behind a Static Tint Preset",
+"tags": [
+"time"
+]
+},
+{
+"id": "asset-forge.deception-save-cadence-row",
+"domain": "asset-forge",
+"title": "Deception Save Cadence Row - An Eighth SAVE_CADENCE Entry for Tense-Social-Deception",
+"tags": [
+"group"
+]
+},
+{
+"id": "asset-forge.dressed-3d-prop-identity-recipes",
+"domain": "asset-forge",
+"title": "Dressed 3D Prop Identity Recipes (Above the Greybox Floor)",
+"tags": [
+"colour"
+]
+},
+{
+"id": "asset-forge.elemental-effect-shader-recipes",
+"domain": "asset-forge",
+"title": "Elemental-Effect Shader Recipes: Cheap Canvas-Item Fire, Lava, Electricity, Heat-Haze, and Poison for a Kit That Has Only Ever Shaded Water",
+"tags": [
+"colour",
+"group",
+"generated",
+"words",
+"sound"
+]
+},
+{
+"id": "asset-forge.enemy-behavior-recipes",
+"domain": "asset-forge",
+"title": "Enemy Behavior Recipes - Implementable Archetypes, Spawn Markers & a Threat-Density Curve",
+"tags": [
+"group",
+"words"
+]
+},
+{
+"id": "asset-forge.fixed-screen-arcade-playfield-recipes",
+"domain": "asset-forge",
+"title": "Fixed-Screen Arcade Playfield Recipes - The Single-Screen Arcade Field Class the Layout Family Never Covered",
+"tags": [
+"creature",
+"generated",
+"words",
+"sound",
+"code"
+]
+},
+{
+"id": "asset-forge.forge-taxonomy-expansion",
+"domain": "asset-forge",
+"title": "Forge Taxonomy Expansion - Minting New Profiles, Themes, and Lineages From Named Reports",
+"tags": [
+"group",
+"words",
+"code"
+]
+},
+{
+"id": "asset-forge.furniture-and-interior-prop-recipes",
+"domain": "asset-forge",
+"title": "Furniture and Interior Prop Recipes: The Mass Stacks Drawn Forward, and Which Pieces a Room Kind Wants",
+"tags": [
+"colour",
+"words"
+]
+},
+{
+"id": "asset-forge.godot-2d-look-recipes",
+"domain": "asset-forge",
+"title": "Godot 2D Look-Layer Runtime Recipes",
+"tags": [
+"colour",
+"time",
+"sound"
+]
+},
+{
+"id": "asset-forge.godot-save-system-recipes",
+"domain": "asset-forge",
+"title": "Godot Save System Recipes - Slots, Schema Versioning, Autosave & File Layout",
+"tags": [
+"time"
+]
+},
+{
+"id": "asset-forge.gritty-survival-audio-look-profile-defaults",
+"domain": "asset-forge",
+"title": "Gritty-Survival Audio/Look Profile Defaults: Closing the Seventh Profile's Sound and Mood Tables",
+"tags": [
+"sound",
+"code"
+]
+},
+{
+"id": "asset-forge.hud-icon-glyph-recipes",
+"domain": "asset-forge",
+"title": "HUD Icon Glyph Recipes, Grounding the Four Shipped Mini Archetypes",
+"tags": [
+"colour",
+"sound"
+]
+},
+{
+"id": "asset-forge.hum-and-voice-intake-recipes",
+"domain": "asset-forge",
+"title": "Turning a Creator's Mic Performance into Deterministic Assets",
+"tags": [
+"words",
+"sound"
+]
+},
+{
+"id": "asset-forge.idle-clicker-screen-composition-recipes",
+"domain": "asset-forge",
+"title": "Idle/Clicker Screen Composition Recipes: A Composed Screen for Counters, a Tap Target and an Upgrade Rail",
+"tags": [
+"time",
+"words"
+]
+},
+{
+"id": "asset-forge.inventory-collection-screen-recipes",
+"domain": "asset-forge",
+"title": "Inventory/Collection Screen Recipes: Row Composition and Layout for the INVENTORY and CODEX Overlays",
+"tags": [
+"colour"
+]
+},
+{
+"id": "asset-forge.level-layout-recipes",
+"domain": "asset-forge",
+"title": "Parameterized Level Layout Construction",
+"tags": [
+"words",
+"sound"
+]
+},
+{
+"id": "asset-forge.lore-set-dressing-recipes",
+"domain": "asset-forge",
+"title": "Lore Set-Dressing Recipes",
+"tags": [
+"group",
+"words"
+]
+},
+{
+"id": "asset-forge.many-agent-scene-recipes",
+"domain": "asset-forge",
+"title": "Many-Agent Scene Recipes - Holding a Horde Inside the Shipped Performance Floor",
+"tags": [
+"colour"
+]
+},
+{
+"id": "asset-forge.minimap-fast-travel-recipes",
+"domain": "asset-forge",
+"title": "Minimap and Fast Travel Recipes, Turning a Layout Graph into a Renderable Overlay",
+"tags": [
+"words"
+]
+},
+{
+"id": "asset-forge.mixed-dimensionality-routing-contract",
+"domain": "asset-forge",
+"title": "The Mixed-Dimensionality Routing Contract",
+"tags": [
+"creature",
+"generated"
+]
+},
+{
+"id": "asset-forge.moba-lane-and-battle-royale-circle-map-recipes",
+"domain": "asset-forge",
+"title": "MOBA Lane and Battle Royale Circle Map Recipes - Two Named Extensions to the Shipped Grammars",
+"tags": [
+"words"
+]
+},
+{
+"id": "asset-forge.music-loop-recipes",
+"domain": "asset-forge",
+"title": "Pattern-Based Seamless Music Loops",
+"tags": [
+"words",
+"sound"
+]
+},
+{
+"id": "asset-forge.noun-routing-contract",
+"domain": "asset-forge",
+"title": "The Noun Routing Contract: Resolving Any User Noun to a Grounded Route, or an Honest Changeable Default",
+"tags": [
+"creature",
+"code"
+]
+},
+{
+"id": "asset-forge.open-field-survivors-space-recipes",
+"domain": "asset-forge",
+"title": "Open-Field Survivors Space Recipes - The Unbounded Scrolling Field the Bounded Arena Grammar Never Shipped",
+"tags": [
+"colour",
+"group",
+"generated",
+"words"
+]
+},
+{
+"id": "asset-forge.palette-derivation-algorithms",
+"domain": "asset-forge",
+"title": "Palette Derivation Algorithms \u2014 Executable Palette Math from Base Swatches",
+"tags": [
+"colour"
+]
+},
+{
+"id": "asset-forge.parallax-mid-and-foreground-band-content-recipes",
+"domain": "asset-forge",
+"title": "Parallax Mid-and-Foreground Band Content Recipes: Earning the Two Bands the Look Layer Already Computes but the Renderer Never Draws",
+"tags": [
+"colour",
+"code"
+]
+},
+{
+"id": "asset-forge.particle-preset-recipes",
+"domain": "asset-forge",
+"title": "Parameterized Particle Presets by Intent",
+"tags": [
+"colour"
+]
+},
+{
+"id": "asset-forge.party-minigame-collection-frame",
+"domain": "asset-forge",
+"title": "Party Minigame Collection Frame: Round Rotation, Score Carry-Over and the Minigame-Slot Contract",
+"tags": [
+"generated",
+"words"
+]
+},
+{
+"id": "asset-forge.pcm-synthesis-implementation",
+"domain": "asset-forge",
+"title": "Correct 16-bit PCM/WAV Synthesis in Code (No Audio Libraries)",
+"tags": [
+"sound"
+]
+},
+{
+"id": "asset-forge.pixel-shading-ramp-recipes",
+"domain": "asset-forge",
+"title": "Pixel Shading Ramp Recipes \u2014 Flat Sprites to Shaded, Keyed by Fidelity Tier",
+"tags": [
+"colour"
+]
+},
+{
+"id": "asset-forge.player-offense-contact-recipes",
+"domain": "asset-forge",
+"title": "Player-Offense Contact Recipes: Player-Dealt Melee, Auto-Fire & Aura, Enemy HP Reception, and the Deterministic Kill-XP Floor",
+"tags": [
+"group",
+"generated"
+]
+},
+{
+"id": "asset-forge.portrait-expression-recipes",
+"domain": "asset-forge",
+"title": "Portrait Expression Recipes, A Bounded Emotion-Tag Vocabulary as Primitive Deltas Over the Identikit Face Slot",
+"tags": [
+"colour",
+"words"
+]
+},
+{
+"id": "asset-forge.primitive-3d-standins",
+"domain": "asset-forge",
+"title": "Style-True 3D Stand-Ins from Primitives",
+"tags": [
+"creature",
+"colour",
+"words"
+]
+},
+{
+"id": "asset-forge.procedural-texture-pattern-fills",
+"domain": "asset-forge",
+"title": "Procedural Texture Pattern Fills, A Seeded, Palette-Constrained Surface Vocabulary Beyond Flat Color and Fixed Bayer Dither",
+"tags": [
+"words"
+]
+},
+{
+"id": "asset-forge.progression-math-recipes",
+"domain": "asset-forge",
+"title": "Progression Math Recipes - XP Growth Curves, Level Thresholds, Upgrade Magnitudes & Prestige Rules",
+"tags": [
+"time"
+]
+},
+{
+"id": "asset-forge.quest-tracking-journal-recipes",
+"domain": "asset-forge",
+"title": "Quest Tracking & Journal Recipes: The Executable Objective Floor and the Journal Screen",
+"tags": [
+"time",
+"group"
+]
+},
+{
+"id": "asset-forge.rhythm-lane-grammar-recipes",
+"domain": "asset-forge",
+"title": "Rhythm Lane Grammar Recipes: A Scrolling Note Highway Derived from the Forge's Own Music",
+"tags": [
+"words",
+"sound"
+]
+},
+{
+"id": "asset-forge.run-draft-choice-screen-recipes",
+"domain": "asset-forge",
+"title": "Run Draft Choice Screen Recipes: The Pick-One-Of-N Mid-Run Overlay",
+"tags": [
+"group",
+"generated"
+]
+},
+{
+"id": "asset-forge.run-map-node-graph-recipes",
+"domain": "asset-forge",
+"title": "Run Map Node Graph Recipes: A Branching Run-Map Screen for Roguelite Node Selection",
+"tags": [
+"economy",
+"words"
+]
+},
+{
+"id": "asset-forge.run-upgrade-and-relic-effect-grammar",
+"domain": "asset-forge",
+"title": "Run-Upgrade and Relic Effect Grammar: The Closed Effect Vocabulary and the Upgrade-Id-to-Numeric-Change Binding",
+"tags": [
+"group",
+"generated",
+"words"
+]
+},
+{
+"id": "asset-forge.runtime-seed-determinism-recipes",
+"domain": "asset-forge",
+"title": "Runtime Seed Determinism Recipes: The Shared game_seed Field, Per-Consumer Stream Derivation & the Per-Project Divergence Contract",
+"tags": [
+"time",
+"group",
+"generated",
+"sound"
+]
+},
+{
+"id": "asset-forge.screen-composition-recipes",
+"domain": "asset-forge",
+"title": "Composed Screens for Non-Spatial Genres",
+"tags": [
+"colour",
+"group",
+"generated",
+"words"
+]
+},
+{
+"id": "asset-forge.settings-menu-recipes",
+"domain": "asset-forge",
+"title": "Settings Menu & Accessibility Floor Recipes",
+"tags": [
+"sound"
+]
+},
+{
+"id": "asset-forge.settings-row-geometry-and-overlay-scrim",
+"domain": "asset-forge",
+"title": "Settings Row Geometry & Overlay Scrim Recipes",
+"tags": [
+"colour",
+"group"
+]
+},
+{
+"id": "asset-forge.shadow-grounding-recipes",
+"domain": "asset-forge",
+"title": "Shadow-Grounding Recipes, Baked Contact Shadows That Read Height, Not Decorate It",
+"tags": [
+"colour"
+]
+},
+{
+"id": "asset-forge.shape-grammar-sprites",
+"domain": "asset-forge",
+"title": "Procedural 2D Sprites from Shape Primitives",
+"tags": [
+"creature"
+]
+},
+{
+"id": "asset-forge.shop-economy-recipes",
+"domain": "asset-forge",
+"title": "Shop Economy Recipes: The Inventory Contract, Price Bands, Currency Sinks, and the Buy/Sell Floor",
+"tags": [
+"economy",
+"words"
+]
+},
+{
+"id": "asset-forge.small-model-spec-emission",
+"domain": "asset-forge",
+"title": "Small-Model Spec Emission \u2014 Structured Creative Parameter Schemas a Small Local Model Can Fill Reliably",
+"tags": [
+"words"
+]
+},
+{
+"id": "asset-forge.social-deception-meeting-mode-recipes",
+"domain": "asset-forge",
+"title": "Social Deception Meeting Mode Recipes: A Fourth Composed Screen for Discussion, Accusation and Reveal",
+"tags": [
+"economy",
+"group"
+]
+},
+{
+"id": "asset-forge.soundfont-arrangement-recipes",
+"domain": "asset-forge",
+"title": "Deterministic Note Data to Real-Instrument Arrangements",
+"tags": [
+"sound"
+]
+},
+{
+"id": "asset-forge.sports-field-grammar-recipes",
+"domain": "asset-forge",
+"title": "Sports Field Grammar Recipes: A Rule-Marked Pitch/Court Grammar for the Layout Forge",
+"tags": [
+"creature",
+"group",
+"words"
+]
+},
+{
+"id": "asset-forge.sprite-animation-pose-recipes",
+"domain": "asset-forge",
+"title": "Sprite Animation Pose Recipes, A Pose-by-Pose Keyframe Vocabulary That Retires the Fixed Four-Frame Ceiling",
+"tags": [
+"creature",
+"colour",
+"time",
+"code"
+]
+},
+{
+"id": "asset-forge.sprite-rig-expansion-recipes",
+"domain": "asset-forge",
+"title": "Sprite Rig Expansion Recipes: Facings, New Rig Families, Boss Scale, and the Clip Vocabulary",
+"tags": [
+"creature",
+"words"
+]
+},
+{
+"id": "asset-forge.strategy-map-grammar-recipes",
+"domain": "asset-forge",
+"title": "Strategy Map Grammar Recipes, A Base-and-Resource Map Grammar for the Layout Forge",
+"tags": [
+"group",
+"generated",
+"words"
+]
+},
+{
+"id": "asset-forge.surface-wear-and-decal-recipes",
+"domain": "asset-forge",
+"title": "Surface Wear and Decal Recipes, Executable Damage-State and Weathering Overlays for the Forge's Primitive Vocabulary",
+"tags": [
+"colour",
+"group"
+]
+},
+{
+"id": "asset-forge.theme-enum-grounding-backfill",
+"domain": "asset-forge",
+"title": "Theme Enum Grounding Backfill: Citing the Original BgFeature and AmbienceCharacter Members",
+"tags": [
+"sound"
+]
+},
+{
+"id": "asset-forge.title-key-art-composition-recipes",
+"domain": "asset-forge",
+"title": "Title-Key-Art Composition Recipes: Hero-Slot, Backdrop, and Wordmark Templates Built Only From Assets the Build Already Owns",
+"tags": [
+"generated",
+"words",
+"code"
+]
+},
+{
+"id": "asset-forge.turn-based-encounter-engine-recipes",
+"domain": "asset-forge",
+"title": "Turn-Based Encounter Engine Recipes: Turn Order, Action Resolution, and Enemy Intent Telegraphs",
+"tags": [
+"colour",
+"group"
+]
+},
+{
+"id": "asset-forge.ui-theming-from-palette",
+"domain": "asset-forge",
+"title": "Godot UI Theme Derivation from a Style Brief",
+"tags": [
+"colour"
+]
+},
+{
+"id": "asset-forge.wasteland-dressing-family-recipes",
+"domain": "asset-forge",
+"title": "Wasteland Dressing Family Recipes, A Sixth Lore-Dressing Grammar for Gritty-Survival Worlds",
+"tags": [
+"group",
+"words"
+]
+},
+{
+"id": "asset-forge.world-difficulty-curve-recipes",
+"domain": "asset-forge",
+"title": "World Difficulty Curve Recipes - Progression Across Spaces, Not Just Within One",
+"tags": [
+"time"
+]
+},
+{
+"id": "audio.adaptive-interactive-music",
+"domain": "audio",
+"title": "Adaptive / Interactive / Dynamic Music",
+"tags": [
+"time",
+"sound"
+]
+},
+{
+"id": "audio.audio-accessibility",
+"domain": "audio",
+"title": "Audio Accessibility",
+"tags": [
+"words",
+"sound"
+]
+},
+{
+"id": "audio.audio-asset-pipeline",
+"domain": "audio",
+"title": "Audio Asset Pipeline",
+"tags": [
+"words",
+"sound"
+]
+},
+{
+"id": "audio.audio-direction-sonic-identity",
+"domain": "audio",
+"title": "Audio Direction & Sonic Identity",
+"tags": [
+"colour",
+"words",
+"sound"
+]
+},
+{
+"id": "audio.audio-emotion-psychoacoustics",
+"domain": "audio",
+"title": "Audio & Emotion / Psychoacoustics",
+"tags": [
+"sound"
+]
+},
+{
+"id": "audio.audio-engine-middleware",
+"domain": "audio",
+"title": "Audio Engine & Middleware (Wwise/FMOD/built-in/custom)",
+"tags": [
+"sound"
+]
+},
+{
+"id": "audio.audio-game-feel-juice",
+"domain": "audio",
+"title": "Audio for Game Feel / Juice / Feedback",
+"tags": [
+"creature",
+"sound"
+]
+},
+{
+"id": "audio.audio-implementation-event-systems",
+"domain": "audio",
+"title": "Audio Implementation & Event Systems",
+"tags": [
+"words",
+"sound"
+]
+},
+{
+"id": "audio.audio-optimization",
+"domain": "audio",
+"title": "Audio Optimization (Voice Management, Streaming, Memory & CPU)",
+"tags": [
+"sound"
+]
+},
+{
+"id": "audio.audio-settings-player-options",
+"domain": "audio",
+"title": "Audio Settings & Player Options",
+"tags": [
+"sound"
+]
+},
+{
+"id": "audio.dialogue-systems-vo-pipeline",
+"domain": "audio",
+"title": "Dialogue Systems & VO Pipeline",
+"tags": [
+"words"
+]
+},
+{
+"id": "audio.diegetic-non-diegetic-audio",
+"domain": "audio",
+"title": "Diegetic vs. Non-Diegetic Audio",
+"tags": [
+"sound"
+]
+},
+{
+"id": "audio.dsp-real-time-effects",
+"domain": "audio",
+"title": "DSP & Real-Time Audio Effects",
+"tags": [
+"sound"
+]
+},
+{
+"id": "audio.dynamic-mixing-mastering",
+"domain": "audio",
+"title": "Dynamic Mixing & Mastering",
+"tags": [
+"sound"
+]
+},
+{
+"id": "audio.environmental-acoustics-reverb-occlusion",
+"domain": "audio",
+"title": "Environmental Acoustics (Reverb, Occlusion, Obstruction & Propagation)",
+"tags": [
+"colour",
+"generated"
+]
+},
+{
+"id": "audio.foley-recording",
+"domain": "audio",
+"title": "Foley & Recording for Games",
+"tags": [
+"words"
+]
+},
+{
+"id": "audio.footsteps-surface-audio",
+"domain": "audio",
+"title": "Footsteps & Surface-Based Audio",
+"tags": [
+"colour",
+"sound"
+]
+},
+{
+"id": "audio.game-music-composition-scoring",
+"domain": "audio",
+"title": "Game Music Composition & Scoring",
+"tags": [
+"colour",
+"sound"
+]
+},
+{
+"id": "audio.generative-procedural-music",
+"domain": "audio",
+"title": "Generative / Procedural Music",
+"tags": [
+"generated"
+]
+},
+{
+"id": "audio.lip-sync-facial-audio-integration",
+"domain": "audio",
+"title": "Lip-Sync & Facial Audio Integration (Audio Side)",
+"tags": [
+"creature",
+"time",
+"sound"
+]
+},
+{
+"id": "audio.localization-audio",
+"domain": "audio",
+"title": "Localization Audio (Multi-Language VO)",
+"tags": [
+"words",
+"sound"
+]
+},
+{
+"id": "audio.music-tension-pacing",
+"domain": "audio",
+"title": "Music as Tension & Pacing",
+"tags": [
+"time",
+"sound"
+]
+},
+{
+"id": "audio.procedural-synthesized-audio",
+"domain": "audio",
+"title": "Procedural / Synthesized Audio (Runtime Sound Generation)",
+"tags": [
+"sound"
+]
+},
+{
+"id": "audio.sound-design-fundamentals",
+"domain": "audio",
+"title": "Sound Design Fundamentals (Creating Game SFX)",
+"tags": [
+"sound"
+]
+},
+{
+"id": "audio.ui-interface-audio",
+"domain": "audio",
+"title": "UI / Interface Audio",
+"tags": [
+"colour",
+"sound"
+]
+},
+{
+"id": "audio.vehicle-engine-audio",
+"domain": "audio",
+"title": "Vehicle & Engine Audio",
+"tags": [
+"sound"
+]
+},
+{
+"id": "audio.weapon-combat-audio",
+"domain": "audio",
+"title": "Weapon & Combat Audio",
+"tags": [
+"colour",
+"sound"
+]
+},
+{
+"id": "bestiary.blue-shark",
+"domain": "bestiary",
+"title": "Blue Shark (Prionace glauca): the fourth bestiary specimen, and the first no-plan-fits declaration",
+"tags": [
+"creature",
+"code"
+]
+},
+{
+"id": "bestiary.brown-bear",
+"domain": "bestiary",
+"title": "Brown Bear (Ursus arctos): the fourth bestiary specimen",
+"tags": [
+"creature",
+"colour"
+]
+},
+{
+"id": "bestiary.brown-rat",
+"domain": "bestiary",
+"title": "Brown Rat (Rattus norvegicus): the seventh bestiary specimen",
+"tags": [
+"creature"
+]
+},
+{
+"id": "bestiary.cattle",
+"domain": "bestiary",
+"title": "Domestic Cattle (Bos taurus): the seventh bestiary specimen",
+"tags": [
+"creature",
+"time",
+"group"
+]
+},
+{
+"id": "bestiary.common-frog",
+"domain": "bestiary",
+"title": "Common Frog (Rana temporaria): the fifth bestiary specimen, and the first amphibian",
+"tags": [
+"creature"
+]
+},
+{
+"id": "bestiary.common-octopus",
+"domain": "bestiary",
+"title": "Common Octopus (Octopus vulgaris): the fifth bestiary specimen, and the first animal with no skeleton at all",
+"tags": [
+"creature",
+"words"
+]
+},
+{
+"id": "bestiary.horse",
+"domain": "bestiary",
+"title": "Domestic Horse (Equus ferus caballus): the fourth bestiary specimen",
+"tags": [
+"creature",
+"time"
+]
+},
+{
+"id": "bestiary.house-cat",
+"domain": "bestiary",
+"title": "Domestic Cat (Felis catus): the seventh bestiary specimen",
+"tags": [
+"creature"
+]
+},
+{
+"id": "bestiary.rabbit",
+"domain": "bestiary",
+"title": "European Rabbit (*Oryctolagus cuniculus*): the seventh bestiary specimen, and the first lagomorph",
+"tags": [
+"creature",
+"colour"
+]
+},
+{
+"id": "bestiary.red-kangaroo",
+"domain": "bestiary",
+"title": "Red Kangaroo (Osphranter rufus): the bestiary's first marsupial, and its first pentapedal gait",
+"tags": [
+"creature"
+]
+},
+{
+"id": "bestiary.shore-crab",
+"domain": "bestiary",
+"title": "European Shore Crab (Carcinus maenas): the fifth bestiary specimen, and the first arthropod on a plan that already carries one",
+"tags": [
+"creature",
+"time"
+]
+},
+{
+"id": "bestiary.white-tailed-deer",
+"domain": "bestiary",
+"title": "White-tailed Deer (Odocoileus virginianus): the first bestiary specimen",
+"tags": [
+"creature"
+]
+},
+{
+"id": "bestiary.wild-boar",
+"domain": "bestiary",
+"title": "Wild Boar (Sus scrofa): the third bestiary specimen",
+"tags": [
+"creature"
+]
+},
+{
+"id": "bestiary.wolf-spider",
+"domain": "bestiary",
+"title": "Wolf Spider (Lycosidae): the second bestiary specimen",
+"tags": [
+"creature"
+]
+},
+{
+"id": "business-legal.ip-asset-licensing-for-shipping",
+"domain": "business-legal",
+"title": "IP & Asset Licensing for Shipping a Game",
+"tags": [
+"sound"
+]
+},
+{
+"id": "business-legal.minors-data-privacy-coppa-compliance",
+"domain": "business-legal",
+"title": "Minors' Data Privacy and COPPA/GDPR-K Compliance \u2014 The Consent-Capacity Problem, Age-Gate Design, and What Changes in Analytics, Ads, and Account Systems",
+"tags": [
+"economy"
+]
+},
+{
+"id": "claude-assisted-engine-build.agentic-multi-agent-orchestration-game-dev",
+"domain": "claude-assisted-engine-build",
+"title": "Agentic & Multi-Agent Orchestration for Game Dev",
+"tags": [
+"group"
+]
+},
+{
+"id": "claude-assisted-engine-build.ai-assisted-development-custom-engine",
+"domain": "claude-assisted-engine-build",
+"title": "AI-Assisted Development in a Custom Engine",
+"tags": [
+"colour"
+]
+},
+{
+"id": "claude-assisted-engine-build.ai-assisted-development-unity",
+"domain": "claude-assisted-engine-build",
+"title": "AI-Assisted Development in Unity",
+"tags": [
+"words",
+"code"
+]
+},
+{
+"id": "claude-assisted-engine-build.ai-assisted-development-unreal",
+"domain": "claude-assisted-engine-build",
+"title": "AI-Assisted Development in Unreal Engine",
+"tags": [
+"words"
+]
+},
+{
+"id": "claude-assisted-engine-build.ai-legible-codebase",
+"domain": "claude-assisted-engine-build",
+"title": "Making the Codebase AI-Legible",
+"tags": [
+"group",
+"words"
+]
+},
+{
+"id": "claude-assisted-engine-build.asset-content-pipeline-automation",
+"domain": "claude-assisted-engine-build",
+"title": "Asset & Content Pipeline Automation with Claude",
+"tags": [
+"code"
+]
+},
+{
+"id": "claude-assisted-engine-build.avoiding-ai-slop-craft-taste-distinctiveness",
+"domain": "claude-assisted-engine-build",
+"title": "Avoiding AI Slop \u2014 Keeping Craft, Taste & Distinctiveness",
+"tags": [
+"words"
+]
+},
+{
+"id": "claude-assisted-engine-build.build-ci-automation-with-claude",
+"domain": "claude-assisted-engine-build",
+"title": "Build & CI Automation with Claude",
+"tags": [
+"group"
+]
+},
+{
+"id": "claude-assisted-engine-build.building-custom-engine-framework-with-claude",
+"domain": "claude-assisted-engine-build",
+"title": "Building a Custom Engine/Framework with Claude",
+"tags": [
+"sound"
+]
+},
+{
+"id": "claude-assisted-engine-build.claude-assisted-workflow-setup",
+"domain": "claude-assisted-engine-build",
+"title": "Claude-Assisted Game-Dev Workflow Setup",
+"tags": [
+"code"
+]
+},
+{
+"id": "claude-assisted-engine-build.claude-md-living-project-knowledge",
+"domain": "claude-assisted-engine-build",
+"title": "CLAUDE.md and Living Project Knowledge",
+"tags": [
+"creature",
+"code"
+]
+},
+{
+"id": "claude-assisted-engine-build.connecting-claude-to-engine-mcp-editor-automation",
+"domain": "claude-assisted-engine-build",
+"title": "Connecting Claude to the Engine (MCP & Editor Automation)",
+"tags": [
+"group"
+]
+},
+{
+"id": "claude-assisted-engine-build.data-driven-design-with-claude",
+"domain": "claude-assisted-engine-build",
+"title": "Data-Driven Design with Claude",
+"tags": [
+"words"
+]
+},
+{
+"id": "claude-assisted-engine-build.debugging-profiling-with-claude",
+"domain": "claude-assisted-engine-build",
+"title": "Debugging & Profiling with Claude",
+"tags": [
+"generated"
+]
+},
+{
+"id": "claude-assisted-engine-build.editor-tools-automation-scripts",
+"domain": "claude-assisted-engine-build",
+"title": "Building Editor Tools & Automation Scripts with Claude",
+"tags": [
+"code"
+]
+},
+{
+"id": "claude-assisted-engine-build.functional-cursor-recipes",
+"domain": "claude-assisted-engine-build",
+"title": "Functional Cursor Recipes: Installing a Working Custom Mouse Cursor in Godot 4",
+"tags": [
+"colour",
+"words"
+]
+},
+{
+"id": "claude-assisted-engine-build.game-engine-specific-mcp-servers-tools",
+"domain": "claude-assisted-engine-build",
+"title": "Building Game/Engine-Specific MCP Servers & Tools",
+"tags": [
+"words"
+]
+},
+{
+"id": "claude-assisted-engine-build.guardrails-ai-driven-game-development",
+"domain": "claude-assisted-engine-build",
+"title": "Guardrails for AI-Driven Game Development",
+"tags": [
+"code"
+]
+},
+{
+"id": "claude-assisted-engine-build.procedural-content-generation-pipelines-claude",
+"domain": "claude-assisted-engine-build",
+"title": "Procedural Content Generation Pipelines with Claude",
+"tags": [
+"time",
+"generated",
+"words"
+]
+},
+{
+"id": "claude-assisted-engine-build.refactoring-migration-with-claude",
+"domain": "claude-assisted-engine-build",
+"title": "Refactoring & Migration with Claude",
+"tags": [
+"code"
+]
+},
+{
+"id": "claude-assisted-engine-build.reusable-claude-skills-prompt-libraries",
+"domain": "claude-assisted-engine-build",
+"title": "Reusable Skills and Prompt Libraries for Game Dev",
+"tags": [
+"group",
+"generated",
+"code"
+]
+},
+{
+"id": "claude-assisted-engine-build.reviewing-trusting-ai-generated-game-code",
+"domain": "claude-assisted-engine-build",
+"title": "Reviewing & Trusting AI-Generated Game Code",
+"tags": [
+"group",
+"code"
+]
+},
+{
+"id": "claude-assisted-engine-build.test-generation-qa-automation-claude",
+"domain": "claude-assisted-engine-build",
+"title": "Test Generation & QA Automation with Claude",
+"tags": [
+"group",
+"generated",
+"code"
+]
+},
+{
+"id": "claude-assisted-engine-build.verification-loops-build-run-observe-fix",
+"domain": "claude-assisted-engine-build",
+"title": "Verification Loops: Build \u2192 Run \u2192 Observe \u2192 Fix",
+"tags": [
+"code"
+]
+},
+{
+"id": "communities-premises.anatomy-believable-community",
+"domain": "communities-premises",
+"title": "Anatomy of a Believable Community",
+"tags": [
+"creature",
+"group"
+]
+},
+{
+"id": "communities-premises.anti-slop-premise-interrogation",
+"domain": "communities-premises",
+"title": "The Anti-Slop Premise Interrogation",
+"tags": [
+"generated",
+"code"
+]
+},
+{
+"id": "communities-premises.apprenticeship-earned-succession-premises",
+"domain": "communities-premises",
+"title": "Apprenticeship & Earned Succession \u2014 Trials, Rivals, and the Master's Decline",
+"tags": [
+"code"
+]
+},
+{
+"id": "communities-premises.architecture-built-environment",
+"domain": "communities-premises",
+"title": "Architecture & the Built Environment",
+"tags": [
+"colour",
+"economy"
+]
+},
+{
+"id": "communities-premises.backstory-premise-community-integration",
+"domain": "communities-premises",
+"title": "Backstory\u2013Premise\u2013Community Integration",
+"tags": [
+"group",
+"code"
+]
+},
+{
+"id": "communities-premises.class-in-everyday-life",
+"domain": "communities-premises",
+"title": "Class in Everyday Life",
+"tags": [
+"colour"
+]
+},
+{
+"id": "communities-premises.class-purchasing-power",
+"domain": "communities-premises",
+"title": "Class & Purchasing Power",
+"tags": [
+"economy"
+]
+},
+{
+"id": "communities-premises.community-obligation-civic-duty-premises",
+"domain": "communities-premises",
+"title": "Community Obligation & Civic-Duty Premises",
+"tags": [
+"colour",
+"economy",
+"group",
+"code"
+]
+},
+{
+"id": "communities-premises.crafts-trades-work-rhythms",
+"domain": "communities-premises",
+"title": "Crafts, Trades & Work Rhythms",
+"tags": [
+"economy",
+"group"
+]
+},
+{
+"id": "communities-premises.debt-desperation-premises",
+"domain": "communities-premises",
+"title": "Debt & Desperation Premises",
+"tags": [
+"colour",
+"economy"
+]
+},
+{
+"id": "communities-premises.dialect-fashion-regional-identity",
+"domain": "communities-premises",
+"title": "Dialect, Fashion & Regional Identity",
+"tags": [
+"economy",
+"code"
+]
+},
+{
+"id": "communities-premises.disaster-rebuilding-premises",
+"domain": "communities-premises",
+"title": "Disaster & Rebuilding Premises",
+"tags": [
+"group"
+]
+},
+{
+"id": "communities-premises.etiquette-social-scripts",
+"domain": "communities-premises",
+"title": "Etiquette & Social Scripts",
+"tags": [
+"words"
+]
+},
+{
+"id": "communities-premises.exile-arrival-outsider-premises",
+"domain": "communities-premises",
+"title": "Exile, Arrival & Outsider Premises",
+"tags": [
+"group"
+]
+},
+{
+"id": "communities-premises.families-households-kinship",
+"domain": "communities-premises",
+"title": "Families, Households & Kinship",
+"tags": [
+"economy",
+"group"
+]
+},
+{
+"id": "communities-premises.feuds-grudges-reconciliation",
+"domain": "communities-premises",
+"title": "Feuds, Grudges & Reconciliation",
+"tags": [
+"creature"
+]
+},
+{
+"id": "communities-premises.foodways",
+"domain": "communities-premises",
+"title": "Foodways",
+"tags": [
+"economy"
+]
+},
+{
+"id": "communities-premises.generic-premise-failure-taxonomy",
+"domain": "communities-premises",
+"title": "Generic-Premise Failure Taxonomy",
+"tags": [
+"group"
+]
+},
+{
+"id": "communities-premises.gossip-networks-informal-power",
+"domain": "communities-premises",
+"title": "Gossip Networks & Informal Power",
+"tags": [
+"group",
+"generated"
+]
+},
+{
+"id": "communities-premises.grounded-backstory-design-stakes-framework",
+"domain": "communities-premises",
+"title": "Grounded Backstory Design \u2014 The Stakes Framework",
+"tags": [
+"group"
+]
+},
+{
+"id": "communities-premises.holidays-festivals",
+"domain": "communities-premises",
+"title": "Holidays & Festivals",
+"tags": [
+"group",
+"words"
+]
+},
+{
+"id": "communities-premises.hospitals-healers-care",
+"domain": "communities-premises",
+"title": "Hospitals, Healers & Care",
+"tags": [
+"economy",
+"group",
+"code"
+]
+},
+{
+"id": "communities-premises.inheritance-family-legacy-premises",
+"domain": "communities-premises",
+"title": "Inheritance & Family-Legacy Premises",
+"tags": [
+"economy",
+"words"
+]
+},
+{
+"id": "communities-premises.landlords-banks-money-institutions",
+"domain": "communities-premises",
+"title": "Landlords, Banks & Money Institutions",
+"tags": [
+"colour",
+"group"
+]
+},
+{
+"id": "communities-premises.local-myths-legends-folk-history",
+"domain": "communities-premises",
+"title": "Local Myths, Legends & Folk History",
+"tags": [
+"economy"
+]
+},
+{
+"id": "communities-premises.markets-merchant-life",
+"domain": "communities-premises",
+"title": "Markets & Merchant Life",
+"tags": [
+"economy",
+"sound"
+]
+},
+{
+"id": "communities-premises.material-stakes-grounding",
+"domain": "communities-premises",
+"title": "Material Stakes Grounding",
+"tags": [
+"group",
+"words"
+]
+},
+{
+"id": "communities-premises.names-local-naming",
+"domain": "communities-premises",
+"title": "Names & Local Naming",
+"tags": [
+"economy"
+]
+},
+{
+"id": "communities-premises.newcomer-arc",
+"domain": "communities-premises",
+"title": "The Newcomer Arc",
+"tags": [
+"economy",
+"words",
+"code"
+]
+},
+{
+"id": "communities-premises.origin-generators-systematized-backstories",
+"domain": "communities-premises",
+"title": "Origin Generators & Systematized Backstories",
+"tags": [
+"code"
+]
+},
+{
+"id": "communities-premises.patronage-protection",
+"domain": "communities-premises",
+"title": "Patronage & Protection",
+"tags": [
+"code"
+]
+},
+{
+"id": "communities-premises.power-mapping-community",
+"domain": "communities-premises",
+"title": "Power-Mapping a Community",
+"tags": [
+"group"
+]
+},
+{
+"id": "communities-premises.price-perception-haggling",
+"domain": "communities-premises",
+"title": "Price Perception & Haggling",
+"tags": [
+"economy",
+"group"
+]
+},
+{
+"id": "communities-premises.property-ownership",
+"domain": "communities-premises",
+"title": "Property & Ownership",
+"tags": [
+"words"
+]
+},
+{
+"id": "communities-premises.public-spaces-where-life-happens",
+"domain": "communities-premises",
+"title": "Public Spaces & Where Life Happens",
+"tags": [
+"economy"
+]
+},
+{
+"id": "communities-premises.rent-overhead-cost-of-doing-business",
+"domain": "communities-premises",
+"title": "Rent, Overhead & the Cost of Doing Business",
+"tags": [
+"colour",
+"economy"
+]
+},
+{
+"id": "communities-premises.reputation-economic-force",
+"domain": "communities-premises",
+"title": "Reputation as an Economic Force",
+"tags": [
+"group",
+"words"
+]
+},
+{
+"id": "communities-premises.rule-enforcement-selective-law",
+"domain": "communities-premises",
+"title": "Rule Enforcement & Selective Law",
+"tags": [
+"economy",
+"group"
+]
+},
+{
+"id": "communities-premises.rumor-reputation-systems",
+"domain": "communities-premises",
+"title": "Rumor & Reputation Systems",
+"tags": [
+"time"
+]
+},
+{
+"id": "communities-premises.scarcity-spoilage-inventory-reality",
+"domain": "communities-premises",
+"title": "Scarcity, Spoilage & Inventory Reality",
+"tags": [
+"economy"
+]
+},
+{
+"id": "communities-premises.schools-teachers-how-people-learn",
+"domain": "communities-premises",
+"title": "Schools, Teachers & How People Learn",
+"tags": [
+"economy",
+"group"
+]
+},
+{
+"id": "communities-premises.seasonal-demand-economic-rhythms",
+"domain": "communities-premises",
+"title": "Seasonal Demand & Economic Rhythms",
+"tags": [
+"economy"
+]
+},
+{
+"id": "communities-premises.social-obligation-favor-economy",
+"domain": "communities-premises",
+"title": "Social Obligation & the Favor Economy",
+"tags": [
+"group"
+]
+},
+{
+"id": "communities-premises.status-standing-small-community",
+"domain": "communities-premises",
+"title": "Status & Standing in a Small Community",
+"tags": [
+"words"
+]
+},
+{
+"id": "communities-premises.taboos-superstitions",
+"domain": "communities-premises",
+"title": "Taboos & Superstitions",
+"tags": [
+"group"
+]
+},
+{
+"id": "communities-premises.temples-churches-religious-life",
+"domain": "communities-premises",
+"title": "Temples, Churches & Religious Life",
+"tags": [
+"colour",
+"economy",
+"group",
+"words",
+"code"
+]
+},
+{
+"id": "communities-premises.the-invisible-and-the-exploited",
+"domain": "communities-premises",
+"title": "The Invisible & the Exploited",
+"tags": [
+"group",
+"words"
+]
+},
+{
+"id": "communities-premises.the-past-as-playable-content",
+"domain": "communities-premises",
+"title": "The Past as Playable Content",
+"tags": [
+"code"
+]
+},
+{
+"id": "communities-premises.tourism-outsiders-external-money",
+"domain": "communities-premises",
+"title": "Tourism, Outsiders & External Money",
+"tags": [
+"economy",
+"group",
+"sound"
+]
+},
+{
+"id": "communities-premises.trade-routes-transport-tariffs",
+"domain": "communities-premises",
+"title": "Trade Routes, Transport & Tariffs",
+"tags": [
+"economy"
+]
+},
+{
+"id": "communities-premises.trust-distrust-logic",
+"domain": "communities-premises",
+"title": "Trust & Distrust Logic",
+"tags": [
+"economy",
+"group"
+]
+},
+{
+"id": "communities-premises.where-goods-come-from-supply-chains",
+"domain": "communities-premises",
+"title": "Where Goods Come From \u2014 Supply Chains",
+"tags": [
+"economy",
+"group"
+]
+},
+{
+"id": "communities-premises.why-player-gets-the-shop-premise-catalog",
+"domain": "communities-premises",
+"title": "Why the Player Gets the Shop \u2014 The Premise Catalog",
+"tags": [
+"group",
+"words"
+]
+},
+{
+"id": "communities-premises.zoning-licenses-institutional-pressure-premises",
+"domain": "communities-premises",
+"title": "Zoning, Licenses & Institutional Pressure",
+"tags": [
+"economy"
+]
+},
+{
+"id": "engine-tech.asset-resource-management-streaming",
+"domain": "engine-tech",
+"title": "Asset & Resource Management: Loading, Memory Budgets & Streaming",
+"tags": [
+"colour"
+]
+},
+{
+"id": "engine-tech.engine-architecture-subsystems-game-loop",
+"domain": "engine-tech",
+"title": "Engine Architecture \u2014 Subsystems, the Game Loop & Data Organization",
+"tags": [
+"group",
+"sound"
+]
+},
+{
+"id": "engine-tech.localization-pipeline-architecture",
+"domain": "engine-tech",
+"title": "Localization Pipeline Architecture",
+"tags": [
+"words"
+]
+},
+{
+"id": "engine-tech.physics-engine-integration-selection",
+"domain": "engine-tech",
+"title": "Physics Engine Integration & Selection",
+"tags": [
+"group"
+]
+},
+{
+"id": "engine-tech.save-systems-serialization-versioning",
+"domain": "engine-tech",
+"title": "Save Systems: Serialization, Versioning & Migration",
+"tags": [
+"time",
+"sound"
+]
+},
+{
+"id": "game-design.chart-taxonomy-recipes",
+"domain": "game-design",
+"title": "Chart Taxonomy Recipes: Grounding GameTev's PART-KIND and FLOW-KIND Vocabularies",
+"tags": [
+"time",
+"words",
+"sound"
+]
+},
+{
+"id": "game-design.game-meta-features-systems",
+"domain": "game-design",
+"title": "The \\\"Wrapper\\\" Systems Around Core Gameplay: A Full Catalog",
+"tags": [
+"group"
+]
+},
+{
+"id": "game-design.journey-act-chapter-structure-recipes",
+"domain": "game-design",
+"title": "Journey Act/Chapter Structure Recipes: A Closed Grouping Vocabulary Above the Beat",
+"tags": [
+"time",
+"sound"
+]
+},
+{
+"id": "game-dev-teaching.debugging-troubleshooting-pedagogy",
+"domain": "game-dev-teaching",
+"title": "Debugging & Troubleshooting Pedagogy",
+"tags": [
+"generated"
+]
+},
+{
+"id": "game-dev-teaching.design-critique-revision-loops",
+"domain": "game-dev-teaching",
+"title": "Design Critique & Revision Loops",
+"tags": [
+"code"
+]
+},
+{
+"id": "game-dev-teaching.misconception-libraries",
+"domain": "game-dev-teaching",
+"title": "Misconception Libraries",
+"tags": [
+"creature",
+"economy"
+]
+},
+{
+"id": "game-dev-teaching.project-based-lesson-design",
+"domain": "game-dev-teaching",
+"title": "Project-Based Lesson Design",
+"tags": [
+"code"
+]
+},
+{
+"id": "game-dev-teaching.skill-tree-mapping-game-dev",
+"domain": "game-dev-teaching",
+"title": "Skill-Tree Mapping for Game Development",
+"tags": [
+"sound"
+]
+},
+{
+"id": "game-dev-teaching.teach-me-how-model",
+"domain": "game-dev-teaching",
+"title": "The Teach-Me-How Model",
+"tags": [
+"code"
+]
+},
+{
+"id": "game-dev-teaching.teaching-design-decisions",
+"domain": "game-dev-teaching",
+"title": "Teaching Design Decisions, Not Just Implementation",
+"tags": [
+"creature"
+]
+},
+{
+"id": "game-dev-teaching.walkthrough-anatomy",
+"domain": "game-dev-teaching",
+"title": "Walkthrough Anatomy",
+"tags": [
+"creature",
+"code"
+]
+},
+{
+"id": "game-systems.a-hat-in-time-experience-ledger",
+"domain": "game-systems",
+"title": "A Hat in Time Experience Ledger - Boot to Quit, HUD Census, Per-Act Pacing, and the Damage-and-Recovery Loop",
+"tags": [
+"economy"
+]
+},
+{
+"id": "game-systems.a-short-hike-experience-ledger",
+"domain": "game-systems",
+"title": "A Short Hike Experience Ledger - Boot to Quit, HUD Census, Traversal-Reach Pacing, and the No-Fail Session",
+"tags": [
+"time",
+"economy"
+]
+},
+{
+"id": "game-systems.balatro-experience-ledger",
+"domain": "game-systems",
+"title": "Balatro Experience Ledger - Boot to Quit, HUD Census, Pacing, and the Loss Loop",
+"tags": [
+"economy",
+"sound"
+]
+},
+{
+"id": "game-systems.binding-of-isaac-experience-ledger",
+"domain": "game-systems",
+"title": "The Binding of Isaac Rebirth Experience Ledger - Boot to Quit, HUD Census, Item-Synergy Pacing, and the Permadeath Loop",
+"tags": [
+"time",
+"economy",
+"group",
+"code"
+]
+},
+{
+"id": "game-systems.bloons-td-6-experience-ledger",
+"domain": "game-systems",
+"title": "Bloons TD 6 Experience Ledger - Boot to Quit, HUD Census, Round Pacing, and the Defeat Loop",
+"tags": [
+"time",
+"group"
+]
+},
+{
+"id": "game-systems.brotato-experience-ledger",
+"domain": "game-systems",
+"title": "Brotato Experience Ledger - Boot to Quit, HUD Census, Wave-and-Shop Pacing, and the Death Loop",
+"tags": [
+"colour",
+"time",
+"economy"
+]
+},
+{
+"id": "game-systems.celeste-experience-ledger",
+"domain": "game-systems",
+"title": "Celeste Experience Ledger - Boot to Quit, HUD Census, Chapter Pacing, and the Death-and-Respawn Loop",
+"tags": [
+"colour"
+]
+},
+{
+"id": "game-systems.collector-3d-systems-floor",
+"domain": "game-systems",
+"title": "2.5D/3D Collector Systems Floor - The Enforceable Class Checklist, Pacing Envelope, HUD Floor, and Divergence Axes",
+"tags": [
+"time",
+"group",
+"words"
+]
+},
+{
+"id": "game-systems.cozy-sim-systems-floor",
+"domain": "game-systems",
+"title": "Cozy/Sim Systems Floor - The Enforceable Class Checklist, Pacing Envelope, HUD Floor, and Divergence Axes",
+"tags": [
+"time",
+"group"
+]
+},
+{
+"id": "game-systems.deckbuilder-card-systems-floor",
+"domain": "game-systems",
+"title": "Deckbuilder / Card Systems Floor - the Enforceable Class Checklist, Pacing Envelope, HUD Floor, and Divergence Axes",
+"tags": [
+"time"
+]
+},
+{
+"id": "game-systems.donut-county-experience-ledger",
+"domain": "game-systems",
+"title": "Donut County Experience Ledger - Boot to Quit, HUD Census, Hole-Growth Pacing, and the Pit Frame-Story Loop",
+"tags": [
+"economy",
+"words"
+]
+},
+{
+"id": "game-systems.first-person-diegetic-manipulation-mechanisms",
+"domain": "game-systems",
+"title": "First-Person Diegetic Manipulation Mechanisms",
+"tags": [
+"generated"
+]
+},
+{
+"id": "game-systems.five-nights-at-freddys-experience-ledger",
+"domain": "game-systems",
+"title": "Five Nights at Freddy's Experience Ledger - Boot to Quit, HUD Census, Night-by-Night Escalation, and the Jumpscare Loop",
+"tags": [
+"time",
+"group"
+]
+},
+{
+"id": "game-systems.frog-detective-experience-ledger",
+"domain": "game-systems",
+"title": "Frog Detective Experience Ledger - Boot to Quit, HUD Census, Case Pacing, and the No-Fail Loop",
+"tags": [
+"time",
+"economy",
+"words"
+]
+},
+{
+"id": "game-systems.hades-experience-ledger",
+"domain": "game-systems",
+"title": "Hades Experience Ledger - Boot to Quit, HUD Census, Room-by-Room Pacing, and the Death Loop",
+"tags": [
+"time"
+]
+},
+{
+"id": "game-systems.hollow-knight-experience-ledger",
+"domain": "game-systems",
+"title": "Hollow Knight Experience Ledger - Boot to Quit, HUD Census, Ability-Gated Map, Bench Economy, and the Death-and-Shade Loop",
+"tags": [
+"time"
+]
+},
+{
+"id": "game-systems.hyper-light-drifter-experience-ledger",
+"domain": "game-systems",
+"title": "Hyper Light Drifter Experience Ledger - Boot to Quit, HUD Census, Pacing, and the Death Loop",
+"tags": [
+"words"
+]
+},
+{
+"id": "game-systems.iron-lung-experience-ledger",
+"domain": "game-systems",
+"title": "Iron Lung Experience Ledger - Boot to Quit, HUD Census, the Slow-Burn Descent, and the Creature",
+"tags": [
+"creature",
+"time"
+]
+},
+{
+"id": "game-systems.kingdom-rush-experience-ledger",
+"domain": "game-systems",
+"title": "Kingdom Rush Experience Ledger - Boot to Quit, HUD Census, Wave Pacing, and the Defeat Loop",
+"tags": [
+"economy"
+]
+},
+{
+"id": "game-systems.links-awakening-experience-ledger",
+"domain": "game-systems",
+"title": "The Legend of Zelda - Link's Awakening Experience Ledger - Boot to Quit, HUD Census, Dungeon-Gate Pacing, and the Two-Slot Item System",
+"tags": [
+"time"
+]
+},
+{
+"id": "game-systems.mario-kart-8-deluxe-experience-ledger",
+"domain": "game-systems",
+"title": "Mario Kart 8 Deluxe Experience Ledger - Boot to Quit, HUD Census, Lap-by-Lap Pacing, and the Failure/Restart Loop",
+"tags": [
+"time",
+"economy"
+]
+},
+{
+"id": "game-systems.monster-train-experience-ledger",
+"domain": "game-systems",
+"title": "Monster Train Experience Ledger - Boot to Quit, HUD Census, Pacing, and the Death Loop",
+"tags": [
+"group",
+"sound"
+]
+},
+{
+"id": "game-systems.moonlighter-experience-ledger",
+"domain": "game-systems",
+"title": "Moonlighter Experience Ledger - Boot to Quit, Dual HUD Census, Dungeon and Shop Pacing, and the Economy-Loop Axis",
+"tags": [
+"colour",
+"time",
+"economy",
+"group",
+"generated",
+"code"
+]
+},
+{
+"id": "game-systems.plants-vs-zombies-experience-ledger",
+"domain": "game-systems",
+"title": "Plants vs. Zombies Experience Ledger - Boot to Quit, HUD Census, Wave Pacing, and the Lawn-Mower Loss Loop",
+"tags": [
+"time",
+"economy",
+"group"
+]
+},
+{
+"id": "game-systems.platformer-systems-floor",
+"domain": "game-systems",
+"title": "2D Platformer Systems Floor - The Enforceable Class Checklist, Pacing Envelope, HUD Floor, and Divergence Axes",
+"tags": [
+"time",
+"group"
+]
+},
+{
+"id": "game-systems.portal-experience-ledger",
+"domain": "game-systems",
+"title": "Portal Experience Ledger - Boot to Quit, HUD Census, Test-Chamber Pacing, and the Hazard-and-Reload Loop",
+"tags": [
+"time"
+]
+},
+{
+"id": "game-systems.powerwash-simulator-experience-ledger",
+"domain": "game-systems",
+"title": "PowerWash Simulator Experience Ledger - Boot to Quit, HUD Census, Job Pacing, and the First-Person No-Fail Task Loop",
+"tags": [
+"economy",
+"group"
+]
+},
+{
+"id": "game-systems.puzzle-systems-floor",
+"domain": "game-systems",
+"title": "Puzzle Systems Floor - The Enforceable Class Checklist, Pacing Envelope, HUD Floor, and Divergence Axes",
+"tags": [
+"time",
+"group"
+]
+},
+{
+"id": "game-systems.racing-kart-systems-floor",
+"domain": "game-systems",
+"title": "Racing/Kart Systems Floor - The Enforceable Class Checklist, Pacing Envelope, HUD Floor, and Divergence Axes",
+"tags": [
+"time",
+"group"
+]
+},
+{
+"id": "game-systems.roguelite-dungeon-systems-floor",
+"domain": "game-systems",
+"title": "Roguelite-Dungeon Systems Floor - The Enforceable Class Checklist, Pacing Envelope, HUD Floor, and Divergence Axes",
+"tags": [
+"time",
+"group"
+]
+},
+{
+"id": "game-systems.shattered-pixel-dungeon-experience-ledger",
+"domain": "game-systems",
+"title": "Shattered Pixel Dungeon Experience Ledger - Boot to Quit, HUD Census, Floor-by-Floor Pacing, and the Permadeath Loop",
+"tags": [
+"time",
+"economy"
+]
+},
+{
+"id": "game-systems.short-narrative-systems-floor",
+"domain": "game-systems",
+"title": "Short Authored Narrative Systems Floor - The Enforceable Class Checklist, Pacing Envelope, HUD Floor, and Divergence Axes",
+"tags": [
+"time",
+"group"
+]
+},
+{
+"id": "game-systems.single-room-tension-systems-floor",
+"domain": "game-systems",
+"title": "Single-Room Tension Systems Floor - The Enforceable Class Checklist, Pacing Envelope, HUD Floor, and Divergence Axes",
+"tags": [
+"time",
+"group"
+]
+},
+{
+"id": "game-systems.slay-the-spire-experience-ledger",
+"domain": "game-systems",
+"title": "Slay the Spire Experience Ledger - Boot to Quit, HUD Census, Pacing, and the Death Loop",
+"tags": [
+"time",
+"sound"
+]
+},
+{
+"id": "game-systems.slime-rancher-experience-ledger",
+"domain": "game-systems",
+"title": "Slime Rancher Experience Ledger - Boot to Quit, HUD Census, Day-Over-Day Pacing, and the Damage-and-Recovery Loop",
+"tags": [
+"time",
+"economy"
+]
+},
+{
+"id": "game-systems.stardew-valley-experience-ledger",
+"domain": "game-systems",
+"title": "Stardew Valley Experience Ledger - Boot to Quit, HUD Census, Day-Clock Pacing, and the Soft-Fail Loop",
+"tags": [
+"time"
+]
+},
+{
+"id": "game-systems.survivors-horde-systems-floor",
+"domain": "game-systems",
+"title": "2D Survivors-Horde Systems Floor - The Enforceable Class Checklist, Pacing Envelope, HUD Floor, and Divergence Axes",
+"tags": [
+"time",
+"economy",
+"group",
+"words"
+]
+},
+{
+"id": "game-systems.tetris-experience-ledger",
+"domain": "game-systems",
+"title": "Tetris Experience Ledger - Boot to Quit, HUD Census, Gravity-Ramp Pacing, and the Top-Out Loop",
+"tags": [
+"time",
+"group",
+"words"
+]
+},
+{
+"id": "game-systems.top-down-action-adventure-systems-floor",
+"domain": "game-systems",
+"title": "Top-Down Action-Adventure Systems Floor - The Enforceable Class Checklist, Pacing Envelope, HUD Floor, and Divergence Axes",
+"tags": [
+"time",
+"economy",
+"group"
+]
+},
+{
+"id": "game-systems.tower-defense-systems-floor",
+"domain": "game-systems",
+"title": "Tower Defense Systems Floor - The Enforceable Class Checklist, Wave Pacing Envelope, HUD Floor, and Divergence Axes",
+"tags": [
+"time",
+"group"
+]
+},
+{
+"id": "game-systems.trackmania-experience-ledger",
+"domain": "game-systems",
+"title": "Trackmania Experience Ledger - Boot to Quit, HUD Census, Checkpoint-Respawn Pacing, and the Instant-Retry Loop",
+"tags": [
+"colour",
+"group"
+]
+},
+{
+"id": "game-systems.unpacking-experience-ledger",
+"domain": "game-systems",
+"title": "Unpacking Experience Ledger - Boot to Quit, Near-Zero HUD, Level Cadence, and the No-Fail Session Loop",
+"tags": [
+"time"
+]
+},
+{
+"id": "game-systems.vampire-survivors-experience-ledger",
+"domain": "game-systems",
+"title": "Vampire Survivors Experience Ledger - Boot to Quit, HUD Census, Pacing, and the Death Loop",
+"tags": [
+"creature",
+"time",
+"economy",
+"group"
+]
+},
+{
+"id": "generative-assets.ai-audio-voice-generation",
+"domain": "generative-assets",
+"title": "AI Audio and Voice Generation \u2014 Music, SFX, and Speech Models as a Production Tool",
+"tags": [
+"colour",
+"sound"
+]
+},
+{
+"id": "generative-assets.ai-image-generation-2d",
+"domain": "generative-assets",
+"title": "AI Image Generation for 2D Game Art",
+"tags": [
+"generated"
+]
+},
+{
+"id": "generative-assets.asset-forge-pipeline-integration",
+"domain": "generative-assets",
+"title": "The Asset Forge \u2014 Generation Orchestration and Engine Integration",
+"tags": [
+"generated"
+]
+},
+{
+"id": "genres.action-adventure",
+"domain": "genres",
+"title": "The Action-Adventure Genre",
+"tags": [
+"sound"
+]
+},
+{
+"id": "genres.action-rpg-arpg",
+"domain": "genres",
+"title": "The Action RPG (ARPG / Diablo-like) Genre",
+"tags": [
+"economy",
+"group"
+]
+},
+{
+"id": "genres.arena-movement-shooter",
+"domain": "genres",
+"title": "The Arena / Movement Shooter Genre",
+"tags": [
+"group",
+"words"
+]
+},
+{
+"id": "genres.auto-battlers",
+"domain": "genres",
+"title": "The Auto Battler Genre",
+"tags": [
+"economy",
+"group"
+]
+},
+{
+"id": "genres.battle-royale",
+"domain": "genres",
+"title": "The Battle Royale Genre",
+"tags": [
+"time"
+]
+},
+{
+"id": "genres.beat-em-up-brawler",
+"domain": "genres",
+"title": "The Beat 'em Up / Brawler Genre",
+"tags": [
+"time",
+"group",
+"words"
+]
+},
+{
+"id": "genres.ccg-tcg",
+"domain": "genres",
+"title": "The Collectible / Trading Card Game (CCG/TCG) Genre",
+"tags": [
+"colour",
+"group",
+"code"
+]
+},
+{
+"id": "genres.character-action",
+"domain": "genres",
+"title": "The Character-Action Genre (Stylish Action)",
+"tags": [
+"group",
+"words"
+]
+},
+{
+"id": "genres.city-builders",
+"domain": "genres",
+"title": "The City Builder Genre",
+"tags": [
+"time"
+]
+},
+{
+"id": "genres.colony-survival-management-sims",
+"domain": "genres",
+"title": "The Colony / Survival-Management Sim Genre",
+"tags": [
+"time"
+]
+},
+{
+"id": "genres.crpg-western-rpg",
+"domain": "genres",
+"title": "The CRPG / Western RPG Genre",
+"tags": [
+"time",
+"group",
+"words"
+]
+},
+{
+"id": "genres.digital-board-abstract-strategy",
+"domain": "genres",
+"title": "Digital Board Games & Abstract Strategy",
+"tags": [
+"time",
+"economy",
+"group",
+"generated"
+]
+},
+{
+"id": "genres.escape-room",
+"domain": "genres",
+"title": "The Escape-Room / Room-Escape Genre",
+"tags": [
+"time"
+]
+},
+{
+"id": "genres.extraction-shooter",
+"domain": "genres",
+"title": "The Extraction Shooter Genre",
+"tags": [
+"time"
+]
+},
+{
+"id": "genres.farming-ranching-sim",
+"domain": "genres",
+"title": "The Farming / Ranching Sim Genre",
+"tags": [
+"creature",
+"time",
+"group",
+"sound"
+]
+},
+{
+"id": "genres.fighting-games",
+"domain": "genres",
+"title": "The Fighting Game Genre",
+"tags": [
+"group"
+]
+},
+{
+"id": "genres.first-person-shooter",
+"domain": "genres",
+"title": "The First-Person Shooter (FPS) Genre",
+"tags": [
+"words"
+]
+},
+{
+"id": "genres.flight-space-combat-sim",
+"domain": "genres",
+"title": "The Flight & Space Combat Sim Genre",
+"tags": [
+"economy"
+]
+},
+{
+"id": "genres.genre-fusion-design-method",
+"domain": "genres",
+"title": "Genre-Fusion as a Design Method",
+"tags": [
+"time",
+"group",
+"code"
+]
+},
+{
+"id": "genres.grand-strategy",
+"domain": "genres",
+"title": "The Grand Strategy Genre",
+"tags": [
+"group"
+]
+},
+{
+"id": "genres.hero-shooter",
+"domain": "genres",
+"title": "The Hero Shooter Genre",
+"tags": [
+"words"
+]
+},
+{
+"id": "genres.horror",
+"domain": "genres",
+"title": "Action Horror & Psychological Horror",
+"tags": [
+"time",
+"sound"
+]
+},
+{
+"id": "genres.hyper-casual",
+"domain": "genres",
+"title": "The Hyper-Casual / Mobile-Native Genre",
+"tags": [
+"colour",
+"time",
+"code"
+]
+},
+{
+"id": "genres.idle-incremental",
+"domain": "genres",
+"title": "The Idle / Incremental Game Genre",
+"tags": [
+"time"
+]
+},
+{
+"id": "genres.jrpg",
+"domain": "genres",
+"title": "The JRPG Genre",
+"tags": [
+"time"
+]
+},
+{
+"id": "genres.life-sims",
+"domain": "genres",
+"title": "The Life Sim Genre",
+"tags": [
+"group",
+"words"
+]
+},
+{
+"id": "genres.logic-mechanical-puzzle",
+"domain": "genres",
+"title": "The Logic / Mechanical Puzzle Genre",
+"tags": [
+"generated",
+"code"
+]
+},
+{
+"id": "genres.looter-shooter",
+"domain": "genres",
+"title": "The Looter Shooter Genre",
+"tags": [
+"group"
+]
+},
+{
+"id": "genres.management-tycoon-sims",
+"domain": "genres",
+"title": "The Management / Tycoon Sim Genre",
+"tags": [
+"time",
+"economy"
+]
+},
+{
+"id": "genres.match-3-casual-puzzle",
+"domain": "genres",
+"title": "The Match-3 / Casual Puzzle Genre",
+"tags": [
+"economy"
+]
+},
+{
+"id": "genres.metroidvania",
+"domain": "genres",
+"title": "The Metroidvania Genre",
+"tags": [
+"time"
+]
+},
+{
+"id": "genres.mmorpg",
+"domain": "genres",
+"title": "The MMORPG Genre",
+"tags": [
+"economy",
+"group"
+]
+},
+{
+"id": "genres.moba",
+"domain": "genres",
+"title": "The MOBA Genre",
+"tags": [
+"group"
+]
+},
+{
+"id": "genres.narrative-choice-games",
+"domain": "genres",
+"title": "The Narrative Choice Game Genre",
+"tags": [
+"economy",
+"group",
+"generated",
+"words"
+]
+},
+{
+"id": "genres.open-world-design",
+"domain": "genres",
+"title": "Open-World Design",
+"tags": [
+"time"
+]
+},
+{
+"id": "genres.parser-interactive-fiction",
+"domain": "genres",
+"title": "The Parser & Choice-Based Interactive Fiction Genre",
+"tags": [
+"time",
+"generated",
+"words"
+]
+},
+{
+"id": "genres.party-games",
+"domain": "genres",
+"title": "The Party Game Genre",
+"tags": [
+"group"
+]
+},
+{
+"id": "genres.physics-puzzle",
+"domain": "genres",
+"title": "The Physics Puzzle Genre",
+"tags": [
+"generated",
+"code"
+]
+},
+{
+"id": "genres.platformers",
+"domain": "genres",
+"title": "The Platformer Genre",
+"tags": [
+"words",
+"sound",
+"code"
+]
+},
+{
+"id": "genres.point-and-click-adventure",
+"domain": "genres",
+"title": "The Point-and-Click / Classic Adventure Genre",
+"tags": [
+"time",
+"words"
+]
+},
+{
+"id": "genres.racing",
+"domain": "genres",
+"title": "The Racing Genre",
+"tags": [
+"group",
+"sound"
+]
+},
+{
+"id": "genres.rail-light-gun-shooter",
+"domain": "genres",
+"title": "The Rail Shooter / Light-Gun Shooter Genre",
+"tags": [
+"time",
+"group"
+]
+},
+{
+"id": "genres.rhythm-music",
+"domain": "genres",
+"title": "The Rhythm / Music Game Genre",
+"tags": [
+"words",
+"sound"
+]
+},
+{
+"id": "genres.roguelike-roguelite",
+"domain": "genres",
+"title": "The Roguelike / Roguelite Genre",
+"tags": [
+"generated"
+]
+},
+{
+"id": "genres.roguelite-deckbuilder",
+"domain": "genres",
+"title": "The Roguelite Deckbuilder \u2014 A Genre-Fusion Case Study",
+"tags": [
+"code"
+]
+},
+{
+"id": "genres.rts",
+"domain": "genres",
+"title": "The Real-Time Strategy (RTS) Genre",
+"tags": [
+"colour",
+"group"
+]
+},
+{
+"id": "genres.sandbox-physics-toy",
+"domain": "genres",
+"title": "The Sandbox / Toy / Physics-Sandbox Genre",
+"tags": [
+"colour",
+"group"
+]
+},
+{
+"id": "genres.shoot-em-up-bullet-hell",
+"domain": "genres",
+"title": "The Shoot-'em-up / Bullet-hell (Shmup) Genre",
+"tags": [
+"colour",
+"economy",
+"group"
+]
+},
+{
+"id": "genres.social-deduction-hidden-role",
+"domain": "genres",
+"title": "The Social Deduction / Hidden-Role Genre",
+"tags": [
+"economy",
+"group"
+]
+},
+{
+"id": "genres.soulslike",
+"domain": "genres",
+"title": "The Soulslike Genre",
+"tags": [
+"economy",
+"group"
+]
+},
+{
+"id": "genres.sports-games",
+"domain": "genres",
+"title": "The Sports Game Genre",
+"tags": [
+"economy",
+"group"
+]
+},
+{
+"id": "genres.stealth",
+"domain": "genres",
+"title": "The Stealth Genre",
+"tags": [
+"time",
+"group",
+"sound"
+]
+},
+{
+"id": "genres.survival",
+"domain": "genres",
+"title": "The Survival Genre",
+"tags": [
+"time",
+"group"
+]
+},
+{
+"id": "genres.survival-crafting-building",
+"domain": "genres",
+"title": "The Survival Crafting / Building Genre",
+"tags": [
+"group"
+]
+},
+{
+"id": "genres.survival-horror",
+"domain": "genres",
+"title": "The Survival Horror Genre",
+"tags": [
+"time"
+]
+},
+{
+"id": "genres.tactical-milsim-shooter",
+"domain": "genres",
+"title": "The Tactical / Milsim Shooter Genre",
+"tags": [
+"time",
+"group"
+]
+},
+{
+"id": "genres.third-person-shooter",
+"domain": "genres",
+"title": "The Third-Person Shooter (TPS) Genre",
+"tags": [
+"economy",
+"words"
+]
+},
+{
+"id": "genres.tower-defense",
+"domain": "genres",
+"title": "The Tower Defense Genre",
+"tags": [
+"group"
+]
+},
+{
+"id": "genres.turn-based-strategy-4x",
+"domain": "genres",
+"title": "The Turn-Based Strategy & 4X Genre",
+"tags": [
+"time"
+]
+},
+{
+"id": "genres.twin-stick-shooter",
+"domain": "genres",
+"title": "The Twin-Stick Shooter Genre",
+"tags": [
+"time"
+]
+},
+{
+"id": "genres.vehicle-sims",
+"domain": "genres",
+"title": "The Vehicle Sim Genre",
+"tags": [
+"words",
+"sound"
+]
+},
+{
+"id": "genres.visual-novels",
+"domain": "genres",
+"title": "The Visual Novel Genre",
+"tags": [
+"time"
+]
+},
+{
+"id": "genres.voxel-creative-sandbox",
+"domain": "genres",
+"title": "The Voxel / Creative Sandbox Genre",
+"tags": [
+"colour",
+"group"
+]
+},
+{
+"id": "genres.walking-sim-interactive-narrative",
+"domain": "genres",
+"title": "Interactive Narrative / Walking Simulators",
+"tags": [
+"time",
+"words",
+"sound"
+]
+},
+{
+"id": "input-controls.combat-action-input",
+"domain": "input-controls",
+"title": "Combat & Action Input",
+"tags": [
+"words"
+]
+},
+{
+"id": "input-controls.control-feel-responsiveness",
+"domain": "input-controls",
+"title": "Control Feel & Responsiveness",
+"tags": [
+"group",
+"sound"
+]
+},
+{
+"id": "input-controls.device-support-hot-swapping",
+"domain": "input-controls",
+"title": "Device Support & Hot-Swapping",
+"tags": [
+"group"
+]
+},
+{
+"id": "input-controls.haptics-rumble-force-feedback",
+"domain": "input-controls",
+"title": "Haptics, Rumble & Force Feedback",
+"tags": [
+"colour",
+"sound"
+]
+},
+{
+"id": "input-controls.input-latency-responsiveness",
+"domain": "input-controls",
+"title": "Input Latency & Responsiveness",
+"tags": [
+"economy"
+]
+},
+{
+"id": "input-controls.keyboard-mouse-input",
+"domain": "input-controls",
+"title": "Keyboard & Mouse Input",
+"tags": [
+"economy"
+]
+},
+{
+"id": "input-controls.vr-motion-controller-input",
+"domain": "input-controls",
+"title": "VR / Motion-Controller Input",
+"tags": [
+"group"
+]
+},
+{
+"id": "living-world-dialogue.dialogue-as-tutorial-feedback",
+"domain": "living-world-dialogue",
+"title": "Dialogue as Tutorial & Feedback",
+"tags": [
+"time"
+]
+},
+{
+"id": "living-world-dialogue.everyday-npc-dialogue-social-texture",
+"domain": "living-world-dialogue",
+"title": "Everyday NPC Dialogue & Social Texture",
+"tags": [
+"colour",
+"generated",
+"words"
+]
+},
+{
+"id": "living-world-dialogue.procedural-dynamic-dialogue-guardrails",
+"domain": "living-world-dialogue",
+"title": "Procedural & Dynamic Dialogue Guardrails",
+"tags": [
+"generated",
+"words"
+]
+},
+{
+"id": "living-world-dialogue.relationship-state-dialogue",
+"domain": "living-world-dialogue",
+"title": "Relationship-State Dialogue",
+"tags": [
+"group",
+"words"
+]
+},
+{
+"id": "living-world-dialogue.shop-service-dialogue",
+"domain": "living-world-dialogue",
+"title": "Shop & Service Dialogue",
+"tags": [
+"creature",
+"economy",
+"words"
+]
+},
+{
+"id": "living-world-dialogue.voice-dialect-class-culture-signaling",
+"domain": "living-world-dialogue",
+"title": "Voice, Dialect & Class/Culture Signaling",
+"tags": [
+"group",
+"words"
+]
+},
+{
+"id": "monetization.ab-testing-monetization-experimentation",
+"domain": "monetization",
+"title": "A/B Testing and Monetization Experimentation \u2014 Methodology and Ethical Limits",
+"tags": [
+"economy",
+"code"
+]
+},
+{
+"id": "monetization.ad-based-monetization",
+"domain": "monetization",
+"title": "Ad-Based Monetization",
+"tags": [
+"sound"
+]
+},
+{
+"id": "monetization.battle-season-passes",
+"domain": "monetization",
+"title": "Battle / Season Passes",
+"tags": [
+"time",
+"code"
+]
+},
+{
+"id": "monetization.consumer-protection-transparency",
+"domain": "monetization",
+"title": "Consumer Protection & Transparency in Monetization \u2014 A Regulatory-Landscape Mental Map (Informational, Not Legal Advice)",
+"tags": [
+"economy"
+]
+},
+{
+"id": "monetization.conversion-retention-as-monetization",
+"domain": "monetization",
+"title": "Conversion & Retention as Monetization",
+"tags": [
+"economy"
+]
+},
+{
+"id": "monetization.cosmetic-monetization",
+"domain": "monetization",
+"title": "Cosmetic Monetization",
+"tags": [
+"economy"
+]
+},
+{
+"id": "monetization.dark-patterns-in-monetization",
+"domain": "monetization",
+"title": "Dark Patterns in Monetization \u2014 Recognize and Avoid",
+"tags": [
+"words"
+]
+},
+{
+"id": "monetization.dlc-expansions-episodic",
+"domain": "monetization",
+"title": "DLC, Expansions, and Episodic Content",
+"tags": [
+"economy",
+"group"
+]
+},
+{
+"id": "monetization.ethical-player-respecting-monetization",
+"domain": "monetization",
+"title": "Ethical, Player-Respecting Monetization",
+"tags": [
+"economy"
+]
+},
+{
+"id": "monetization.loot-boxes-gacha",
+"domain": "monetization",
+"title": "Loot Boxes and Gacha \u2014 Recognizing Randomized Real-Money Monetization and Designing Honest Alternatives",
+"tags": [
+"economy",
+"generated",
+"words"
+]
+},
+{
+"id": "monetization.microtransactions-in-game-stores",
+"domain": "monetization",
+"title": "Microtransactions and In-Game Store Design",
+"tags": [
+"economy",
+"code"
+]
+},
+{
+"id": "monetization.minors-spending-protections",
+"domain": "monetization",
+"title": "Minors and Spending Protections \u2014 Age-Appropriate Monetization Design, Parental Controls, and the Unauthorized-Purchase Problem",
+"tags": [
+"economy"
+]
+},
+{
+"id": "monetization.player-economies-trading-marketplaces",
+"domain": "monetization",
+"title": "Player Economies, Trading and Marketplaces",
+"tags": [
+"economy"
+]
+},
+{
+"id": "monetization.player-spending-psychology-segmentation",
+"domain": "monetization",
+"title": "Player Spending Psychology and Segmentation",
+"tags": [
+"group"
+]
+},
+{
+"id": "monetization.premium-buy-to-play",
+"domain": "monetization",
+"title": "Premium and Buy-to-Play Monetization",
+"tags": [
+"economy"
+]
+},
+{
+"id": "monetization.pricing-strategy-price-points",
+"domain": "monetization",
+"title": "Pricing Strategy and Price Points",
+"tags": [
+"economy"
+]
+},
+{
+"id": "monetization.sales-discounts-bundles",
+"domain": "monetization",
+"title": "Sales, Discounts, and Bundle Strategy",
+"tags": [
+"economy"
+]
+},
+{
+"id": "monetization.storefronts-platform-economics",
+"domain": "monetization",
+"title": "Storefronts and Platform Economics",
+"tags": [
+"economy"
+]
+},
+{
+"id": "monetization.virtual-currency-design",
+"domain": "monetization",
+"title": "Virtual Currency Design",
+"tags": [
+"words",
+"code"
+]
+},
+{
+"id": "multiplayer.anticheat-server-authority",
+"domain": "multiplayer",
+"title": "Anti-Cheat & Server Authority: Designing Cheat-Resistant Multiplayer Systems (Defensive)",
+"tags": [
+"group"
+]
+},
+{
+"id": "multiplayer.community-moderation-trust-safety-systems",
+"domain": "multiplayer",
+"title": "Community Moderation and Trust & Safety Systems",
+"tags": [
+"group"
+]
+},
+{
+"id": "multiplayer.deterministic-simulation",
+"domain": "multiplayer",
+"title": "Deterministic Simulation: Lockstep/Rollback Determinism, Fixed-Point Math, and Desync Hunting",
+"tags": [
+"time",
+"economy",
+"generated",
+"code"
+]
+},
+{
+"id": "multiplayer.disconnection-reconnection-host-migration",
+"domain": "multiplayer",
+"title": "Disconnection, Reconnection, Host Migration & Drop-In/Drop-Out",
+"tags": [
+"group"
+]
+},
+{
+"id": "multiplayer.lag-compensation-hit-registration",
+"domain": "multiplayer",
+"title": "Lag Compensation & Hit Registration: Server-Side Rewind, Favor-the-Shooter vs. Favor-the-Target, and Fair Combat Under Latency",
+"tags": [
+"economy",
+"group"
+]
+},
+{
+"id": "multiplayer.multiplayer-framework-custom-engine",
+"domain": "multiplayer",
+"title": "Building a Multiplayer Framework From the Ground Up in Your Own Engine",
+"tags": [
+"group",
+"generated"
+]
+},
+{
+"id": "multiplayer.multiplayer-testing-qa-tooling",
+"domain": "multiplayer",
+"title": "Multiplayer Testing & QA Tooling \u2014 Network Simulation, Bot/Load, Chaos/Soak & Netcode Regression",
+"tags": [
+"group",
+"generated",
+"code"
+]
+},
+{
+"id": "multiplayer.platform-console-certification-requirements",
+"domain": "multiplayer",
+"title": "Platform & Console Certification Requirements for Multiplayer Games \u2014 Online Services, Cross-Play, and Account Linking",
+"tags": [
+"economy",
+"group"
+]
+},
+{
+"id": "multiplayer.player-economies-trading-security",
+"domain": "multiplayer",
+"title": "Player Economies, Trading & Security \u2014 Atomic Trades, Dupe Prevention & Fraud Detection",
+"tags": [
+"economy"
+]
+},
+{
+"id": "multiplayer.serialization-bandwidth-optimization",
+"domain": "multiplayer",
+"title": "Serialization & Bandwidth Optimization \u2014 Bit-Packing, Quantization, Delta Encoding, and the Wire Format",
+"tags": [
+"group"
+]
+},
+{
+"id": "multiplayer.spectator-replay-systems",
+"domain": "multiplayer",
+"title": "Spectator & Replay Systems: Live Spectating, Broadcast Delay, and Replay Capture/Playback Architecture",
+"tags": [
+"economy",
+"generated"
+]
+},
+{
+"id": "multiplayer.voice-chat-voip-integration",
+"domain": "multiplayer",
+"title": "Voice Chat (VoIP) Integration in Multiplayer Games",
+"tags": [
+"group",
+"sound"
+]
+},
+{
+"id": "narrative.barks-ambient-dialogue",
+"domain": "narrative",
+"title": "Barks & Ambient Dialogue \u2014 Writing and Designing Systemic Spoken Lines",
+"tags": [
+"words"
+]
+},
+{
+"id": "narrative.branching-dialogue-conversation-design",
+"domain": "narrative",
+"title": "Branching Dialogue & Conversation Design",
+"tags": [
+"time",
+"economy",
+"words"
+]
+},
+{
+"id": "narrative.branching-non-linear-narrative",
+"domain": "narrative",
+"title": "Branching & Non-Linear Narrative",
+"tags": [
+"colour",
+"generated"
+]
+},
+{
+"id": "narrative.branching-state-management",
+"domain": "narrative",
+"title": "Managing Branching Narrative State \u2014 Variables, Flags, Conditions & Testing",
+"tags": [
+"time",
+"generated",
+"words"
+]
+},
+{
+"id": "narrative.character-relationship-web-recipes",
+"domain": "narrative",
+"title": "Character Relationship Web Recipes",
+"tags": [
+"generated"
+]
+},
+{
+"id": "narrative.character-writing-arcs",
+"domain": "narrative",
+"title": "Character Writing & Arcs (for Games)",
+"tags": [
+"words"
+]
+},
+{
+"id": "narrative.choice-consequence-design",
+"domain": "narrative",
+"title": "Choice & Consequence Design",
+"tags": [
+"group"
+]
+},
+{
+"id": "narrative.companion-npc-writing",
+"domain": "narrative",
+"title": "Companion & NPC Writing",
+"tags": [
+"group"
+]
+},
+{
+"id": "narrative.dialogue-writing",
+"domain": "narrative",
+"title": "Dialogue Writing (for Games)",
+"tags": [
+"words"
+]
+},
+{
+"id": "narrative.embedded-found-narrative",
+"domain": "narrative",
+"title": "Embedded & Found Narrative",
+"tags": [
+"time",
+"sound"
+]
+},
+{
+"id": "narrative.emergent-systemic-narrative",
+"domain": "narrative",
+"title": "Emergent & Systemic Narrative",
+"tags": [
+"colour",
+"words"
+]
+},
+{
+"id": "narrative.environmental-storytelling",
+"domain": "narrative",
+"title": "Environmental Storytelling",
+"tags": [
+"sound"
+]
+},
+{
+"id": "narrative.factions-cultures-systemic-world",
+"domain": "narrative",
+"title": "Factions, Cultures & the Systemic World",
+"tags": [
+"group"
+]
+},
+{
+"id": "narrative.horror-writing",
+"domain": "narrative",
+"title": "Horror Writing \u2014 Dread, Restraint & the Interactive Sources of Fear",
+"tags": [
+"time",
+"words"
+]
+},
+{
+"id": "narrative.mission-level-narrative",
+"domain": "narrative",
+"title": "Mission & Level Narrative",
+"tags": [
+"time"
+]
+},
+{
+"id": "narrative.multiplayer-live-service-narrative",
+"domain": "narrative",
+"title": "Narrative in Multiplayer & Live-Service Games",
+"tags": [
+"group",
+"words",
+"sound"
+]
+},
+{
+"id": "narrative.mystery-detective-writing",
+"domain": "narrative",
+"title": "Mystery & Detective Writing",
+"tags": [
+"time"
+]
+},
+{
+"id": "narrative.naming-nomenclature",
+"domain": "narrative",
+"title": "Naming & Nomenclature for Games",
+"tags": [
+"words"
+]
+},
+{
+"id": "narrative.narrative-design-vs-game-writing",
+"domain": "narrative",
+"title": "Narrative Design vs. Game Writing (The Two Disciplines)",
+"tags": [
+"sound"
+]
+},
+{
+"id": "narrative.narrative-pipeline-workflow",
+"domain": "narrative",
+"title": "Narrative Pipeline & Cross-Discipline Workflow",
+"tags": [
+"words"
+]
+},
+{
+"id": "narrative.narrative-scripting-tools",
+"domain": "narrative",
+"title": "Narrative Scripting Tools \u2014 Ink, Yarn, Twine & Engine Dialogue Systems",
+"tags": [
+"time",
+"generated"
+]
+},
+{
+"id": "narrative.pacing-narrative-against-gameplay",
+"domain": "narrative",
+"title": "Pacing Narrative Against Gameplay",
+"tags": [
+"time"
+]
+},
+{
+"id": "narrative.quest-design-writing",
+"domain": "narrative",
+"title": "Quest Design & Writing",
+"tags": [
+"generated"
+]
+},
+{
+"id": "narrative.reactivity-narrative-state",
+"domain": "narrative",
+"title": "Reactivity & Narrative State",
+"tags": [
+"time",
+"words"
+]
+},
+{
+"id": "narrative.reveal-setup-payoff-recipes",
+"domain": "narrative",
+"title": "Reveal Setup/Payoff Recipes",
+"tags": [
+"group"
+]
+},
+{
+"id": "narrative.romance-relationship-systems",
+"domain": "narrative",
+"title": "Romance & Relationship Systems",
+"tags": [
+"time",
+"group"
+]
+},
+{
+"id": "narrative.story-structure-interactive-media",
+"domain": "narrative",
+"title": "Story Structure for Interactive Media",
+"tags": [
+"time"
+]
+},
+{
+"id": "narrative.theme-tone-voice",
+"domain": "narrative",
+"title": "Theme, Tone & Voice",
+"tags": [
+"time",
+"generated",
+"words"
+]
+},
+{
+"id": "narrative.writing-for-localization",
+"domain": "narrative",
+"title": "Writing for Localization \u2014 Translatable Text, Grammatical Landmines & String Management",
+"tags": [
+"words",
+"sound"
+]
+},
+{
+"id": "narrative.writing-the-player-protagonist",
+"domain": "narrative",
+"title": "Writing the Player-Protagonist",
+"tags": [
+"words"
+]
+},
+{
+"id": "process.solo-dev-workload-burnout-management",
+"domain": "process",
+"title": "Solo/Small-Team Developer Workload Management & Burnout Prevention Over a Multi-Year Project",
+"tags": [
+"time"
+]
+},
+{
+"id": "process.version-control-binary-game-assets",
+"domain": "process",
+"title": "Version Control Strategy for Binary and Large Game Assets",
+"tags": [
+"group"
+]
+},
+{
+"id": "qa-testing.accessibility-testing",
+"domain": "qa-testing",
+"title": "Accessibility Testing in the QA Process",
+"tags": [
+"code"
+]
+},
+{
+"id": "qa-testing.balance-systems-testing",
+"domain": "qa-testing",
+"title": "Balance & Systems Testing: Finding the Dominant Strategy Before Players Do",
+"tags": [
+"code"
+]
+},
+{
+"id": "qa-testing.beta-early-access-community-testing",
+"domain": "qa-testing",
+"title": "Beta, Early Access & Community Testing",
+"tags": [
+"group",
+"code"
+]
+},
+{
+"id": "qa-testing.compatibility-device-testing",
+"domain": "qa-testing",
+"title": "Compatibility & Device Testing for Games",
+"tags": [
+"code"
+]
+},
+{
+"id": "qa-testing.determinism-replay-testing",
+"domain": "qa-testing",
+"title": "Determinism & Replay-Based Testing: Using Deterministic Replays as Automated Regression Tests",
+"tags": [
+"generated",
+"code"
+]
+},
+{
+"id": "qa-testing.exploratory-ad-hoc-testing",
+"domain": "qa-testing",
+"title": "Exploratory & Ad-Hoc Testing in Games",
+"tags": [
+"generated",
+"code"
+]
+},
+{
+"id": "qa-testing.functional-testing",
+"domain": "qa-testing",
+"title": "Functional Testing for Games",
+"tags": [
+"words",
+"code"
+]
+},
+{
+"id": "qa-testing.in-house-outsourced-qa-team-structure",
+"domain": "qa-testing",
+"title": "In-House vs. Outsourced QA & Team Structure",
+"tags": [
+"creature",
+"economy",
+"sound",
+"code"
+]
+},
+{
+"id": "qa-testing.launch-day-qa",
+"domain": "qa-testing",
+"title": "Launch & Day-One QA \u2014 Release Readiness, the War Room, and Launch-Day Triage",
+"tags": [
+"code"
+]
+},
+{
+"id": "qa-testing.live-ops-post-launch-qa",
+"domain": "qa-testing",
+"title": "Live-Ops / Post-Launch QA: Testing a Game That Never Stops Shipping",
+"tags": [
+"code"
+]
+},
+{
+"id": "qa-testing.load-scale-testing-multiplayer",
+"domain": "qa-testing",
+"title": "Load & Scale Testing for Multiplayer (Capacity-Readiness QA)",
+"tags": [
+"group",
+"code"
+]
+},
+{
+"id": "qa-testing.localization-qa",
+"domain": "qa-testing",
+"title": "Localization QA (LQA) for Games",
+"tags": [
+"code"
+]
+},
+{
+"id": "qa-testing.multiplayer-desync-exploit-cheat-testing",
+"domain": "qa-testing",
+"title": "Multiplayer Desync, Exploit & Cheat Testing: The Adversarial QA Craft",
+"tags": [
+"code"
+]
+},
+{
+"id": "qa-testing.network-testing-simulation",
+"domain": "qa-testing",
+"title": "Network Testing & Simulation (QA Process)",
+"tags": [
+"code"
+]
+},
+{
+"id": "qa-testing.patch-cadence-roadmap-communication",
+"domain": "qa-testing",
+"title": "Patch Cadence & Player-Facing Roadmap Communication",
+"tags": [
+"group"
+]
+},
+{
+"id": "qa-testing.performance-testing-profiling",
+"domain": "qa-testing",
+"title": "Performance Testing & Profiling for Games",
+"tags": [
+"time",
+"code"
+]
+},
+{
+"id": "qa-testing.platform-compliance-certification",
+"domain": "qa-testing",
+"title": "Platform Compliance & Certification (TRC/XR/Lotcheck) as a QA Discipline",
+"tags": [
+"time",
+"economy",
+"code"
+]
+},
+{
+"id": "qa-testing.qa-discipline-process",
+"domain": "qa-testing",
+"title": "The QA Discipline & Process in Games",
+"tags": [
+"code"
+]
+},
+{
+"id": "qa-testing.qa-quality-metrics",
+"domain": "qa-testing",
+"title": "QA & Quality Metrics",
+"tags": [
+"code"
+]
+},
+{
+"id": "qa-testing.regression-smoke-sanity-testing",
+"domain": "qa-testing",
+"title": "Regression, Smoke & Sanity Testing: Catching What Re-Broke as the Game Grows",
+"tags": [
+"code"
+]
+},
+{
+"id": "qa-testing.save-load-persistence-state-testing",
+"domain": "qa-testing",
+"title": "Save/Load, Persistence & State Testing",
+"tags": [
+"time",
+"generated",
+"code"
+]
+},
+{
+"id": "qa-testing.smoke-ci-automation",
+"domain": "qa-testing",
+"title": "Smoke & CI Automation: Automated Build Verification, Asset Validation, and Gating",
+"tags": [
+"code"
+]
+},
+{
+"id": "qa-testing.stress-soak-stability-testing",
+"domain": "qa-testing",
+"title": "Stress, Soak & Stability Testing for Games",
+"tags": [
+"time",
+"group",
+"code"
+]
+},
+{
+"id": "qa-testing.test-automation-for-games",
+"domain": "qa-testing",
+"title": "Test Automation for Games: Why It's Hard, What's Worth Automating, and a Realistic Strategy",
+"tags": [
+"group",
+"code"
+]
+},
+{
+"id": "qa-testing.test-case-design-management",
+"domain": "qa-testing",
+"title": "Test Case Design & Management",
+"tags": [
+"generated",
+"code"
+]
+},
+{
+"id": "qa-testing.test-environments-build-management",
+"domain": "qa-testing",
+"title": "Test Environments & Build Management: Configurations, Parity, and Getting the Right Build to the Right Tester",
+"tags": [
+"code"
+]
+},
+{
+"id": "qa-testing.test-planning-strategy",
+"domain": "qa-testing",
+"title": "Test Planning & Strategy for Games",
+"tags": [
+"generated",
+"sound",
+"code"
+]
+},
+{
+"id": "qa-testing.unit-integration-testing-game-code",
+"domain": "qa-testing",
+"title": "Unit & Integration Testing of Game Code: What to Test, and Architecting for Testability",
+"tags": [
+"code"
+]
+},
+{
+"id": "qa-testing.visual-snapshot-regression-testing",
+"domain": "qa-testing",
+"title": "Visual / Snapshot Regression Testing: Catching Silent Visual Breaks with Image Diffing",
+"tags": [
+"colour",
+"code"
+]
+},
+{
+"id": "source-code-analysis.abstract-interpretation-symbolic-execution",
+"domain": "source-code-analysis",
+"title": "Abstract Interpretation & Symbolic Execution: The Theory Behind Precise Static Reasoning",
+"tags": [
+"sound"
+]
+},
+{
+"id": "source-code-analysis.agentic-code-exploration",
+"domain": "source-code-analysis",
+"title": "Agentic Code Exploration: How an Agent Navigates a Codebase to Answer Deep Questions",
+"tags": [
+"generated"
+]
+},
+{
+"id": "source-code-analysis.analysis-at-monorepo-large-scale",
+"domain": "source-code-analysis",
+"title": "Analysis at Monorepo / Large Scale: Making the Architecture of Analysis the Real Deliverable",
+"tags": [
+"economy"
+]
+},
+{
+"id": "source-code-analysis.architecture-recovery-reconstruction",
+"domain": "source-code-analysis",
+"title": "Architecture Recovery & Reconstruction: Inferring the As-Built System and Measuring Its Drift",
+"tags": [
+"group",
+"words"
+]
+},
+{
+"id": "source-code-analysis.bug-finding-static-analysis",
+"domain": "source-code-analysis",
+"title": "Bug-Finding Static Analysis: Bug Classes, the Technique Mapping, and the Soundness/False-Positive Trade-off",
+"tags": [
+"sound"
+]
+},
+{
+"id": "source-code-analysis.call-graph-construction",
+"domain": "source-code-analysis",
+"title": "Call-Graph Construction: Who Calls What, and Why Indirect Calls Are the Whole Problem",
+"tags": [
+"sound",
+"code"
+]
+},
+{
+"id": "source-code-analysis.change-impact-analysis",
+"domain": "source-code-analysis",
+"title": "Change-Impact Analysis: Computing the Blast Radius Before It Computes You",
+"tags": [
+"code"
+]
+},
+{
+"id": "source-code-analysis.clone-duplication-detection",
+"domain": "source-code-analysis",
+"title": "Clone & Duplication Detection: Finding Copy-Paste Code and Judging What It Means",
+"tags": [
+"code"
+]
+},
+{
+"id": "source-code-analysis.combining-llms-with-static-analysis",
+"domain": "source-code-analysis",
+"title": "Combining LLMs with Static-Analysis Tools: Grounding Fluent Reasoning in Precise Facts",
+"tags": [
+"sound"
+]
+},
+{
+"id": "source-code-analysis.complexity-metrics",
+"domain": "source-code-analysis",
+"title": "Complexity Metrics: Cyclomatic, Cognitive, Nesting, Size, and Halstead \u2014 Measuring Difficulty Without Mistaking the Proxy for the Thing",
+"tags": [
+"sound",
+"code"
+]
+},
+{
+"id": "source-code-analysis.concurrency-data-race-analysis",
+"domain": "source-code-analysis",
+"title": "Concurrency & Data-Race Analysis: Interleaving Explosion as the Root of Both Danger and Difficulty",
+"tags": [
+"code"
+]
+},
+{
+"id": "source-code-analysis.control-flow-analysis-cfg",
+"domain": "source-code-analysis",
+"title": "Control-Flow Analysis: Building and Reading the CFG",
+"tags": [
+"code"
+]
+},
+{
+"id": "source-code-analysis.cross-language-polyglot-analysis",
+"domain": "source-code-analysis",
+"title": "Cross-Language & Polyglot Analysis: Why Bugs Live at the Boundaries",
+"tags": [
+"code"
+]
+},
+{
+"id": "source-code-analysis.cross-referencing-def-use-navigation",
+"domain": "source-code-analysis",
+"title": "Cross-Referencing & Def-Use Navigation: Go-to-Definition, Find-References, and the Precision That Makes Them Trustworthy",
+"tags": [
+"code"
+]
+},
+{
+"id": "source-code-analysis.cyclic-dependency-layering-detection",
+"domain": "source-code-analysis",
+"title": "Cyclic-Dependency & Layering-Violation Detection: Finding, Breaking, and Enforcing Against the Two Graph-Detectable Pathologies",
+"tags": [
+"group"
+]
+},
+{
+"id": "source-code-analysis.dead-code-reachability-analysis",
+"domain": "source-code-analysis",
+"title": "Dead Code & Reachability Analysis: Why 'Safe to Delete' Is a Soundness Claim",
+"tags": [
+"code"
+]
+},
+{
+"id": "source-code-analysis.dependency-analysis-graphs",
+"domain": "source-code-analysis",
+"title": "Dependency Analysis & Graphs: The Map of What Depends on What",
+"tags": [
+"code"
+]
+},
+{
+"id": "source-code-analysis.feature-concept-location",
+"domain": "source-code-analysis",
+"title": "Feature / Concept Location: Finding Where a Feature, Behavior, or Bug Lives in the Code",
+"tags": [
+"generated"
+]
+},
+{
+"id": "source-code-analysis.identifier-naming-intent-analysis",
+"domain": "source-code-analysis",
+"title": "Identifier, Naming & Intent Analysis",
+"tags": [
+"words"
+]
+},
+{
+"id": "source-code-analysis.intermediate-representations-ir",
+"domain": "source-code-analysis",
+"title": "Intermediate Representations: The Layer Analysis Actually Runs On",
+"tags": [
+"group"
+]
+},
+{
+"id": "source-code-analysis.interprocedural-whole-program-analysis",
+"domain": "source-code-analysis",
+"title": "Interprocedural & Whole-Program Analysis: Crossing the Call Boundary Without Going Exponential",
+"tags": [
+"economy",
+"words"
+]
+},
+{
+"id": "source-code-analysis.lexing-parsing-asts",
+"domain": "source-code-analysis",
+"title": "Lexing, Parsing & Abstract Syntax Trees: How Source Text Becomes a Tree",
+"tags": [
+"economy",
+"words"
+]
+},
+{
+"id": "source-code-analysis.llm-assisted-code-comprehension",
+"domain": "source-code-analysis",
+"title": "LLM-Assisted Code Comprehension",
+"tags": [
+"group",
+"code"
+]
+},
+{
+"id": "source-code-analysis.onboarding-understanding-unfamiliar-codebase",
+"domain": "source-code-analysis",
+"title": "Onboarding: A Workflow for Understanding an Unfamiliar Codebase Fast",
+"tags": [
+"group"
+]
+},
+{
+"id": "source-code-analysis.points-to-alias-analysis",
+"domain": "source-code-analysis",
+"title": "Points-To / Alias Analysis: The Hidden Precision Ceiling Beneath Call Graphs, Data-Flow, and Security Analysis",
+"tags": [
+"code"
+]
+},
+{
+"id": "source-code-analysis.querying-code-codeql-semgrep-datalog",
+"domain": "source-code-analysis",
+"title": "Querying Code: CodeQL, Semgrep, and Datalog \u2014 Treating the Codebase as a Queryable Database",
+"tags": [
+"generated"
+]
+},
+{
+"id": "source-code-analysis.rag-over-large-codebases",
+"domain": "source-code-analysis",
+"title": "RAG Over Large Codebases: Graph-Aware Retrieval, the Scattered-Context Problem, and Honest Failure Modes",
+"tags": [
+"generated"
+]
+},
+{
+"id": "source-code-analysis.semantic-analysis-symbol-resolution",
+"domain": "source-code-analysis",
+"title": "Semantic Analysis & Symbol Resolution: From Syntax to Meaning",
+"tags": [
+"economy",
+"group",
+"code"
+]
+},
+{
+"id": "source-code-analysis.static-vs-dynamic-analysis",
+"domain": "source-code-analysis",
+"title": "Static vs. Dynamic Analysis: All Paths Approximately vs. One Path Exactly",
+"tags": [
+"code"
+]
+},
+{
+"id": "source-code-analysis.style-convention-consistency-analysis",
+"domain": "source-code-analysis",
+"title": "Style, Convention & Consistency Analysis",
+"tags": [
+"words"
+]
+},
+{
+"id": "source-code-analysis.visualizing-code-analysis",
+"domain": "source-code-analysis",
+"title": "Visualizing Code Analysis: Turning Structure Into Something a Human Can Read at a Glance",
+"tags": [
+"code"
+]
+},
+{
+"id": "source-code-analysis.what-deep-source-analysis-is",
+"domain": "source-code-analysis",
+"title": "What Deep Source-Code Analysis Is: Goals, Axes, and the Map of the Field",
+"tags": [
+"group"
+]
+},
+{
+"id": "ux-accessibility.accessibility-communication",
+"domain": "ux-accessibility",
+"title": "Accessibility Communication for Games",
+"tags": [
+"colour",
+"economy"
+]
+},
+{
+"id": "ux-accessibility.accessibility-testing-consulting",
+"domain": "ux-accessibility",
+"title": "Accessibility Testing and Consulting for Games",
+"tags": [
+"code"
+]
+},
+{
+"id": "ux-accessibility.affordances-signifiers-signposting",
+"domain": "ux-accessibility",
+"title": "Affordances, Signifiers & Signposting in Games",
+"tags": [
+"creature",
+"colour",
+"sound"
+]
+},
+{
+"id": "ux-accessibility.audio-mix-accessibility",
+"domain": "ux-accessibility",
+"title": "Audio Mix Accessibility for Games",
+"tags": [
+"words",
+"sound"
+]
+},
+{
+"id": "ux-accessibility.cognitive-accessibility",
+"domain": "ux-accessibility",
+"title": "Cognitive Accessibility for Games",
+"tags": [
+"time"
+]
+},
+{
+"id": "ux-accessibility.color-contrast-accessibility",
+"domain": "ux-accessibility",
+"title": "Color and Contrast Accessibility for Games",
+"tags": [
+"colour",
+"code"
+]
+},
+{
+"id": "ux-accessibility.creation-flow-census",
+"domain": "ux-accessibility",
+"title": "Creation-Flow Conventions Census: the Seven Canon Programs and the Enforceable Creation-Flow Floor",
+"tags": [
+"creature",
+"colour",
+"generated",
+"words",
+"sound",
+"code"
+]
+},
+{
+"id": "ux-accessibility.cvd-daltonization-matrices",
+"domain": "ux-accessibility",
+"title": "CVD Simulation & Daltonization Matrices",
+"tags": [
+"colour"
+]
+},
+{
+"id": "ux-accessibility.dcc-viewport-conventions-census",
+"domain": "ux-accessibility",
+"title": "DCC/Engine Viewport Conventions Census: Godot, Blender, Unreal, Maya, and the Enforceable Viewport Floor",
+"tags": [
+"group",
+"words"
+]
+},
+{
+"id": "ux-accessibility.difficulty-assist-systems-accessibility",
+"domain": "ux-accessibility",
+"title": "Difficulty and Assist Systems as Accessibility",
+"tags": [
+"time",
+"economy"
+]
+},
+{
+"id": "ux-accessibility.feedback-game-feel-ux",
+"domain": "ux-accessibility",
+"title": "Feedback and Game Feel as UX",
+"tags": [
+"sound"
+]
+},
+{
+"id": "ux-accessibility.first-time-user-experience-ftue",
+"domain": "ux-accessibility",
+"title": "First-Time User Experience (FTUE) for Games",
+"tags": [
+"time"
+]
+},
+{
+"id": "ux-accessibility.game-accessibility-overview-standards",
+"domain": "ux-accessibility",
+"title": "Game Accessibility Overview and Standards",
+"tags": [
+"economy"
+]
+},
+{
+"id": "ux-accessibility.information-architecture-menu-flow",
+"domain": "ux-accessibility",
+"title": "Information Architecture & Menu Flow for Games",
+"tags": [
+"group",
+"code"
+]
+},
+{
+"id": "ux-accessibility.input-remapping-alternative-inputs",
+"domain": "ux-accessibility",
+"title": "Input Remapping and Alternative Inputs",
+"tags": [
+"time",
+"words",
+"code"
+]
+},
+{
+"id": "ux-accessibility.iterating-from-feedback",
+"domain": "ux-accessibility",
+"title": "Iterating from Player Feedback",
+"tags": [
+"group",
+"code"
+]
+},
+{
+"id": "ux-accessibility.low-vision-screen-reader-support",
+"domain": "ux-accessibility",
+"title": "Low-Vision and Screen-Reader Support for Games",
+"tags": [
+"sound",
+"code"
+]
+},
+{
+"id": "ux-accessibility.onboarding-tutorial-design",
+"domain": "ux-accessibility",
+"title": "Onboarding & Tutorial Design for Games",
+"tags": [
+"group",
+"code"
+]
+},
+{
+"id": "ux-accessibility.pause-action-scope-addendum",
+"domain": "ux-accessibility",
+"title": "Pause Action Scope Addendum",
+"tags": [
+"group",
+"words"
+]
+},
+{
+"id": "ux-accessibility.photosensitivity-motion",
+"domain": "ux-accessibility",
+"title": "Photosensitivity and Motion Accessibility for Games",
+"tags": [
+"code"
+]
+},
+{
+"id": "ux-accessibility.player-guidance-wayfinding",
+"domain": "ux-accessibility",
+"title": "Player Guidance & Wayfinding in Games",
+"tags": [
+"colour",
+"sound",
+"code"
+]
+},
+{
+"id": "ux-accessibility.playtesting-usability-testing",
+"domain": "ux-accessibility",
+"title": "Playtesting & Usability Testing for Games",
+"tags": [
+"code"
+]
+},
+{
+"id": "ux-accessibility.settings-options-ux",
+"domain": "ux-accessibility",
+"title": "Settings & Options UX for Games",
+"tags": [
+"sound",
+"code"
+]
+},
+{
+"id": "ux-accessibility.subtitles-captions",
+"domain": "ux-accessibility",
+"title": "Subtitles and Captions for Games",
+"tags": [
+"words",
+"sound"
+]
+},
+{
+"id": "ux-accessibility.teaching-complex-asymmetric-systems",
+"domain": "ux-accessibility",
+"title": "Teaching Complex & Asymmetric Systems in Games",
+"tags": [
+"time",
+"group",
+"generated"
+]
+},
+{
+"id": "ux-accessibility.text-readability",
+"domain": "ux-accessibility",
+"title": "Text and Readability Accessibility for Games",
+"tags": [
+"words"
+]
+},
+{
+"id": "ux-accessibility.usability-friction",
+"domain": "ux-accessibility",
+"title": "Usability & Friction in Games",
+"tags": [
+"code"
+]
+},
+{
+"id": "ux-accessibility.visualizing-audio-cues",
+"domain": "ux-accessibility",
+"title": "Visualizing Audio Cues for Deaf and Hard-of-Hearing Players",
+"tags": [
+"sound"
+]
+},
+{
+"id": "visual.3d-camera-rig-numeric-defaults",
+"domain": "visual",
+"title": "3D Camera Rig Numeric Defaults (Greybox Gym Extension)",
+"tags": [
+"creature"
+]
+},
+{
+"id": "visual.animation-principles-games",
+"domain": "visual",
+"title": "Animation Principles for Games",
+"tags": [
+"creature",
+"time",
+"economy"
+]
+},
+{
+"id": "visual.animation-systems-state-machines-blend-trees",
+"domain": "visual",
+"title": "Animation Systems (State Machines & Blend Trees)",
+"tags": [
+"generated"
+]
+},
+{
+"id": "visual.animation-tech-gpu-skinning-performance",
+"domain": "visual",
+"title": "Animation Tech \u2014 GPU Skinning, Compression & Performance",
+"tags": [
+"colour"
+]
+},
+{
+"id": "visual.art-asset-pipeline-dcc-tools",
+"domain": "visual",
+"title": "Art Asset Pipeline & DCC Tools",
+"tags": [
+"colour",
+"group",
+"words"
+]
+},
+{
+"id": "visual.art-direction-visual-identity",
+"domain": "visual",
+"title": "Art Direction & Visual Identity in Games",
+"tags": [
+"creature",
+"colour",
+"words"
+]
+},
+{
+"id": "visual.art-style-survey-selection",
+"domain": "visual",
+"title": "Art Style Survey & Selection",
+"tags": [
+"economy"
+]
+},
+{
+"id": "visual.asset-optimization",
+"domain": "visual",
+"title": "Art Asset Optimization \u2014 Poly Budgets, Texture Compression & Memory",
+"tags": [
+"colour"
+]
+},
+{
+"id": "visual.blender-parametric-rig-recipes",
+"domain": "visual",
+"title": "Blender Parametric Rig Recipes (headless bpy figure construction)",
+"tags": [
+"creature",
+"colour",
+"time",
+"generated",
+"words"
+]
+},
+{
+"id": "visual.camera-systems",
+"domain": "visual",
+"title": "Game Camera Systems",
+"tags": [
+"creature",
+"group"
+]
+},
+{
+"id": "visual.color-theory-palettes",
+"domain": "visual",
+"title": "Color Theory & Palettes",
+"tags": [
+"colour"
+]
+},
+{
+"id": "visual.composition-framing-visual-hierarchy",
+"domain": "visual",
+"title": "Composition, Framing & Visual Hierarchy",
+"tags": [
+"creature",
+"colour",
+"code"
+]
+},
+{
+"id": "visual.concept-art-previsualization",
+"domain": "visual",
+"title": "Concept Art & Pre-Visualization",
+"tags": [
+"colour"
+]
+},
+{
+"id": "visual.diegetic-immersive-ui",
+"domain": "visual",
+"title": "Diegetic & Immersive UI",
+"tags": [
+"economy",
+"sound"
+]
+},
+{
+"id": "visual.facial-animation-lip-sync",
+"domain": "visual",
+"title": "Facial Animation & Lip-Sync",
+"tags": [
+"creature",
+"sound"
+]
+},
+{
+"id": "visual.gpu-driven-modern-rendering",
+"domain": "visual",
+"title": "GPU-Driven & Modern Rendering Techniques",
+"tags": [
+"colour"
+]
+},
+{
+"id": "visual.lighting-as-mood-storytelling",
+"domain": "visual",
+"title": "Lighting as Mood & Storytelling (Art Lens)",
+"tags": [
+"creature",
+"colour",
+"code"
+]
+},
+{
+"id": "visual.npr-stylized-rendering",
+"domain": "visual",
+"title": "NPR / Stylized Rendering",
+"tags": [
+"creature",
+"colour",
+"words"
+]
+},
+{
+"id": "visual.pixel-art",
+"domain": "visual",
+"title": "Pixel Art (Craft + Tech)",
+"tags": [
+"colour"
+]
+},
+{
+"id": "visual.prerendered-3d-to-2d-sprite-pipelines",
+"domain": "visual",
+"title": "Pre-rendered 3D-to-2D Sprite Pipelines",
+"tags": [
+"colour",
+"time",
+"group"
+]
+},
+{
+"id": "visual.procedural-generative-visuals",
+"domain": "visual",
+"title": "Procedural & Generative Visuals (Materials, Meshes, Environments)",
+"tags": [
+"colour",
+"time",
+"words"
+]
+},
+{
+"id": "visual.rendering-performance-optimization",
+"domain": "visual",
+"title": "Rendering Performance & Optimization",
+"tags": [
+"colour",
+"code"
+]
+},
+{
+"id": "visual.rigging-skinning",
+"domain": "visual",
+"title": "Rigging & Skinning",
+"tags": [
+"creature",
+"words"
+]
+},
+{
+"id": "visual.shaders-materials-pbr",
+"domain": "visual",
+"title": "Shaders, Materials & PBR",
+"tags": [
+"colour",
+"generated"
+]
+},
+{
+"id": "visual.smooth-body-construction",
+"domain": "visual",
+"title": "Smooth Organic Body Construction for Parametric Headless Blender Figures",
+"tags": [
+"creature",
+"colour",
+"words"
+]
+},
+{
+"id": "visual.species-silhouette-morphology",
+"domain": "visual",
+"title": "Species Silhouette Morphology: a Modular Part Vocabulary that Reads at Sprite Size",
+"tags": [
+"creature"
+]
+},
+{
+"id": "visual.stylized-proportion-registers",
+"domain": "visual",
+"title": "Stylized Proportion Registers: the Appeal Axis for Parametric Creature Figures at Sprite Scale",
+"tags": [
+"creature",
+"group",
+"generated",
+"words"
+]
+},
+{
+"id": "visual.ui-ux-flow-menu-design",
+"domain": "visual",
+"title": "UI/UX Flow & Menu Design",
+"tags": [
+"words"
+]
+},
+{
+"id": "visual.ui-visual-design-hud",
+"domain": "visual",
+"title": "UI Visual Design & HUD",
+"tags": [
+"colour",
+"economy"
+]
+},
+{
+"id": "visual.vfx-particle-systems",
+"domain": "visual",
+"title": "VFX & Particle Systems",
+"tags": [
+"creature"
+]
+},
+{
+"id": "visual.visual-accessibility",
+"domain": "visual",
+"title": "Visual Accessibility (Colorblind, Contrast, Text, Motion & Photosensitivity)",
+"tags": [
+"colour"
+]
+},
+{
+"id": "visual.visual-readability-clarity-game-feel",
+"domain": "visual",
+"title": "Visual Readability, Clarity & \"Game Feel\" (Juice)",
+"tags": [
+"creature",
+"colour",
+"words",
+"code"
+]
+},
+{
+"id": "visual.voxel-low-poly",
+"domain": "visual",
+"title": "Voxel & Low-Poly Approaches",
+"tags": [
+"colour"
+]
+},
+{
+"id": "visual.water-atmosphere-sky-volumetrics",
+"domain": "visual",
+"title": "Water, Atmosphere, Sky & Volumetrics",
+"tags": [
+"colour",
+"group"
+]
+},
+{
+"id": "visual-trace.accent-selection-accentswatch",
+"domain": "visual-trace",
+"title": "Accent Selection & accentSwatch: Picking the One Color That Carries Identity",
+"tags": [
+"colour",
+"code"
+]
+},
+{
+"id": "visual-trace.asymmetry-odd-anatomy",
+"domain": "visual-trace",
+"title": "Asymmetry & Odd Anatomy: When mir Breaks and What the Break Costs",
+"tags": [
+"creature",
+"code"
+]
+},
+{
+"id": "visual-trace.body-plan-taxonomy-read",
+"domain": "visual-trace",
+"title": "Body-Plan Taxonomy Read: Classify the Creature Before Spending a Single Shape",
+"tags": [
+"creature"
+]
+},
+{
+"id": "visual-trace.building-interview-script",
+"domain": "visual-trace",
+"title": "Building Interview Script: The Ordered, Grammar-Locked Question List That Turns One Building Picture into a Trace Brief",
+"tags": [
+"colour",
+"words"
+]
+},
+{
+"id": "visual-trace.building-rhythm-read",
+"domain": "visual-trace",
+"title": "The Building Rhythm Read: Distinct Buildings, Filler Rows, and the Roofline as a Street's Identity",
+"tags": [
+"code"
+]
+},
+{
+"id": "visual-trace.character-interview-script",
+"domain": "visual-trace",
+"title": "Character Interview Script: The Ordered, Grammar-Locked Question List That Turns One Humanoid Picture into a Trace Brief",
+"tags": [
+"creature",
+"colour",
+"words"
+]
+},
+{
+"id": "visual-trace.clothing-gear-identity-accents",
+"domain": "visual-trace",
+"title": "Clothing, Gear & Identity Accents: Reading a Costume as Budgeted Color Bands",
+"tags": [
+"creature",
+"colour"
+]
+},
+{
+"id": "visual-trace.cluster-vs-specimen-call",
+"domain": "visual-trace",
+"title": "Cluster vs. Specimen Call: The Gate Decision Between One Hero Tree and a Treeline Mass",
+"tags": [
+"creature",
+"group",
+"code"
+]
+},
+{
+"id": "visual-trace.color-interview-script",
+"domain": "visual-trace",
+"title": "Color Interview Script: The Composable Four-Question Color Module Every Archetype Script Splices In",
+"tags": [
+"colour",
+"words"
+]
+},
+{
+"id": "visual-trace.creature-interview-script",
+"domain": "visual-trace",
+"title": "Creature Interview Script: The Ordered, Grammar-Locked Question List That Turns One Creature Picture into a Trace Brief",
+"tags": [
+"creature",
+"colour",
+"words"
+]
+},
+{
+"id": "visual-trace.drawing-pixel-art-reads",
+"domain": "visual-trace",
+"title": "Drawing and Pixel-Art Reads: Stroke-to-Mass Conversion and the Anti-Transcription Discipline",
+"tags": [
+"creature",
+"colour"
+]
+},
+{
+"id": "visual-trace.emblem-badge-decomposition",
+"domain": "visual-trace",
+"title": "Emblem & Badge Decomposition: The Field-Division-Charge Read Order for Picture Tracing",
+"tags": [
+"creature",
+"colour"
+]
+},
+{
+"id": "visual-trace.face-head-detail-budget",
+"domain": "visual-trace",
+"title": "Face & Head Detail Budget \u2014 When a Traced Head Earns Face Shapes",
+"tags": [
+"creature",
+"code"
+]
+},
+{
+"id": "visual-trace.feedback-crafting-per-failure-pattern",
+"domain": "visual-trace",
+"title": "Feedback Crafting per Failure Pattern",
+"tags": [
+"words"
+]
+},
+{
+"id": "visual-trace.figure-ground-separation",
+"domain": "visual-trace",
+"title": "Figure/Ground Separation: Finding the Main Mass Before Any Archetype Read Begins",
+"tags": [
+"code"
+]
+},
+{
+"id": "visual-trace.footprint-roof-openings-order",
+"domain": "visual-trace",
+"title": "Footprint-Roof-Openings Order: The Canonical Building Read Order for Picture Tracing",
+"tags": [
+"creature",
+"colour"
+]
+},
+{
+"id": "visual-trace.foreshortening-overlap-correction",
+"domain": "visual-trace",
+"title": "Foreshortening and Overlap Correction: Restoring the Camera-Pointing Part and Asking the Depth Question That Moves a Shape",
+"tags": [
+"creature",
+"code"
+]
+},
+{
+"id": "visual-trace.frames-buttons-border-structure",
+"domain": "visual-trace",
+"title": "Frames, Buttons & Border Structure \u2014 Reading Border/Fill/Corner Construction After the Routing Gate",
+"tags": [
+"creature",
+"colour",
+"code"
+]
+},
+{
+"id": "visual-trace.furniture-mass-reading",
+"domain": "visual-trace",
+"title": "Furniture Mass Reading \u2014 Bed, Table, Chair, Shelf, Wardrobe, Sofa, and Stool as 2-5 Shape Stacks",
+"tags": [
+"colour"
+]
+},
+{
+"id": "visual-trace.glyph-icon-reading",
+"domain": "visual-trace",
+"title": "Glyph & Icon Reading: Centering, Ink Dominance, and the Stroke-to-Fill Conversion Rule at 3-6 Shapes",
+"tags": [
+"code"
+]
+},
+{
+"id": "visual-trace.gradients-lighting-flat-bands",
+"domain": "visual-trace",
+"title": "Gradients & Lighting as Flat Bands: The General Terminator Rule for Any Lit Form",
+"tags": [
+"colour",
+"code"
+]
+},
+{
+"id": "visual-trace.ground-plane-street-furniture",
+"domain": "visual-trace",
+"title": "Ground Plane and Street Furniture: Bands Underfoot, Props at the Curb, and the Scale Chain That Holds a Street Together",
+"tags": [
+"colour",
+"code"
+]
+},
+{
+"id": "visual-trace.hero-shape-supports-read",
+"domain": "visual-trace",
+"title": "Hero-Shape-Plus-Supports Read: The One-Dominant-Mass Rule for Tracing Props at \u22648 Shapes",
+"tags": [
+"creature",
+"words",
+"code"
+]
+},
+{
+"id": "visual-trace.honest-refusal",
+"domain": "visual-trace",
+"title": "Honest Refusal \u2014 Stopping Rules, Refusal Copy, and Alternative Routing for the Trace Pipeline",
+"tags": [
+"creature",
+"colour",
+"words"
+]
+},
+{
+"id": "visual-trace.horizon-split-band-mapping",
+"domain": "visual-trace",
+"title": "Horizon Split and Band Mapping: Turning a Landscape's Depth into Four Flat Parallax Bands",
+"tags": [
+"creature",
+"colour",
+"words",
+"code"
+]
+},
+{
+"id": "visual-trace.hud-exclusion-play-area-crop",
+"domain": "visual-trace",
+"title": "HUD Exclusion and the Play-Area Crop: Reading a Game Screenshot's World, Not Its Chrome",
+"tags": [
+"code"
+]
+},
+{
+"id": "visual-trace.hull-cabin-wheel-decomposition",
+"domain": "visual-trace",
+"title": "Hull-Cabin-Wheel Decomposition: The Canonical Vehicle Read Order for Picture Tracing",
+"tags": [
+"colour",
+"words"
+]
+},
+{
+"id": "visual-trace.interior-parallax-and-cloud-band-recipes",
+"domain": "visual-trace",
+"title": "Interior Parallax and Cloud Band Recipes: Two Missing Background Families for the Fill-Down Band Renderer",
+"tags": [
+"creature",
+"words"
+]
+},
+{
+"id": "visual-trace.item-class-conventions",
+"domain": "visual-trace",
+"title": "Item-Class Conventions: Genre-Iconic Recipes for Reading Pickups, Tools, Weapons, and Containers into \u22648 Flat Shapes",
+"tags": [
+"colour",
+"economy",
+"words"
+]
+},
+{
+"id": "visual-trace.landmark-extraction",
+"domain": "visual-trace",
+"title": "Landmark Extraction: The Promotion Decision Between Band Silhouette and Traced Sprite",
+"tags": [
+"creature"
+]
+},
+{
+"id": "visual-trace.landscape-interview-script",
+"domain": "visual-trace",
+"title": "Landscape Interview Script: The Ordered, Grammar-Locked Question List That Turns a Vista into a Band Plan",
+"tags": [
+"colour",
+"generated",
+"words"
+]
+},
+{
+"id": "visual-trace.letterform-as-shape-limits",
+"domain": "visual-trace",
+"title": "Letterform-as-Shape Limits: The Honest Math Behind Why Text Nearly Never Traces",
+"tags": [
+"words"
+]
+},
+{
+"id": "visual-trace.lighting-clutter-discipline",
+"domain": "visual-trace",
+"title": "Lighting and Clutter Discipline \u2014 Ignoring Rendering Artifacts and Triaging a Room's Small Objects",
+"tags": [
+"colour",
+"words"
+]
+},
+{
+"id": "visual-trace.limbs-wings-appendage-triage",
+"domain": "visual-trace",
+"title": "Limbs, Wings & Appendage Triage: The Price List for What Sticks Out of a Creature",
+"tags": [
+"creature",
+"economy"
+]
+},
+{
+"id": "visual-trace.logo-interview-script",
+"domain": "visual-trace",
+"title": "Logo Interview Script: The Three-Question Gate That Routes a Text/Logo/Emblem Reference to a Trace, an Extraction, or a Refusal",
+"tags": [
+"colour",
+"group",
+"words"
+]
+},
+{
+"id": "visual-trace.main-mass-first-ordering",
+"domain": "visual-trace",
+"title": "Main-Mass-First Ordering: The Universal Candidate-Ranking Procedure for Picture Tracing",
+"tags": [
+"generated",
+"code"
+]
+},
+{
+"id": "visual-trace.mechanical-detail-triage",
+"domain": "visual-trace",
+"title": "Mechanical Detail Triage: Which Vehicle and Machine Details Survive a 16-Shape Budget",
+"tags": [
+"code"
+]
+},
+{
+"id": "visual-trace.mode-selection-interview",
+"domain": "visual-trace",
+"title": "The Mode-Selection Interview: Reading Creator Intent, the One Disambiguating Question, and Honest Mid-Flow Downgrades",
+"tags": [
+"words"
+]
+},
+{
+"id": "visual-trace.natural-color-banding",
+"domain": "visual-trace",
+"title": "Natural Color Banding: Converting Foliage and Stone Gradients into Body/Shade/Hi Bands",
+"tags": [
+"colour",
+"code"
+]
+},
+{
+"id": "visual-trace.negative-space-readability-check",
+"domain": "visual-trace",
+"title": "Negative Space & the Readability Self-Check: The Post-Placement 'Would This Read at 32px?' Gate",
+"tags": [
+"code"
+]
+},
+{
+"id": "visual-trace.observed-color-clustering-to-roles",
+"domain": "visual-trace",
+"title": "Observed-Color Clustering to Roles: Mapping a Picture's Colors onto the Seven Drawn-Sprite Roles",
+"tags": [
+"colour",
+"code"
+]
+},
+{
+"id": "visual-trace.organic-to-geometric-conversion",
+"domain": "visual-trace",
+"title": "Organic-to-Geometric Conversion: Per-Subject Shape Recipes for Trees, Rocks, Clouds, Bushes, and Flowers",
+"tags": [
+"creature",
+"sound"
+]
+},
+{
+"id": "visual-trace.orientation-presentation-normalization",
+"domain": "visual-trace",
+"title": "Orientation & Presentation Normalization: Reading a Prop's True Presentation Angle Before Any Shape Is Placed",
+"tags": [
+"code"
+]
+},
+{
+"id": "visual-trace.palette-conflict-handling",
+"domain": "visual-trace",
+"title": "Palette-Conflict Handling: The Severity Ladder for When a Reference's Colors Sit Far From the Project's Own Palette",
+"tags": [
+"colour",
+"words"
+]
+},
+{
+"id": "visual-trace.parallax-band-geometry",
+"domain": "visual-trace",
+"title": "Parallax Band Geometry: The Band-Count Ladder, Height-Fraction Table, and Motion-Scale Numbers a Computed Plan Can Ship Unmodified",
+"tags": [
+"creature"
+]
+},
+{
+"id": "visual-trace.per-type-scripts-confidence",
+"domain": "visual-trace",
+"title": "Per-Type Question Scripts and Confidence Thresholds: How the Interview Branches on What Kind of Picture It Is",
+"tags": [
+"code"
+]
+},
+{
+"id": "visual-trace.photo-discipline",
+"domain": "visual-trace",
+"title": "Photo Discipline \u2014 Background Suppression, the Artifact Discount List, and Subject Isolation Before a Shape Is Spent",
+"tags": [
+"creature",
+"colour",
+"words"
+]
+},
+{
+"id": "visual-trace.prop-interview-script",
+"domain": "visual-trace",
+"title": "Prop Interview Script: The Ordered, Grammar-Locked Question List That Turns One Item Picture into a Trace Brief",
+"tags": [
+"colour",
+"words"
+]
+},
+{
+"id": "visual-trace.proportion-budgeting-humanoids",
+"domain": "visual-trace",
+"title": "Proportion Budgeting for Humanoids \u2014 Reading the Proportion Class and Spending the 16-Shape Budget",
+"tags": [
+"creature"
+]
+},
+{
+"id": "visual-trace.refuse-and-extract-playbook",
+"domain": "visual-trace",
+"title": "Refuse-and-Extract Playbook: The Honest Salvage Move When Text or an Emblem Won't Trace",
+"tags": [
+"colour",
+"words"
+]
+},
+{
+"id": "visual-trace.repetition-as-pattern",
+"domain": "visual-trace",
+"title": "Repetition as Pattern, Not Shapes: Compressing Rhythm for Picture-Traced Buildings",
+"tags": [
+"code"
+]
+},
+{
+"id": "visual-trace.room-read-order",
+"domain": "visual-trace",
+"title": "The Room-Read Order: Shell, Furniture Masses, Then Props \u2014 the Interior Scene-Decomposition Contract",
+"tags": [
+"colour"
+]
+},
+{
+"id": "visual-trace.scoring-strictness-per-mode",
+"domain": "visual-trace",
+"title": "Scoring Strictness per Mode: Which Checks Bind, at What Thresholds, and How Feedback Wording Forks",
+"tags": [
+"words"
+]
+},
+{
+"id": "visual-trace.screenshot-interview-script",
+"domain": "visual-trace",
+"title": "The Screenshot Interview Script: Five Questions That Turn a Game Screenshot into an Executable Extraction Plan",
+"tags": [
+"colour",
+"generated",
+"words"
+]
+},
+{
+"id": "visual-trace.silhouette-first-character-read",
+"domain": "visual-trace",
+"title": "Silhouette-First Character Read: The Decomposition Order for Tracing Humanoids into 16 Flat Shapes",
+"tags": [
+"time",
+"words"
+]
+},
+{
+"id": "visual-trace.sky-weather-reading",
+"domain": "visual-trace",
+"title": "Sky and Weather Reading \u2014 Time of Day as a Palette Decision and the Two-Shape Sky Ceiling",
+"tags": [
+"colour",
+"words"
+]
+},
+{
+"id": "visual-trace.sprite-vs-theme-target-routing",
+"domain": "visual-trace",
+"title": "Sprite vs. Theme-Target Routing \u2014 The Fork Before Any UI Reference Gets Traced",
+"tags": [
+"creature",
+"words",
+"code"
+]
+},
+{
+"id": "visual-trace.street-interview-script",
+"domain": "visual-trace",
+"title": "Street Interview Script: The Ordered, Grammar-Locked Question List That Scopes One Settlement Picture into a Scene Plan",
+"tags": [
+"generated",
+"words"
+]
+},
+{
+"id": "visual-trace.style-extraction-without-copying",
+"domain": "visual-trace",
+"title": "Style Extraction Without Copying \u2014 Reading a Screenshot's Style DNA Without Reproducing Its Assets",
+"tags": [
+"creature",
+"colour",
+"economy",
+"words",
+"code"
+]
+},
+{
+"id": "visual-trace.three-quarter-to-side-on",
+"domain": "visual-trace",
+"title": "Three-Quarter to Side-On Conversion: Re-Projecting the Most Common Reference Angle Into the Canonical Trace View",
+"tags": [
+"group",
+"words"
+]
+},
+{
+"id": "visual-trace.tile-grid-inference",
+"domain": "visual-trace",
+"title": "Tile and Grid Inference: Reading a Screenshot's Tileset Intent Instead of Its Pixels",
+"tags": [
+"code"
+]
+},
+{
+"id": "visual-trace.top-down-isometric-targets",
+"domain": "visual-trace",
+"title": "Top-Down and Isometric Targets: The Overhead Re-Targeting Playbook for Picture Tracing",
+"tags": [
+"colour",
+"words"
+]
+},
+{
+"id": "visual-trace.two-contract-model",
+"domain": "visual-trace",
+"title": "The Two-Contract Model \u2014 Defining \"Draw From\" and \"Try to Match\" as Checkable Trace Promises",
+"tags": [
+"words"
+]
+},
+{
+"id": "visual-trace.ui-element-interview-script",
+"domain": "visual-trace",
+"title": "UI-Element Interview Script: The Ordered, Grammar-Locked Question List That Swaps Between a Trace Brief and Theme-Generator Parameters",
+"tags": [
+"colour",
+"words"
+]
+},
+{
+"id": "visual-trace.vegetation-interview-script",
+"domain": "visual-trace",
+"title": "Vegetation Interview Script: The Ordered, Grammar-Locked Question List That Turns One Plant, Rock, or Cloud Picture into a Trace Brief",
+"tags": [
+"creature",
+"colour",
+"words"
+]
+},
+{
+"id": "visual-trace.vehicle-interview-script",
+"domain": "visual-trace",
+"title": "Vehicle Interview Script: The Ordered, Grammar-Locked Question List That Turns One Vehicle Picture into a Trace Brief",
+"tags": [
+"colour",
+"words"
+]
+},
+{
+"id": "visual-trace.viewpoint-classification",
+"domain": "visual-trace",
+"title": "Viewpoint Classification: Reading the Source Camera Before Spending a Single Shape",
+"tags": [
+"creature",
+"words"
+]
+}
+]
