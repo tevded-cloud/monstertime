@@ -33,7 +33,13 @@ import { centredShape } from './alleles'
 // one that has been pushed are both squared up waiting for the next thing. The
 // other six axes each ask for something a serpent and a quadruped can both do
 // and neither can fake with another pose.
-const STANCE_FOR: Record<PressureAxis, Stance> = {
+/** Which pose each axis asks for. Exported so a test can assert the RULE rather
+ *  than a memory of one week's tuning: the cases in test/dna/stance.test.ts
+ *  used to name an answer and quote the numbers behind it, and went red when
+ *  the shelves were built out for saying the old numbers rather than for
+ *  anything being wrong. A second copy over there would be two answers to one
+ *  question, which is the defect this codebase keeps paying for. */
+export const STANCE_FOR: Record<PressureAxis, Stance> = {
   // Head down, working at something on the ground in front of it.
   nourish: 'nosing',
   craft: 'nosing',

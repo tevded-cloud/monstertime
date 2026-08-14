@@ -29,6 +29,19 @@
 //      every creature alive changes with it. Then update the hashes, and say so
 //      out loud to the people whose creatures those are.
 //
+//
+// RE-CUT ON 2026-08-14, deliberately, when the action tree was built out from
+// 36 items to 222. That expansion moved several kinds' habit directions far
+// enough to re-deal the alleles, which is exactly what this file exists to
+// notice, and it noticed. The hashes below are the NEW baseline for groups
+// made from that deploy onward.
+//
+// Creatures that already existed were NOT re-dealt, because genomes are frozen
+// at first read now (see `genome()` in worker/monstertime.ts). That freeze
+// shipped first, on purpose: a group first read after the new catalogue landed
+// would have been frozen against it. Re-cutting these hashes without that
+// freeze in production would have quietly changed every living creature.
+//
 // A hash rather than the alleles themselves, because the point is to notice a
 // change and the alleles would be four hundred lines nobody reads.
 
@@ -68,26 +81,26 @@ function bucketPrint(bucket: number): string {
 }
 
 const PINNED: string[] = [
-  'e32497668dc0',
-  'ec4073927966',
-  '3b0c0bccc88a',
-  '46d22afaaad1',
-  'e652fadc698a',
-  'a85697b181f9',
-  '9dfd3f6f5576',
-  '5255085b90cc',
-  'f443ad661511',
-  'd68b7887d036',
-  'dc811a14491f',
-  'c3de66676c59',
-  'df68301a2f1a',
-  'f17e642b8e7c',
-  '00e3f0365643',
-  '7572c98dca06',
-  'ac47f7d3c2c3',
-  '38c9cc710471',
-  '9ac4a3e07812',
-  '05c06e7b398d',
+  '63ef7da2ebba',
+  'f74958a3ad4f',
+  '268427e81292',
+  '39458bf3c198',
+  '638061c1d6a5',
+  'ea21edab3c46',
+  'dc5110b37a42',
+  'e3bea0e53108',
+  '3818f070c5cc',
+  '5ff8ad39ebc0',
+  '690fa01f8776',
+  '64f1ee310489',
+  'c5cd70733cca',
+  '0ea052a28384',
+  'f947be5f0444',
+  '9f1445fe81c8',
+  '1aca9c81198b',
+  '85812bef8822',
+  '7c40c637a67d',
+  'a4a5deb4df1a',
 ]
 
 describe('creatures that already exist', () => {

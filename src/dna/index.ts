@@ -29,4 +29,4 @@ export {
 export { deriveCreature, emptyPressures, emptySubstance, stageOfGrowth } from './express'
 export { lastRouseAt, rollActivity, ROUSE_MS, sleepState, sleepStateOf } from './sleep'
 export type { SleepState } from './sleep'
-export { deriveStance } from './stance'
+export { deriveStance, STANCE_FOR } from './stance'

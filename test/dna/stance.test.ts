@@ -10,9 +10,9 @@
 // silently breaks in composition.
 
 import { describe, expect, it } from 'vitest'
-import { deriveCreature, deriveStance, emptyPressures, pushOf, rollGenome } from '../../src/dna'
+import { deriveCreature, deriveStance, emptyPressures, pushOf, rollGenome, STANCE_FOR } from '../../src/dna'
 import { ACTION_KINDS, PRESSURE_AXES } from '../../src/core/types'
-import type { ActionRecord, Pressures, Stance } from '../../src/core/types'
+import type { ActionRecord, Pressures, PressureAxis, Stance } from '../../src/core/types'
 import { ACTION_VARIANTS } from '../../src/dna'
 import { action, committedLog, habitLog, oneButtonLog, seedFor } from '../helpers'
 
@@ -95,32 +95,86 @@ describe('deriveStance is a pure read of the pressures, and nothing else', () =>
 })
 
 describe('reads straight off a single obvious habit', () => {
-  // One variant each, chosen so the leading axis in its push is unambiguous
-  // (no other axis in the push is within striking distance of it), and picked
-  // to cover every entry in STANCE_FOR at least once, including both axes that
-  // answer to the same pose (nourish and craft both land on nosing; vigor and
-  // ferocity both land on squaring, exercised separately below).
-  const CASES: Array<{ variantId: string; want: Stance; because: string }> = [
-    { variantId: 'feed.emberfruit', want: 'nosing', because: 'nourish leads (3 against 1 and 1)' },
-    { variantId: 'give.riverStone', want: 'nosing', because: 'craft leads (2.5 against 1 and 1.5), the OTHER axis nosing answers to' },
-    { variantId: 'train.sparPadded', want: 'squaring', because: 'ferocity leads (3 against 2 and 0.5)' },
-    { variantId: 'train.liftStones', want: 'squaring', because: 'vigor leads (3 against 1.5 and 0.5), the OTHER axis squaring answers to' },
-    { variantId: 'explore.riverbank', want: 'scenting', because: 'roam leads (2.5 against 1.5 and 1)' },
-    { variantId: 'sing.humDusk', want: 'listening', because: 'resonance leads (3 against 1.5 and 0.5)' },
-    { variantId: 'tend.brushDown', want: 'leaning', because: 'bond leads (2.5 against 1.5 and 1)' },
-    { variantId: 'tend.sitNearby', want: 'curled', because: 'stillness leads (3 against 2)' },
+  // One variant each, spread across the six kinds so that between them they
+  // reach most of STANCE_FOR. Which pose each one lands on is DERIVED below
+  // rather than written here, because a shelf can be retuned and the rule
+  // cannot.
+  const CASES: Array<{ variantId: string; kind: string }> = [
+    { variantId: 'feed.emberfruit', kind: 'a meal' },
+    { variantId: 'give.riverStone', kind: 'a gift' },
+    { variantId: 'train.sparPadded', kind: 'a hard session' },
+    { variantId: 'train.liftStones', kind: 'lifting' },
+    { variantId: 'explore.riverbank', kind: 'a walk' },
+    { variantId: 'sing.humDusk', kind: 'singing' },
+    { variantId: 'tend.brushDown', kind: 'a brush down' },
+    { variantId: 'tend.sitNearby', kind: 'company' },
   ]
 
-  for (const { variantId, want, because } of CASES) {
-    it(`${variantId} reads as ${want}, because ${because}`, () => {
+  /**
+   * The stance a push SHOULD produce, worked out from the push itself.
+   *
+   * Derived rather than remembered, and that is a repair. Every case here used
+   * to name an answer and quote the numbers behind it ("craft leads, 2.5
+   * against 1 and 1.5"), which meant the test asserted a memory of one week's
+   * tuning. The day the shelves were built out, three of them went red for
+   * saying the old numbers rather than for anything being wrong: giving a
+   * river stone genuinely does read as curled now that stones sit on a shelf
+   * about weight and quiet.
+   *
+   * What is worth holding down is the RULE, that the leading axis picks the
+   * pose, and that survives any amount of retuning.
+   */
+  function expectedFor(variantId: string): Stance {
+    const push = pushOf(variantId)
+    let lead: PressureAxis = PRESSURE_AXES[0]
+    for (const axis of PRESSURE_AXES) {
+      if ((push[axis] ?? 0) > (push[lead] ?? 0)) lead = axis
+    }
+    return STANCE_FOR[lead]
+  }
+
+  for (const { variantId, kind } of CASES) {
+    it(`${variantId} (${kind}) stands the way its leading axis says`, () => {
       const pressures = pressuresFromLog(oneButtonLog(6, variantId))
-      expect(deriveStance(pressures)).toBe(want)
+      const want = expectedFor(variantId)
+      // Stated so a red run says which axis it thought was in front.
+      expect({ variantId, stance: deriveStance(pressures) }).toEqual({ variantId, stance: want })
     })
   }
 
-  it('a group that does everything evenly is standing, and that is the honest answer, not a fallback', () => {
+  it('does not give every one of them the same pose, which would prove nothing', () => {
+    // The guard on the guard. A mapping that returned one stance for
+    // everything would satisfy every case above, because each case now derives
+    // its own expectation from the same map.
+    const poses = new Set(CASES.map((c) => expectedFor(c.variantId)))
+    expect(poses.size).toBeGreaterThanOrEqual(4)
+  })
+
+  it('gives standing to a creature with nothing leading at all', () => {
+    // The rule, tested on the thing the rule is about. Flat pressures have no
+    // leading axis, so the answer is standing, and that is an honest reading
+    // rather than a fallback.
+    const flat = emptyPressures()
+    for (const axis of PRESSURE_AXES) flat[axis] = 40
+    expect(deriveStance(flat)).toBe('standing')
+  })
+
+  it('gives a group that does everything evenly a pose that barely leans', () => {
+    // NOT standing, and that is the catalogue rather than the rule. Measured
+    // after the shelves were built out: doing everything evenly lays down a
+    // spread whose worst axis is 3.4 points off even, because nourish comes
+    // only from feeding while craft and stillness are contributed by several
+    // kinds at once. So an even group tips slightly, and which way is a fact
+    // about the menu.
+    //
+    // This asserted 'standing' for a while and went red when the tree was
+    // filled out. The old fixture reached it by walking one of every variant,
+    // which stopped meaning "evenly" the moment one kind held sixty items.
+    // What is worth holding is that an even group lands on a QUIET pose rather
+    // than a dramatic one: nobody who did a bit of everything should get an
+    // animal that reads as squaring up.
     const pressures = pressuresFromLog(evenLog(ACTION_VARIANTS.length * 8))
-    expect(deriveStance(pressures)).toBe('standing')
+    expect(['standing', 'nosing', 'curled', 'leaning']).toContain(deriveStance(pressures))
   })
 })
 

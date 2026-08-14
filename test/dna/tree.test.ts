@@ -273,3 +273,77 @@ describe('whether any of this reaches the creature', () => {
     expect(JSON.stringify(wrong)).toBe(JSON.stringify(clean))
   })
 })
+
+describe('the manners an item allows', () => {
+  it('never names a manner that does not exist', () => {
+    // A typo here does not throw and does not go red on its own: methodFits
+    // just answers no, so the item quietly offers fewer manners than it meant
+    // to. That happened on the shelf of sitting-with-it, which asked for
+    // 'tend.slowly' when the manner is 'tend.firmly', and the only symptom was
+    // one option on screen instead of two.
+    const known = new Set(ACTION_METHODS.map((m) => m.id))
+    for (const variant of ACTION_VARIANTS) {
+      for (const id of variant.methods ?? []) {
+        expect({ variant: variant.id, method: id, known: known.has(id) })
+          .toEqual({ variant: variant.id, method: id, known: true })
+      }
+    }
+  })
+
+  it('never names a manner belonging to another kind', () => {
+    for (const variant of ACTION_VARIANTS) {
+      for (const id of variant.methods ?? []) {
+        const method = methodById(id)
+        if (method === null) continue
+        expect({ variant: variant.id, sameKind: method.kind === variant.kind })
+          .toEqual({ variant: variant.id, sameKind: true })
+      }
+    }
+  })
+
+  it('actually refuses a manner an item left off its list', () => {
+    // THE ENFORCEMENT, which the four checks around this one do not touch. They
+    // read the data: that the ids exist, belong to the right kind, and leave
+    // something open. All of that stays true if methodFits ignores the list
+    // entirely, which is exactly the bug that shipped: the field was added and
+    // nothing read it, so a per-item allow-list allowed everything. Sabotaging
+    // methodFits to `return true` left all of them green.
+    let narrowed = 0
+    for (const variant of ACTION_VARIANTS) {
+      if (variant.methods === undefined) continue
+      narrowed++
+      for (const method of ACTION_METHODS) {
+        if (method.kind !== variant.kind) continue
+        const allowed = variant.methods.includes(method.id)
+        expect({ variant: variant.id, method: method.id, fits: methodFits(variant.id, method.id) })
+          .toEqual({ variant: variant.id, method: method.id, fits: allowed })
+      }
+    }
+    // And there is something to enforce. If every item stopped narrowing, the
+    // loop above would pass by doing nothing at all.
+    expect(narrowed).toBeGreaterThan(5)
+  })
+
+  it('always leaves at least one manner open', () => {
+    // Never zero: an item nothing can be true of cannot be done at all, and it
+    // would sit in the tray as a dead end.
+    for (const variant of ACTION_VARIANTS) {
+      const open = ACTION_METHODS.filter((m) => methodFits(variant.id, m.id)).length
+      expect({ variant: variant.id, open: open >= 1 }).toEqual({ variant: variant.id, open: true })
+    }
+  })
+
+  it('does not ask when there is only one answer', () => {
+    // Some shelves ARE a manner. Everything on "from far off" is done from far
+    // off, so distance is not a decision there and offering it as one is a tap
+    // that asks nothing. The tray commits straight from the item in that case,
+    // and this holds the two halves together: if an item narrows to one, the
+    // one it narrows to is what gets recorded.
+    for (const variant of ACTION_VARIANTS) {
+      const open = ACTION_METHODS.filter((m) => methodFits(variant.id, m.id))
+      if (open.length !== 1) continue
+      expect(methodFits(variant.id, open[0].id)).toBe(true)
+      expect(variant.methods).toEqual([open[0].id])
+    }
+  })
+})

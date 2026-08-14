@@ -91,7 +91,12 @@ describe('src/dna stays engine independent', () => {
       'express.ts',
       'index.ts',
       'rng.ts',
+      'shelves-explore.ts',
       'shelves-feed.ts',
+      'shelves-give.ts',
+      'shelves-sing.ts',
+      'shelves-tend.ts',
+      'shelves-train.ts',
       'sleep.ts',
       'stance.ts',
     ])

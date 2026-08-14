@@ -36,8 +36,8 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { JSX } from 'react'
 import { ACTION_KINDS } from '../core/types'
-import type { ActionKind, ActionVariant, Creature } from '../core/types'
-import { availableVariants, methodsForKind } from '../dna'
+import type { ActionKind, ActionMethod, ActionVariant, Creature } from '../core/types'
+import { availableVariants, methodFits, methodsForKind } from '../dna'
 // Reached past src/net's barrel deliberately and not happily. The barrel is the
 // public face of that module and this belongs on it; until it is added there,
 // the alternative is leaving every sentence the object writes in the console.
@@ -223,6 +223,20 @@ export default function ActionBar({ creature, actorId, live, onAct }: ActionBarP
     setPicked(null)
   }
 
+  /**
+   * The manners that can actually be true of this item.
+   *
+   * Filtered rather than listed by kind. Manners hang off the kind, so every
+   * singing manner was offered for every singing item, and "whistle from across
+   * the field" was offered "up close" and "from across the room" at the same
+   * time. The catalogue knows which fit; this asks it rather than repeating the
+   * rule, because two answers to one question is the defect this codebase keeps
+   * paying for.
+   */
+  function mannersFor(variant: ActionVariant): ActionMethod[] {
+    return methodsForKind(variant.kind).filter((m) => methodFits(variant.id, m.id))
+  }
+
   /** Committed here and only here, whichever way somebody arrived. */
   function commit(variant: ActionVariant, methodId?: string): void {
     onAct(variant.id, methodId)
@@ -323,7 +337,14 @@ export default function ActionBar({ creature, actorId, live, onAct }: ActionBarP
                     type="button"
                     className="variant"
                     disabled={cooling || !live}
-                    onClick={() => setPicked(variant)}
+                    onClick={() => {
+                      // Some shelves ARE a manner: everything on "from far off"
+                      // is done from far off. Asking there is a tap that offers
+                      // no decision, so the item commits with the one that fits.
+                      const fits = mannersFor(variant)
+                      if (fits.length === 1) commit(variant, fits[0].id)
+                      else setPicked(variant)
+                    }}
                   >
                     <strong>{variant.label}</strong>
                     <em>{variant.blurb}</em>
@@ -339,7 +360,7 @@ export default function ActionBar({ creature, actorId, live, onAct }: ActionBarP
                 </button>
               </div>
               <div className="variants manners">
-                {methodsForKind(picked.kind).map((method) => (
+                {mannersFor(picked).map((method) => (
                   <button
                     key={method.id}
                     type="button"

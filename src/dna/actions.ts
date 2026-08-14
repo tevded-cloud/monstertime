@@ -48,303 +48,20 @@ import { PRESSURE_AXES } from '../core/types'
 import type { ActionKind, ActionMethod, ActionVariant, PressureDelta } from '../core/types'
 import { expand } from './catalogue'
 import { FEED_SHELVES } from './shelves-feed'
+import { TRAIN_SHELVES } from './shelves-train'
+import { EXPLORE_SHELVES } from './shelves-explore'
+import { SING_SHELVES } from './shelves-sing'
+import { GIVE_SHELVES } from './shelves-give'
+import { TEND_SHELVES } from './shelves-tend'
 
 export const ACTION_VARIANTS: ActionVariant[] = [
   ...expand(FEED_SHELVES),
-  // --- train --------------------------------------------------------------
-  {
-    id: 'train.chaseYard',
-    category: 'running',
-    kind: 'train',
-    label: 'chase it round the yard',
-    blurb: 'You will lose. Go anyway.',
-    push: { vigor: 3, roam: 1.5, bond: 0.5 },
-    minStage: 1,
-  },
-  {
-    id: 'train.liftStones',
-    category: 'strength',
-    kind: 'train',
-    label: 'lift stones with it',
-    blurb: 'Start with ones you can carry.',
-    push: { vigor: 3, ferocity: 1.5, craft: 0.5 },
-    minStage: 1,
-  },
-  {
-    id: 'train.sparPadded',
-    category: 'strength',
-    kind: 'train',
-    label: 'spar with a padded arm',
-    blurb: 'Let it win once. Not twice.',
-    push: { ferocity: 3, vigor: 2, bond: 0.5 },
-    minStage: 1,
-  },
-  {
-    id: 'train.holdStill',
-    category: 'discipline',
-    kind: 'train',
-    label: 'teach it to hold still',
-    blurb: 'Count to ten out loud.',
-    push: { stillness: 3, bond: 1, craft: 1 },
-    minStage: 1,
-  },
-  {
-    id: 'train.climbRope',
-    category: 'running',
-    kind: 'train',
-    label: 'send it up the rope',
-    blurb: 'It gets stuck halfway the first time.',
-    push: { vigor: 2.5, roam: 1.5, craft: 1 },
-    minStage: 1,
-  },
-  {
-    id: 'train.standGround',
-    category: 'discipline',
-    kind: 'train',
-    label: 'make it stand its ground',
-    blurb: 'Do not step back first.',
-    push: { ferocity: 2.5, stillness: 1.5, vigor: 1.5 },
-    minStage: 2,
-  },
-
-  // --- explore ------------------------------------------------------------
-  {
-    id: 'explore.riverbank',
-    category: 'water',
-    kind: 'explore',
-    label: 'the riverbank',
-    blurb: 'Follow it until the water turns.',
-    push: { roam: 2.5, stillness: 1.5, resonance: 1 },
-    gives: { verdure: 0.8, brine: 0.4 },
-    minStage: 1,
-  },
-  {
-    id: 'explore.oldQuarry',
-    category: 'high ground',
-    kind: 'explore',
-    label: 'the old quarry',
-    blurb: 'Everything down there says itself twice.',
-    push: { roam: 2, resonance: 2, craft: 1 },
-    gives: { mineral: 1 },
-    minStage: 1,
-  },
-  {
-    id: 'explore.nightField',
-    category: 'wild',
-    kind: 'explore',
-    label: 'the night field',
-    blurb: 'Nothing to see. That is the point.',
-    push: { roam: 2, stillness: 2, resonance: 1 },
-    gives: { verdure: 0.6 },
-    minStage: 1,
-  },
-  {
-    id: 'explore.market',
-    category: 'town',
-    kind: 'explore',
-    label: 'the market',
-    blurb: 'Crowds. It will not like it at first.',
-    push: { roam: 1.5, bond: 1.5, ferocity: 2 },
-    gives: { ember: 0.4, brine: 0.4 },
-    minStage: 1,
-  },
-  {
-    id: 'explore.ridgeline',
-    category: 'high ground',
-    kind: 'explore',
-    label: 'the ridgeline',
-    blurb: 'Two hours up, ten minutes at the top.',
-    push: { roam: 2.5, vigor: 2.5 },
-    gives: { mineral: 0.8 },
-    minStage: 1,
-  },
-  {
-    id: 'explore.burnedWood',
-    category: 'wild',
-    kind: 'explore',
-    label: 'the burned wood',
-    blurb: 'Black trunks, new green underneath.',
-    push: { roam: 1.5, ferocity: 2, craft: 1.5 },
-    gives: { ember: 1 },
-    minStage: 1,
-  },
-
-  // --- sing ---------------------------------------------------------------
-  {
-    id: 'sing.humDusk',
-    category: 'voice',
-    kind: 'sing',
-    label: 'hum to it at dusk',
-    blurb: 'Nothing with words. Just the low part.',
-    push: { resonance: 3, stillness: 1.5, bond: 0.5 },
-  },
-  {
-    id: 'sing.clapRhythm',
-    category: 'rhythm',
-    kind: 'sing',
-    label: 'clap a rhythm',
-    blurb: 'Keep it simple enough to copy.',
-    push: { resonance: 2.5, vigor: 2, craft: 0.5 },
-  },
-  {
-    id: 'sing.sayItsName',
-    category: 'voice',
-    kind: 'sing',
-    label: 'say its name, over and over',
-    blurb: 'Until it turns its head.',
-    push: { resonance: 2.5, bond: 2, stillness: 0.5 },
-    minStage: 2,
-  },
-  {
-    id: 'sing.whistleFar',
-    category: 'from far off',
-    kind: 'sing',
-    label: 'whistle from across the field',
-    blurb: 'Then wait. Do not whistle twice.',
-    push: { resonance: 2, roam: 2, stillness: 1 },
-  },
-  {
-    id: 'sing.drumFloor',
-    category: 'rhythm',
-    kind: 'sing',
-    label: 'drum on the floor',
-    blurb: 'Palms flat. It feels it before it hears it.',
-    push: { resonance: 2.5, ferocity: 1.5, vigor: 1.5 },
-  },
-  {
-    id: 'sing.readAloud',
-    category: 'voice',
-    kind: 'sing',
-    label: 'read to it badly',
-    blurb: 'It does not mind that you stumble.',
-    push: { resonance: 2.5, bond: 1.5, stillness: 1 },
-  },
-
-  // --- give ---------------------------------------------------------------
-  {
-    id: 'give.riverStone',
-    category: 'stones',
-    kind: 'give',
-    label: 'a river stone',
-    blurb: 'One that fit your hand right.',
-    push: { craft: 2.5, bond: 1, stillness: 1.5 },
-    gives: { mineral: 2 },
-  },
-  {
-    id: 'give.crackedBell',
-    category: 'made things',
-    kind: 'give',
-    label: 'a cracked bell',
-    blurb: 'Still rings. Wrong note.',
-    push: { craft: 2, resonance: 2.5, bond: 0.5 },
-    gives: { mineral: 2, ember: 0.5 },
-  },
-  {
-    id: 'give.knottedRope',
-    category: 'made things',
-    kind: 'give',
-    label: 'a knotted rope',
-    blurb: 'You tied it yourself. Badly.',
-    push: { craft: 2.5, vigor: 1.5, bond: 1 },
-    gives: { verdure: 1.5 },
-  },
-  {
-    id: 'give.shedSkin',
-    category: 'found things',
-    kind: 'give',
-    label: 'a shed skin',
-    blurb: 'Whole, if you were careful lifting it.',
-    push: { craft: 2, ferocity: 1.5, roam: 1.5 },
-    gives: { brine: 1, mineral: 0.5 },
-  },
-  {
-    id: 'give.mirrorBit',
-    category: 'stones',
-    kind: 'give',
-    label: 'a bit of mirror',
-    blurb: 'Tape over the sharp edge first.',
-    push: { craft: 2.5, resonance: 1, ferocity: 1.5 },
-    gives: { mineral: 2.5 },
-  },
-  {
-    id: 'give.mapScrap',
-    category: 'found things',
-    kind: 'give',
-    label: 'a scrap of map',
-    blurb: 'Somewhere neither of you has been.',
-    push: { craft: 2, roam: 2.5, stillness: 0.5 },
-    gives: { verdure: 1, brine: 0.5 },
-    minStage: 2,
-  },
-
+  ...expand(TRAIN_SHELVES),
+  ...expand(EXPLORE_SHELVES),
+  ...expand(SING_SHELVES),
+  ...expand(GIVE_SHELVES),
+  ...expand(TEND_SHELVES),
   // --- tend ---------------------------------------------------------------
-  {
-    id: 'tend.brushDown',
-    category: 'washing',
-    kind: 'tend',
-    label: 'brush it down',
-    blurb: 'Long strokes, with the grain.',
-    push: { bond: 2.5, stillness: 1.5, nourish: 1 },
-    minStage: 1,
-  },
-  {
-    id: 'tend.cleanScrapes',
-    category: 'washing',
-    kind: 'tend',
-    label: 'clean its scrapes',
-    blurb: 'It will pull away. Hold on.',
-    push: { bond: 2, nourish: 1.5, ferocity: 1.5 },
-    minStage: 1,
-  },
-  {
-    id: 'tend.sitNearby',
-    category: 'company',
-    kind: 'tend',
-    label: 'sit near it and do nothing',
-    blurb: 'Bring a book if you need one.',
-    push: { stillness: 3, bond: 2 },
-  },
-  {
-    id: 'tend.trimClaws',
-    category: 'the body',
-    kind: 'tend',
-    label: 'trim its claws',
-    blurb: 'Only the tips. You will know.',
-    push: { craft: 2, bond: 1.5, ferocity: 1.5 },
-    minStage: 1,
-  },
-  {
-    id: 'tend.freshBedding',
-    category: 'washing',
-    kind: 'tend',
-    label: 'change its bedding',
-    blurb: 'Dry straw, packed loose.',
-    push: { nourish: 2.5, stillness: 1.5, craft: 1 },
-  },
-  {
-    id: 'tend.checkTeeth',
-    category: 'the body',
-    kind: 'tend',
-    label: 'check its teeth',
-    blurb: 'Both hands. Be quick about it.',
-    push: { ferocity: 2, bond: 1.5, vigor: 1.5 },
-    minStage: 1,
-  },
-
-  // The only thing anybody can do to a sleeping creature, and the only variant
-  // in the catalogue carrying the flag that says so.
-  //
-  // Deliberately worth less than everything above it. It is the sole button on
-  // screen for two evenings in five, so a group that keeps turning up while
-  // theirs is down would otherwise have the whole of its character decided by
-  // the one action they were allowed, and every creature raised by a group with
-  // an awkward schedule would come out the same animal. Three points against
-  // five says what it should say: rousing a thing is not the same as raising it.
-  //
-  // No minStage, and that is not an oversight. An egg sleeps too, and a stage
-  // gate here would leave a group looking at a sleeping egg with nothing on the
-  // tray at all, which is indistinguishable from an app that has broken.
-  //
   // The axes are the three that are actually true of it: it is on its feet, it
   // did not ask to be, and somebody wanted it up. What that adds up to is then
   // decided by the manner, which is the whole point of putting this through the
@@ -606,7 +323,18 @@ export function categoriesForKind(kind: ActionKind): string[] {
 export function methodFits(variantId: string, methodId: string): boolean {
   const variant = variantById(variantId)
   const method = methodById(methodId)
-  return variant !== undefined && method !== null && variant.kind === method.kind
+  if (variant === undefined || method === null) return false
+  if (variant.kind !== method.kind) return false
+  // AND the item's own list, when it has one. Manners hang off the kind, so
+  // every singing manner was offered for every singing item and "whistle from
+  // across the field" was offered "up close" and "from across the room" at the
+  // same time. An item that already contains a manner narrows the set; absent,
+  // the whole kind is fair game, which is the ordinary case.
+  //
+  // Read here rather than at the tray, because the tray is not the only thing
+  // that asks: the server calls this before it writes a row, and a pairing the
+  // catalogue does not contain would be replayed forever by every client.
+  return variant.methods === undefined || variant.methods.includes(method.id)
 }
 
 /**

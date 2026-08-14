@@ -11,7 +11,7 @@
 // work for. An item tilts off its shelf only when it genuinely differs, and
 // most do not: a strawberry and a blackberry are the same decision.
 //
-// NOURISH IS 3 ON EVERY SHELF, deliberately. What separates feeding it apples
+// NOURISH IS 4 ON ALMOST EVERY SHELF, deliberately. What separates feeding it apples
 // from feeding it liver is the SECOND axis and the substance, not how much food
 // it was. A shelf that fed the creature more would make itself the correct
 // answer, and there is no correct answer here.
@@ -27,7 +27,7 @@ export const FEED_SHELVES: Shelf[] = [
     label: 'fruit',
     kind: 'feed',
     // Sweet and quick: it comes up bright and does not last.
-    push: { nourish: 3, vigor: 2 },
+    push: { nourish: 4, vigor: 2 },
     gives: { verdure: 2, ember: 1 },
     minStage: 1,
     items: [
@@ -48,7 +48,7 @@ export const FEED_SHELVES: Shelf[] = [
     label: 'greens',
     kind: 'feed',
     // Slow and steady. Nothing about greens is exciting and that is the point.
-    push: { nourish: 3, stillness: 2 },
+    push: { nourish: 4, stillness: 2 },
     gives: { verdure: 3 },
     minStage: 1,
     items: [
@@ -68,7 +68,7 @@ export const FEED_SHELVES: Shelf[] = [
     label: 'roots',
     kind: 'feed',
     // Heavy food. It puts weight on and settles the animal down.
-    push: { nourish: 3, stillness: 1, craft: 1 },
+    push: { nourish: 4, stillness: 1, craft: 1 },
     gives: { mineral: 2, verdure: 1 },
     minStage: 1,
     items: [
@@ -87,7 +87,7 @@ export const FEED_SHELVES: Shelf[] = [
     kind: 'feed',
     // The shelf that makes an animal harder. Nothing else here pushes ferocity
     // this far, and it is the clearest lever a group has on temperament.
-    push: { nourish: 3, ferocity: 2 },
+    push: { nourish: 4, ferocity: 3 },
     gives: { mineral: 2, ember: 1 },
     minStage: 1,
     items: [
@@ -107,7 +107,7 @@ export const FEED_SHELVES: Shelf[] = [
     kind: 'feed',
     // Off the water, and it takes the water with it: this is the only shelf
     // that reliably lays brine into a creature.
-    push: { nourish: 3, roam: 2 },
+    push: { nourish: 4, roam: 2 },
     gives: { brine: 3 },
     minStage: 1,
     items: [
@@ -126,7 +126,7 @@ export const FEED_SHELVES: Shelf[] = [
     label: 'foraged',
     kind: 'feed',
     // Food that took working out. The craft here is the creature's, not yours.
-    push: { nourish: 2, craft: 2, roam: 1 },
+    push: { nourish: 3, craft: 2, roam: 1 },
     gives: { verdure: 1, ember: 1, mineral: 1 },
     minStage: 1,
     items: [
@@ -147,12 +147,13 @@ export const FEED_SHELVES: Shelf[] = [
     // Not a food group. Sharing what you were having is the only shelf that is
     // about the two of you rather than about the meal, so it is the only one
     // that pushes bond, and it is thin on purpose.
-    push: { nourish: 2, bond: 3 },
+    push: { nourish: 3, bond: 2 },
     gives: { ember: 1, verdure: 1 },
     minStage: 1,
-    // Every item here is already "off your own plate", so a bowl and a throw
-    // are both false. Sharing is done by hand or it is not sharing.
-    methods: ['feed.byHand'],
+    // Every item here is already off your own plate, so a bowl is false: it is
+    // not in a bowl, it is in your hand. Handing it over or tossing it across
+    // are both true, and they are different enough to be worth asking.
+    methods: ['feed.byHand', 'feed.thrown'],
     items: [
       { key: 'fromYourHand', label: 'whatever you were eating', blurb: 'Slow. It has to lean in for it.' },
       { key: 'theCrusts', label: 'the crusts', blurb: 'It prefers these to the middle. Nobody knows why.' },
