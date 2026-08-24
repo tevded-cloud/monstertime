@@ -306,18 +306,25 @@ function look(
   }
 }
 
-/**
- * One egg on its own, for anywhere that has a seed and no market around it.
- *
- * It carries colourName's plain answer and never a comparative, and that is
- * correct rather than a gap: there is nothing beside it to be darker than. A
- * SCREEN showing three of them must go through eggsOnOffer, because the words
- * that keep them apart cannot be worked out one egg at a time.
- */
-export function eggLook(seed: string, egg: number, claimed: number): EggLook {
-  const hide = hideOf(seed)
-  return look(seed, egg, claimed, hide, colourName(hide.h, hide.s, hide.l), new Set<string>())
-}
+// THERE WAS AN eggLook(seed, egg, claimed) HERE, DESCRIBED AS "one egg on its
+// own, for anywhere that has a seed and no market around it". There was nowhere.
+// The market screen draws its three cards from eggsOnOffer, no screen in this
+// app has ever shown a single egg, and its only callers were the five in
+// test/market/rules.test.ts. That makes it the third export in this one feature
+// kept alive by the tests written against it, after eggTerms and openMarket in
+// rules.ts, and the rule those two set is that a thing is wired or it is gone.
+//
+// NOTHING IT SAID IS LOST. Its own doc claimed the property worth having, that a
+// lone egg carries colourName's plain answer and never a comparative, and that
+// is a statement about colourWords rather than about eggLook: it is asserted
+// over the 41,413 eggs that have their hue band to themselves, through
+// eggsOnOffer, in the same test file. The two tests that used to say it one egg
+// at a time now ask the three-egg path, which is the path a person is on.
+//
+// WHAT IT WOULD TAKE TO GET IT BACK: a screen that shows one egg by itself. If
+// one ever arrives it wants exactly these three lines, hideOf then look() with
+// colourName's own word and an empty taken set, because an egg with no sibling
+// has nothing to be darker than.
 
 /**
  * The three, in mint order, sharing one set of words between them.

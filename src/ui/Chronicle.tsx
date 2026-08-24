@@ -81,6 +81,27 @@ function build(creature: Creature | null, actions: ActionRecord[]): Entry[] {
     })
   }
 
+  // THE PURCHASE COMES THROUGH HERE AND GETS NO CASE OF ITS OWN, which is the
+  // thing worth writing down rather than a gap. How the group came to have an
+  // animal at all is a Memory like every other one, composed in
+  // src/dna/express.ts where every sentence in this list is composed, so the two
+  // phones that derive the same creature also read the same words. Three
+  // properties of it are load-bearing here and none of them needs code:
+  //
+  // Its atAction is 0, and nothing else in the list is below 1 except the stage
+  // memories of a creature nobody has touched, so the sort at the bottom puts it
+  // last, which is where the oldest thing belongs.
+  //
+  // It carries NO actorIds although it is entirely about who paid. The names are
+  // inside its text, with the figures beside them. credit() below resolves ids
+  // through the bonds, and bonds are built from the action log, so a backer who
+  // bought the creature and has not clicked anything yet has no bond: reading
+  // the payers out of bonds would silently drop the person from the one line
+  // whose whole job is to say who paid.
+  //
+  // And it has no title and no locus, so it renders as one plain paragraph with
+  // a time under it and no "did this" line. Nobody did anything to the creature
+  // in it. They bought it.
   for (const memory of creature.memories) {
     out.push({
       key: `m:${memory.id}`,

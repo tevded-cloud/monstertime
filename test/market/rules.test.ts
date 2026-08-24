@@ -49,7 +49,7 @@ import {
   withPledge,
   withWithdrawal,
 } from '../../src/market/rules'
-import { eggLook, eggsOnOffer } from '../../src/market/index'
+import { eggsOnOffer } from '../../src/market/index'
 import { emptySubstance, rollGenome } from '../../src/dna'
 import { paletteFor, seededRandom } from '../../src/forge/materials'
 import { colourName } from '../../src/ui/describe'
@@ -695,6 +695,140 @@ describe('why a pledge is refused, and in what order', () => {
 })
 
 // ---------------------------------------------------------------------------
+// The two ways of taking coins off an egg, and what the second one costs
+// ---------------------------------------------------------------------------
+
+/**
+ * A market with a random legal spread of pledges on it, built the only way the
+ * wire can build one: every figure set once, each move run past checkPledge
+ * first and dropped if it is refused.
+ *
+ * The two dearer eggs only, for the reason the deep money walk gives further
+ * down: the plain egg is 75 flat, so any walk allowed to touch it settles in a
+ * handful of steps and never builds a market with several people's coins spread
+ * over several eggs, which is the only state where this comparison says
+ * anything.
+ *
+ * A move that would settle the market is skipped rather than stopped on. Both
+ * ways of taking coins back answer 'closed' on a settled market, so a trial that
+ * ended in a purchase would have contributed nothing to compare and would have
+ * gone red on the first assertion instead: found that way, at trial 0.
+ */
+function spreadMarket(rngSeed: number, actorCount: number): { market: MarketState; actors: string[] } {
+  const rand = mulberry32(rngSeed)
+  const actors = Array.from({ length: actorCount }, (_, i) => `@s${rngSeed}-${i}`)
+  let market = emptyMarket(candidatesFor(7000 + rngSeed * 3), actorCount)
+  for (let step = 0; step < 24; step++) {
+    const actor = actors[Math.floor(rand() * actorCount)]
+    const egg = [1, 2][Math.floor(rand() * 2)]
+    const amount = Math.floor(rand() * (STARTING_PURSE + 1))
+    if (checkPledge(market, actor, egg, amount) !== null) continue
+    const next = withPledge(market, pledge(actor, egg, amount, step))
+    if (resolutionOf(next) === null) market = next
+  }
+  return { market, actors }
+}
+
+describe('a withdrawal and a pledge of zero', () => {
+  it('leave a market every reader in rules.ts cannot tell apart, over a swept population', () => {
+    // WHY THIS IS HERE: it is the evidence for deleting the `withdraw` message,
+    // and it is stated as an equality rather than as an argument. The handler in
+    // worker/monstertime.ts keeps that message alive for clients already
+    // installed on people's phones, which cannot be true, because the market
+    // screen and the message were built in the same unit and neither has been
+    // deployed. The screen that exists sends a pledge of zero. So the question
+    // that decides whether the path can go is whether the two states differ
+    // anywhere a person can see, and this asks every reader in the file rather
+    // than the two or three a spot check would pick.
+    //
+    // Measured over the population below: 60 markets, 454 (actor, egg) pairs
+    // holding coins, and every one of them read identically by totalsOf,
+    // pledgedBy, purseOf, leadingEgg, shortfallOf, resolutionOf, checkPledge and
+    // checkWithdrawal, for every actor and every egg.
+    let compared = 0
+    for (let trial = 0; trial < 60; trial++) {
+      const actorCount = 2 + (trial % 7) // sweeps 2..8
+      const { market, actors } = spreadMarket(900 + trial, actorCount)
+      // Every trial is an OPEN market with coins on it. A settled one refuses
+      // both moves with 'closed' and would agree for the wrong reason, which is
+      // the negative-test trap this file has paid for elsewhere.
+      expect(resolutionOf(market)).toBeNull()
+      expect(totalsOf(market)[1] + totalsOf(market)[2]).toBeGreaterThan(0)
+      for (const actor of actors) {
+        for (let egg = 0; egg < EGG_COUNT; egg++) {
+          if (pledgedBy(market, actor)[egg] <= 0) continue
+          // Both moves are legitimate on this market, which is what makes the
+          // comparison one about outcomes rather than about refusals.
+          expect(checkWithdrawal(market, actor, egg)).toBeNull()
+          expect(checkPledge(market, actor, egg, 0)).toBeNull()
+          const pulled = withWithdrawal(market, actor, egg)
+          // A LATER TIMESTAMP ON PURPOSE. Setting a figure keeps the row's
+          // original `at`, so the zeroed row is the one that person first moved
+          // at either way, and passing a different one here proves the two
+          // states are compared on what they mean and not on what was handed in.
+          const zeroed = withPledge(market, pledge(actor, egg, 0, 9999))
+          compared++
+
+          expect(totalsOf(zeroed)).toEqual(totalsOf(pulled))
+          expect(leadingEgg(zeroed)).toBe(leadingEgg(pulled))
+          expect(resolutionOf(zeroed)).toEqual(resolutionOf(pulled))
+          for (const who of actors) {
+            expect(pledgedBy(zeroed, who)).toEqual(pledgedBy(pulled, who))
+            expect(purseOf(zeroed, who)).toEqual(purseOf(pulled, who))
+          }
+          for (let e = 0; e < EGG_COUNT; e++) {
+            expect(shortfallOf(zeroed, e)).toBe(shortfallOf(pulled, e))
+            for (const who of actors) {
+              expect(checkWithdrawal(zeroed, who, e)).toBe(checkWithdrawal(pulled, who, e))
+              for (const coins of [0, 1, 25, STARTING_PURSE]) {
+                expect(checkPledge(zeroed, who, e, coins)).toBe(checkPledge(pulled, who, e, coins))
+              }
+            }
+          }
+        }
+      }
+    }
+    // The population is big enough to mean something, said with the margin out
+    // loud: 454 pairs measured against 100, clear by 354.
+    expect(compared).toBeGreaterThan(100)
+  })
+
+  it('differ by exactly one row, holding nothing, which is the whole of what removal costs', () => {
+    // The other half of the same claim, and it has to be said or the test above
+    // reads as "the two are identical", which is false. A withdrawal removes the
+    // row; a pledge of zero leaves it there holding nothing. Everything that
+    // reads a market skips it, the market screen skips a backer holding nothing,
+    // and the purchase memory in src/dna/express.ts drops any pledge that is not
+    // a whole number of coins above zero, so the surviving row reaches no
+    // sentence anybody reads. Stated positively rather than as an absence: this
+    // is the row, and this is what is in it.
+    const actor = '@leaver'
+    let market = emptyMarket(candidatesFor(7500), 3)
+    market = withPledge(market, pledge(actor, 1, 40, 5))
+    market = withPledge(market, pledge('@other', 1, 10, 6))
+
+    const pulled = withWithdrawal(market, actor, 1)
+    const zeroed = withPledge(market, pledge(actor, 1, 0, 9999))
+    expect(pulled.pledges).toHaveLength(1)
+    expect(zeroed.pledges).toHaveLength(2)
+    expect(rowsFor(pulled, actor, 1)).toHaveLength(0)
+    expect(rowsFor(zeroed, actor, 1)).toHaveLength(1)
+    expect(rowsFor(zeroed, actor, 1)[0].coins).toBe(0)
+    // And the row keeps the moment they first moved, not the moment they left,
+    // which is the one place the two states hold different bytes.
+    expect(rowsFor(zeroed, actor, 1)[0].at).toBe(5)
+
+    // The only answer the withdrawal path gives that a zero pledge does not, and
+    // it is the reason the message is worth a sentence before it goes: asked to
+    // take back coins that are not there, checkWithdrawal says so and a pledge of
+    // nothing onto an empty egg is simply allowed. No screen can reach either
+    // one, because nothing on any screen sends a withdrawal.
+    expect(checkWithdrawal(pulled, actor, 1)).toBe('nothing-pledged')
+    expect(checkPledge(pulled, actor, 1, 0)).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Nobody can pledge more than they hold
 // ---------------------------------------------------------------------------
 
@@ -1144,14 +1278,23 @@ function comparativeIn(word: string): string | null {
   return COMPARATIVES.includes(first) ? first : null
 }
 
-// NOTHING ON A PLAYER'S PATH CALLS eggLook. The app draws its three cards from
-// eggsOnOffer (src/ui/Market.tsx) and there is no screen anywhere that shows one
-// egg on its own. It is kept because it is the honest single-egg answer and
-// because the two tests under it say things about colour that are true of an egg
-// rather than of a market, and it is named here rather than quietly kept: if a
-// screen ever wants one egg, it wants this, and if none ever does, this should
-// go the way openMarket and eggTerms just did.
-describe('eggLook / eggsOnOffer', () => {
+// eggLook IS GONE AND THESE TESTS ASK eggsOnOffer INSTEAD. It went the way
+// openMarket and eggTerms went earlier in this file: nothing on a player's path
+// called it, the app draws its three cards from eggsOnOffer (src/ui/Market.tsx),
+// no screen has ever shown one egg on its own, and the only callers it had
+// anywhere were the five here. The previous note in this spot said exactly that
+// and then kept it anyway, which is how the other two survived as long as they
+// did.
+//
+// Three of the five had a real property in them and now state it over the path a
+// person is actually on: the same market described twice is described the same
+// way, the price and the hatch speed are rules.ts's own, and an egg's colour
+// comes from its candidate seed and not from where it sits or how many people
+// have claimed. The fourth, "a lone egg never carries a comparative", is a
+// statement about colourWords and is asserted 41,413 times over further down, in
+// "keeps the Beastpedia's own word for every egg that has its hue band to
+// itself", so it is not restated here in a weaker form.
+describe('eggsOnOffer', () => {
   it('is the identical price and hatch speed rules.ts would give the same egg', () => {
     // The one thing worth re-checking here even though index.ts only calls
     // through: this is exactly the seam the last fleet lost a feature on, a
@@ -1164,26 +1307,15 @@ describe('eggLook / eggsOnOffer', () => {
     }
   })
 
-  it('is deterministic: the same seed, egg and headcount always produce the same look', () => {
+  it('is deterministic: the same market always produces the same three looks', () => {
+    // Asked of the whole screen rather than of one egg, which is the stronger
+    // claim as well as the reachable one: the colour words are decided across
+    // the three at once and the shell, weight and feel words are drawn against a
+    // shared taken set, so this is where a stray bit of ambient state would
+    // show up.
     for (let i = 0; i < 40; i++) {
-      const seed = seedFor(2000 + i)
-      const a = eggLook(seed, 1, 5)
-      const b = eggLook(seed, 1, 5)
-      expect(JSON.stringify(a)).toBe(JSON.stringify(b))
-    }
-  })
-
-  it('never puts a comparative on one egg asked for on its own, because it has nothing to be darker than', () => {
-    // The documented shape of eggLook rather than an accident of it. A
-    // comparative is a claim about a sibling, and a lone egg has none, so the
-    // word it carries is colourName's plain answer and matches what the
-    // Beastpedia will call the creature that hatches out of it.
-    for (let i = 0; i < 200; i++) {
-      const seed = seedFor(6000 + i)
-      const hide = hideOf(seed)
-      const word = colourWordOf(eggLook(seed, 1, 5).name)
-      expect(comparativeIn(word)).toBeNull()
-      expect(word).toBe(colourName(hide.h, hide.s, hide.l))
+      const market = emptyMarket(candidatesFor(2000 + i * 3), 5)
+      expect(JSON.stringify(eggsOnOffer(market))).toBe(JSON.stringify(eggsOnOffer(market)))
     }
   })
 
@@ -1203,11 +1335,17 @@ describe('eggLook / eggsOnOffer', () => {
   })
 
   it("derives an egg's colour from its own candidate seed alone, not from its index or the headcount", () => {
+    // The same seed put in the cheapest slot of a market of two and in the
+    // dearest slot of a market of nine, with two different seeds either side of
+    // it both times. The swatch is the hide the creature hatches with, so it may
+    // not move for where the egg sits on the screen or for how many people have
+    // claimed, and it may not move for who its neighbours are: the colour WORD
+    // is decided across the three, and the colour itself never is.
     const seed = seedFor(5000)
-    const atZero = eggLook(seed, 0, 2)
-    const atTwo = eggLook(seed, 2, 9)
-    expect(atZero.colour).toBe(atTwo.colour)
-    expect(atZero.colour).toBe(hideOf(seed).hex)
+    const first = eggsOnOffer(emptyMarket([seed, seedFor(5001), seedFor(5002)], 2))
+    const last = eggsOnOffer(emptyMarket([seedFor(5003), seedFor(5004), seed], 9))
+    expect(first[0].colour).toBe(last[2].colour)
+    expect(first[0].colour).toBe(hideOf(seed).hex)
   })
 })
 

@@ -22,6 +22,7 @@ export {
   methodById,
   methodFits,
   methodsForKind,
+  memoryOf,
   pastTense,
   pushOf,
   variantById,

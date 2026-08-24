@@ -5,15 +5,15 @@
 // creature does not know who clicked most, it only carries the shape of what
 // was done to it.
 
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { JSX } from 'react'
 import { PRESSURE_AXES } from '../core/types'
 import type { Bond, Creature, PressureAxis, PresentActor } from '../core/types'
 import { claimHandle } from '../net'
 import { useInstall } from './install'
 import { drawCard, saveCard } from './passcode'
-import { enterPasscode, forgetGroup, groupLink, knownGroups, setGroupHash, useCopy } from './useGroup'
-import type { EnteredCode } from './useGroup'
+import { forgetGroup, groupLink, knownGroups, setGroupHash, useCopy } from './useGroup'
+import CodeRow from './CodeRow'
 import Said from './Said'
 
 const HABIT: Record<PressureAxis, string> = {
@@ -125,7 +125,7 @@ export default function Crowd({
           takes, so anything inside it saying "that worked" would be unmounted
           in the same breath as it became true. And the two are different
           questions: one makes a place, the other gets one back. */}
-      <CodeRow claimed={claimed} actorId={actorId} />
+      <CodeRow actorId={actorId} />
 
       <div className="invite">
         {alone ? (
@@ -228,143 +228,6 @@ function ClaimRow({
       <button type="button" className="btn" onClick={onClaim}>
         Claim my place
       </button>
-    </div>
-  )
-}
-
-/**
- * What a code that did not work is told to the person who typed it.
- *
- * THREE ANSWERS AND NEVER A SILENCE. Somebody typing the only copy of a code and
- * seeing nothing happen will conclude they have lost their place, which is worse
- * than either of the two things that actually went wrong.
- *
- * Keyed off the union rather than written as a chain ending in an else, so a
- * fourth way for this to go wrong cannot quietly inherit the sentence about a
- * third: the compiler asks for the missing line the moment the union grows.
- * "Does not open anything here" is the far end's own wording and is deliberately
- * the same answer for a code that is unknown, one that belongs to another group
- * and one that is simply wrong, because telling somebody which of those it was
- * tells them how far through the wordlist they have got.
- */
-const CODE_TROUBLE: Record<Exclude<EnteredCode, 'accepted'>, string> = {
-  misshapen: 'A code is two words and a number, joined by hyphens, like amber-heron-204.',
-  refused: 'That code does not open anything here. Check it against the picture you saved.',
-  unanswered: 'Nothing came back just now. Try once more.',
-}
-
-/**
- * Somewhere to type the code, which is the half of it that was missing.
- *
- * The card somebody saves says, in as many words, "type this to be yourself
- * again on any phone". The server has understood a code on a hello the whole
- * time; what did not exist anywhere in the app was a box to put one in, so a
- * code only ever worked on the browser it was minted in, which is the one
- * browser that never needs it. The card was making a promise nothing could keep,
- * and somebody saved it to their photos on the strength of that.
- *
- * BEHIND A TAP, not because it is secondary but because it is a different
- * question to the one above it. Somebody arriving for the first time is deciding
- * whether to take a place; somebody with a code has already decided and is
- * looking for the way back in. Two boxes asking at once is how the first person
- * ends up reading about a code they have never been given.
- *
- * WHAT IT SAYS WHEN IT WORKS IS NOT OPTIONAL. This panel's own success makes the
- * claim panel above disappear, so without a word here the whole answer to
- * somebody typing their only copy of a code would be one box quietly going away.
- */
-function CodeRow({ claimed, actorId }: { claimed: boolean; actorId: string }): JSX.Element | null {
-  const [open, setOpen] = useState(false)
-  const [typed, setTyped] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [problem, setProblem] = useState<string | null>(null)
-  const [back, setBack] = useState(false)
-  // The same guard in a ref as well as in state, for the reason the market's
-  // slider keeps one: what a handler reads from state is whatever its closure
-  // captured, which is a render behind exactly when two events land in one task.
-  // Enter leant on is two sends, and only the first is answered: the second is
-  // turned away for being a second, and would paint "nothing came back" over a
-  // code that had just worked.
-  const sending = useRef(false)
-
-  async function send(): Promise<void> {
-    if (sending.current || typed.trim() === '') return
-    sending.current = true
-    setBusy(true)
-    setProblem(null)
-    const answer = await enterPasscode(typed)
-    sending.current = false
-    setBusy(false)
-    if (answer === 'accepted') {
-      setBack(true)
-      return
-    }
-    setProblem(CODE_TROUBLE[answer])
-  }
-
-  if (back) {
-    return (
-      <div className="claim">
-        <span className="label">That is you again</span>
-        <p>
-          This browser is the person that code belongs to now, so what you do here counts as yours.
-          The code is kept on this phone as well, and you will not be asked for it again.
-        </p>
-      </div>
-    )
-  }
-
-  // Nothing to offer somebody who already has their place on this browser.
-  if (claimed || actorId.startsWith('@')) return null
-
-  if (!open) {
-    return (
-      <button type="button" className="btn-text code-back" onClick={() => setOpen(true)}>
-        I already have a code
-      </button>
-    )
-  }
-
-  return (
-    <div className="claim">
-      <span className="label">Been here before</span>
-      <p>
-        If you took a place on another phone, the code you were given puts you back into it. This is
-        not a second place: this browser becomes the person that code belongs to.
-      </p>
-      <label className="label" htmlFor="passcode">
-        Your code
-      </label>
-      <div className="link-row">
-        <input
-          id="passcode"
-          className="text-input"
-          type="text"
-          inputMode="text"
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck={false}
-          // The same bound the reader itself keeps, rather than a second one:
-          // anything longer than this is refused there, and a field that cut at
-          // some tidier number would be a rule that disagrees with it.
-          maxLength={64}
-          placeholder="amber-heron-204"
-          value={typed}
-          onChange={(e) => setTyped(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') void send()
-          }}
-        />
-        <button
-          type="button"
-          className="btn"
-          disabled={typed.trim() === '' || busy}
-          onClick={() => void send()}
-        >
-          {busy ? 'Checking' : 'Use it'}
-        </button>
-      </div>
-      {problem && <p className="hint hint-bad">{problem}</p>}
     </div>
   )
 }

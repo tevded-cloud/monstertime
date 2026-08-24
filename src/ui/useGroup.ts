@@ -16,8 +16,13 @@ import type {
   PledgeRefusal,
   PresentActor,
 } from '../core/types'
-import { allowedWhileAsleep, deriveCreature, lastRouseAt, ROUSE_MS, sleepStateOf } from '../dna'
+import { allowedWhileAsleep, lastRouseAt, ROUSE_MS, sleepStateOf } from '../dna'
 import type { SleepState } from '../dna'
+// From the module rather than the barrel, which does not carry this one yet.
+// src/market/index.ts reaches into '../dna/rng' the same way. What must not
+// happen is this file importing deriveCreature instead and calling it with the
+// fields somebody remembered: see creatureOf's own comment.
+import { creatureOf } from '../dna/express'
 import { connect, localActor, setLocalName } from '../net'
 // The server's own reader, imported rather than restated. It folds case, spaces
 // and doubled hyphens, and it is what the far end will put the typed string
@@ -902,8 +907,22 @@ export function useGroup(): GroupHandle {
   // pass, the server sends a fresh snapshot, and the creature is older with the
   // same number of actions behind it.
   const grown = shown ? shown.growth : 0
+  // THE WHOLE SNAPSHOT, never a handful of fields off it. This line used to
+  // name the four it wanted, and the day a fifth landed on GroupSnapshot (what
+  // the group bought, which is the only record of who paid for the animal) this
+  // phone would have gone on deriving from four while the Durable Object
+  // derived from five: no error, no failing test, just a shorter history here
+  // than on the phone beside it. creatureOf is what makes that impossible, and
+  // it is the only door either side goes through.
+  //
+  // NOTHING NEW IS ADDED TO THE DEPS FOR THE PURCHASE, deliberately. The extra
+  // keys below are here because net may push onto the actions array it already
+  // handed over, so identity alone can miss a change; a purchase arrives only
+  // with a whole fresh snapshot object ('bought' and 'snapshot' both replace
+  // it), and `shown` catches that. Listing fields here would be the same defect
+  // creatureOf just deleted, one level up.
   const creature = useMemo(
-    () => (shown ? deriveCreature(shown.genome, shown.actions, shown.name, shown.growth) : null),
+    () => (shown ? creatureOf(shown) : null),
     [shown, actionCount, givenName, grown],
   )
 

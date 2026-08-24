@@ -149,12 +149,12 @@ describe('a group made before manners existed still opens', () => {
 
     const seen = await act(
       groupId,
-      { type: 'act', variantId: 'give.riverStone', methodId: 'give.hidden' },
+      { type: 'act', variantId: 'give.riverStone', methodId: 'give.leftOut' },
       'cy',
     )
     expect(seen).toContain('action')
     const after = await snapshot(groupId)
     expect(after.actions.length).toBe(2)
-    expect(after.actions[1].methodId).toBe('give.hidden')
+    expect(after.actions[1].methodId).toBe('give.leftOut')
   })
 })

@@ -158,6 +158,15 @@ interface Asking {
    *  is the network's and answering 'accepted' on it would be answering a
    *  question the server has not been asked. */
   sent: boolean
+  /**
+   * Whether that hello is still the ONLY thing this connection has said.
+   *
+   * An error is an answer to a question, and this is what says how many
+   * questions are outstanding. While it holds there is exactly one, so an error
+   * can be read as the answer to it without reading a word of it. Cleared by
+   * send(), which is every other word this browser speaks. See the 'error' case.
+   */
+  alone: boolean
   settle: (answer: CodeAnswer) => void
   timer: ReturnType<typeof setTimeout> | null
 }
@@ -465,27 +474,42 @@ class SocketConnection implements Connection {
         break
       }
       case 'error': {
-        // A code somebody typed can be turned away, and on a socket that has
-        // only just opened that refusal is the ONLY error a hello can produce:
-        // nothing here ever sends a token, and a seat cannot already belong to
-        // somebody on a connection that has said nothing else. So an error
-        // arriving while a code is outstanding IS the answer to it.
+        // A code somebody typed can be turned away, and while the hello carrying
+        // it is the only thing this connection has said, that refusal is the
+        // ONLY error the hello can have earned: nothing here ever sends a token,
+        // and a seat cannot already belong to somebody on a connection that has
+        // said nothing else. So an error arriving then IS the answer to it.
         //
         // Recognised by that rather than by the sentence, deliberately. The
         // words are the far end's to reword, and a client matching on them would
         // go silently back to swallowing refusals the day somebody improved the
         // English, which is the failure this whole unit exists to delete.
         //
-        // ONE ERROR IS NOT ABOUT THE HELLO and it is worth knowing about: the
-        // object broadcasts an `error` to the whole group on the single action
-        // that leaves a creature CAP_WARNING short of its lifetime cap. Landing
-        // inside somebody's four second window would call a perfectly good code
-        // refused. It costs a retype and nothing else, because a refusal keeps
-        // no code and puts back the one this browser held, and it is the right
-        // way round: the other reading, believing an error is somebody else's
-        // and accepting anyway, would keep a code that does not work and tell
-        // the person they were back.
-        if (this.asking !== null && this.asking.sent) {
+        // `alone` IS THE WHOLE OF THE NARROWING AND IT WAS MISSING. This read
+        // "an error while a code is outstanding", and outstanding is four
+        // seconds during which the person is looking at the app: the panel
+        // holding the code field also holds Claim my place, the action bar is
+        // behind it and the market is behind that, and every one of those goes
+        // up this same socket and has refusals of its own. 'Give it a moment.'
+        // costs one extra tap. 'Say who you are before claiming a place.' costs
+        // one impatient press. Each was read as the answer to the code, so a
+        // code typed correctly off a photograph was called refused and thrown
+        // away because of something else the same person did a second earlier.
+        // Nothing this browser says after the hello can be mistaken for the
+        // hello's answer now, because saying anything clears this.
+        //
+        // ONE ERROR IS STILL NOT ABOUT THE HELLO, and from here it cannot be:
+        // the object BROADCASTS an `error` to the whole group on the single
+        // action that leaves a creature CAP_WARNING short of its lifetime cap.
+        // A broadcast is not an answer to anything this connection asked, and it
+        // arrives in the identical shape as one that is, so landing inside
+        // somebody's four second window it still calls a good code refused. It
+        // costs a retype and nothing else, because a refusal keeps no code and
+        // puts back the one this browser held, and it is the right way round:
+        // the other reading, believing an error is somebody else's and accepting
+        // anyway, would keep a code that does not work and tell the person they
+        // were back.
+        if (this.asking !== null && this.asking.sent && this.asking.alone) {
           this.refuseCode('refused')
           break
         }
@@ -598,22 +622,42 @@ class SocketConnection implements Connection {
     }
   }
 
-  act(variantId: string, methodId?: string): void {
+  /**
+   * Everything this browser says, through one door.
+   *
+   * ONE DOOR BECAUSE OF THE LAST LINE IN IT. A typed code is answered by silence
+   * and refused by an `error`, and the only thing that separates the hello's own
+   * refusal from every other refusal on this socket is whether this side has
+   * said anything since. Six methods each remembering to record that is six
+   * chances to forget, and the one that forgot would be somebody's correctly
+   * typed code thrown away with nothing on screen to say why: exactly the defect
+   * the 'error' case above was just narrowed to fix. So the two guards, the
+   * encoding and the record live here once, and a seventh thing to say inherits
+   * all four by having nowhere else to go.
+   *
+   * NOT THE HELLO, which is sent by hand from onopen and has to stay that way.
+   * The hello IS the outstanding question; routed through here it would clear
+   * the flag that says it is still the only one, which is the whole rule.
+   */
+  private send(message: ClientMessage): void {
     if (this.closed) return
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return
+    this.socket.send(JSON.stringify(message))
+    if (this.asking !== null) this.asking.alone = false
+  }
+
+  act(variantId: string, methodId?: string): void {
     // Omitted rather than sent as undefined: the server treats an absent
     // manner and a null one the same, but a key that is present and empty is
     // the shape most likely to grow a default under it later.
     const message: ClientMessage =
       methodId === undefined ? { type: 'act', variantId } : { type: 'act', variantId, methodId }
-    this.socket.send(JSON.stringify(message))
+    this.send(message)
   }
 
   claim(): void {
-    if (this.closed) return
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return
     const message: ClientMessage = { type: 'claim' }
-    this.socket.send(JSON.stringify(message))
+    this.send(message)
   }
 
   onClaimed(fn: (c: { actorId: string; code: string }) => void): () => void {
@@ -639,6 +683,11 @@ class SocketConnection implements Connection {
         // browser was still whoever it was a second ago.
         before: new Set(this.present.map((p) => p.actorId)),
         sent: false,
+        // True until this browser says a second thing, and it says nothing at
+        // all until the hello goes out: send() refuses while the socket it is
+        // about to open is still connecting, so nothing can clear this before
+        // there is a question for it to be about.
+        alone: true,
         settle,
         timer: null,
       }
@@ -780,35 +829,28 @@ class SocketConnection implements Connection {
   }
 
   pledge(egg: number, coins: number): void {
-    if (this.closed) return
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return
     // Nothing optimistic, for the reason act() invents nothing: the pledge list
     // is ordered and the order is the record of how the group got to its animal,
     // so the server writes the row and this only ever asks for one.
     const message: ClientMessage = { type: 'pledge', egg, coins }
-    this.socket.send(JSON.stringify(message))
+    this.send(message)
   }
 
   withdraw(egg: number): void {
-    if (this.closed) return
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return
     const message: ClientMessage = { type: 'withdraw', egg }
-    this.socket.send(JSON.stringify(message))
+    this.send(message)
   }
 
   setPace(pace: number): void {
-    if (this.closed) return
     // Nothing optimistic: the server settles the growth accrued so far before
     // it changes the rate, then broadcasts a fresh snapshot. Guessing locally
     // would mean this screen briefly disagreed with everybody else about how
     // old the creature is.
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return
     const message: ClientMessage = { type: 'pace', pace }
-    this.socket.send(JSON.stringify(message))
+    this.send(message)
   }
 
   rename(name: string): void {
-    if (this.closed) return
     // This is the CREATURE's name, not the person's: it is the nameplate
     // path, wired from Stage.tsx's NamePlate through group.rename, and has
     // nothing to do with local identity (that is commitLocalName, a
@@ -818,9 +860,8 @@ class SocketConnection implements Connection {
     // back to every socket in the group, including this one, and that
     // handler folds the confirmed name into the snapshot and emits, which
     // is what actually moves the nameplate.
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return
     const message: ClientMessage = { type: 'name', name }
-    this.socket.send(JSON.stringify(message))
+    this.send(message)
   }
 
   close(): void {

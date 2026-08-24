@@ -60,6 +60,18 @@
 // anybody can mint by clearing their local storage. They are not shown a dead
 // control, because a button that cannot be pressed teaches nothing; they are
 // shown the sentence and the way in.
+//
+// AND THE WAY IN IS TWO DOORS, WHICH FOR A WHILE IT WAS NOT. This screen offered
+// "Claim my place" and nothing else, because the box a code is typed into lived
+// in <Crowd> and App.tsx returns <Market> outright while a group is at the
+// market, so <Crowd> is not on this screen at all. That left the exact case the
+// code was invented for with no way through it: somebody opening the group on a
+// second phone cannot reach the purse their claim is attached to, and the only
+// control in front of them mints a SECOND member, hands that member a fresh
+// purse, and pushes the two scaling eggs up in price for everybody. So the field
+// is here, as CodeRow, which is the same component and not a second one, and the
+// claim panel is withheld from a browser that already holds a code for this
+// group even when this screen cannot say which member it belongs to.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
@@ -85,8 +97,9 @@ import {
   totalsOf,
   withPledge,
 } from '../market/rules'
+import CodeRow from './CodeRow'
 import { useSaid } from './Said'
-import { drawCard, saveCard } from './passcode'
+import { codeFor, drawCard, saveCard } from './passcode'
 import { forgetGroup, groupLink, useCopy } from './useGroup'
 
 // How long a refusal stays up. Long enough to read a short sentence twice,
@@ -192,6 +205,27 @@ export default function Market({
 }: MarketProps): JSX.Element {
   const market = view.market
   const claimed = isClaimedMember(actorId)
+
+  // Whether this browser already holds a place in this group, whichever member
+  // that turns out to be.
+  //
+  // NOT THE SAME QUESTION AS `claimed`, AND THE GAP IS THE WHOLE REASON IT IS
+  // ASKED. A code presented on a hello is accepted by the far end without the
+  // far end ever saying which member it resolved to, and judgeCode in
+  // net/connection.ts adopts nothing rather than guess when the room does not
+  // change readably (the commonest way: the member is already in the room,
+  // because the first phone still has the market open). That is a real and
+  // lasting state in which a browser holds a place and this screen cannot name
+  // the person holding it. Offering "Claim my place" there is how somebody who
+  // has just proved they belong to the group takes a SECOND place in it.
+  //
+  // Read off passcode.ts rather than taken as a prop because App.tsx hands this
+  // screen no such prop, and it is not a second copy of anything: codeFor is the
+  // one reader of the one key, and it is the same call the connection makes to
+  // decide what goes on the hello. It moves in step with the screen because both
+  // paths that can change it say so out loud (codeChanged in useGroup.ts), which
+  // is what re-renders the app around this.
+  const held = codeFor(view.groupId) !== null
 
   // What this person is holding, and what they have on each egg, as the server
   // has it. purseOf answers 0 coins for anybody without a place, which is the
@@ -592,8 +626,24 @@ export default function Market({
             cannot do, and three cards is a long way down a phone to carry a
             question. It also occupies the same slot the code panel does, so the
             two swap over at the moment they should: the block goes the instant
-            somebody claims and the code they must not lose takes its place. */}
-        {!claimed && !settling && <ClaimPlace live={live} onClaim={onClaim} />}
+            somebody claims and the code they must not lose takes its place.
+            Withheld from a browser that already holds a code for this group
+            whatever this screen has worked out about which member that is: see
+            `held` above, where taking a place a second time is what this costs
+            the whole group. */}
+        {!claimed && !held && !settling && <ClaimPlace live={live} onClaim={onClaim} />}
+
+        {/* A SIBLING OF THE CLAIM PANEL RATHER THAN A PART OF IT, which is the
+            rule the group panel already writes down and the reason it survives
+            being moved here: the panel above disappears the moment a code takes,
+            so anything inside it saying "that worked" would be unmounted in the
+            same breath as becoming true. They are also two different questions,
+            one making a place and the other getting one back, and this is the
+            screen where the second one could not be asked at all.
+            Closed it is one quiet line of text under the block above, so a
+            first-timer reading the claim panel is not handed a second box asking
+            for a code nobody has given them. */}
+        {!settling && <CodeRow actorId={actorId} />}
 
         <ul className="eggs">
           {eggs.map((look) => (

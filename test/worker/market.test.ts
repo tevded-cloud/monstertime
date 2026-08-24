@@ -39,6 +39,12 @@ import { env, SELF } from 'cloudflare:test'
 import { describe, expect, it } from 'vitest'
 import { EGG_COUNT, EGG_ENDS, STARTING_PURSE, priceOf, totalsOf } from '../../src/market/rules'
 import { rollActivity, sleepState, sleepStateOf } from '../../src/dna/index'
+// The derivation, under a name of its own because `creatureOf` is already taken
+// in this file by the helper that fetches a group. Aliased rather than either of
+// them renamed: this is the one door every real caller goes through, and a test
+// that reached past it to deriveCreature with a handful of arguments would be
+// proving something about a call nothing makes.
+import { creatureOf as animalOf } from '../../src/dna/express'
 import type { GroupSnapshot, MarketSnapshot, MarketState } from '../../src/core/types'
 
 const MINUTE = 60_000
@@ -128,16 +134,40 @@ async function guest(groupId: string, who: string): Promise<Wire> {
   return w
 }
 
-/** Somebody who has claimed a place, which is the only way anybody has coins. */
+/**
+ * Somebody who has claimed a place, which is the only way anybody has coins.
+ *
+ * The claim is asserted rather than assumed, inside claimant() below. A member
+ * whose claim quietly failed has no purse, so every refusal in this file would
+ * be green and would be green for the wrong reason, which is the exact failure
+ * it is shaped against.
+ */
 async function member(groupId: string, who: string): Promise<Wire> {
+  return (await claimant(groupId, who)).w
+}
+
+/**
+ * The same thing, holding on to what the server said back.
+ *
+ * The code exists once, in the answer to the claim, and the id the server seated
+ * this browser under is only ever said in that same message. Both are what the
+ * tests about a code arriving on a second device are made of, so they are
+ * carried out of here rather than fished back out of a wire's log later.
+ */
+async function claimant(
+  groupId: string,
+  who: string,
+): Promise<{ w: Wire; code: string; actorId: string }> {
   const w = await guest(groupId, who)
   const claimed = await reply(w, { type: 'claim' }, ['claimed', 'error'])
-  // Stated rather than assumed. A member whose claim quietly failed has no
-  // purse, so every refusal below would be green and would be green for the
-  // wrong reason, which is the exact failure this file is shaped against.
   expect(claimed.type).toBe('claimed')
-  expect(String(claimed.actorId).startsWith('@')).toBe(true)
-  return w
+  const code = String(claimed.code)
+  const actorId = String(claimed.actorId)
+  expect(actorId.startsWith('@')).toBe(true)
+  // The shape the card carries, stated here because the tests below send this
+  // string back up in other casings and expect the tidy one to come down again.
+  expect(code).toMatch(/^[a-z]+-[a-z]+-\d+$/)
+  return { w, code, actorId }
 }
 
 async function pledge(w: Wire, egg: unknown, coins: unknown): Promise<Said> {
@@ -1125,6 +1155,445 @@ describe('a group that already has a creature', () => {
     expect(acted.type).toBe('action')
     expect((await creatureOf(groupId)).actions.length).toBe(2)
     w.close()
+  })
+})
+
+// ---------------------------------------------------------------------------
+
+/**
+ * What the group bought, as the server records it and as a person reads it back.
+ *
+ * The market is the only thing that ever happens to a group before its log
+ * starts, so it is the only thing in the chronicle that no action wrote. The
+ * arithmetic and the sentence belong to src/dna (test/dna/memories.test.ts holds
+ * them and nothing is re-proved here). What is proved here is the half only the
+ * Durable Object can be wrong about: that the egg is written down rather than
+ * guessed at afterwards, that the rows which reach the derivation are the
+ * winning egg's and not the refunded ones, and that a group made before any of
+ * this existed carries no purchase at all rather than an invented one.
+ */
+describe('what the group bought, in the chronicle', () => {
+  /**
+   * Three members, a refunded loser, and the biggest backer arriving last.
+   *
+   * Every part of that is load bearing. Three claimed members means the plain
+   * egg is still 75 and reachable while the other two are far out of range, so
+   * the egg that wins is the one this fixture chose rather than the only one it
+   * could afford. Cy's coins sit on an egg that loses, so a server that sent the
+   * whole pledge table up would say the group paid 115 for an animal that cost
+   * 75 and would thank somebody who paid for nothing. And the closing pledge is
+   * the LARGEST, so wire order and coin order disagree: a sentence built from
+   * the rows as they arrive reads "bo put in 25 and ann 50" and is wrong about
+   * who carried it.
+   */
+  async function bought(): Promise<{ groupId: string; wires: Wire[] }> {
+    const groupId = await makeGroup()
+    const ann = await member(groupId, 'ann')
+    const bo = await member(groupId, 'bo')
+    const cy = await member(groupId, 'cy')
+    expect(priceOf(0, 3)).toBe(75)
+    expect(priceOf(1, 3)).toBeGreaterThan(STARTING_PURSE)
+
+    expect((await pledge(cy, 2, 40)).type).toBe('market')
+    expect((await pledge(bo, 0, 25)).type).toBe('market')
+    const said = await pledge(ann, 0, 50)
+    expect(said.type).toBe('bought')
+    expect(said.egg).toBe(0)
+    expect(said.spent).toBe(75)
+    return { groupId, wires: [ann, bo, cy] }
+  }
+
+  it('writes down which egg won, with the coins and the people who put them in', async () => {
+    const { groupId, wires } = await bought()
+    const snapshot = await creatureOf(groupId)
+    const purchase = snapshot.purchase
+    expect(purchase).toBeDefined()
+    if (purchase === undefined) throw new Error('no purchase')
+
+    // The egg index, off a row of its own. The three candidate seeds are gone
+    // from the group's storage by now, so a server that had not written this
+    // down could only infer it from which pledges were left, which is reading a
+    // fact off a side effect.
+    expect(purchase.egg).toBe(0)
+    // The winning egg's rows and nothing else. Cy's forty went back when the
+    // market resolved, so it is not on here, and cy is not somebody who paid.
+    expect(purchase.pledges.map((p) => [p.actorName, p.egg, p.coins])).toEqual(
+      expect.arrayContaining([
+        ['ann', 0, 50],
+        ['bo', 0, 25],
+      ]),
+    )
+    expect(purchase.pledges.length).toBe(2)
+    expect(purchase.pledges.some((p) => p.actorName === 'cy')).toBe(false)
+    // The instant the market resolved, which is also when this creature began.
+    expect(purchase.at).toBe(snapshot.createdAt)
+    expect(purchase.at).toBeGreaterThan(0)
+    for (const w of wires) w.close()
+  })
+
+  it('reads back as one line that names everybody, biggest first', async () => {
+    const { groupId, wires } = await bought()
+    // Through creatureOf and not deriveCreature, because that is the call every
+    // real client makes and the whole point of the door: a test that assembled
+    // the arguments by hand would pass with the field missing from the snapshot.
+    const creature = animalOf(await creatureOf(groupId))
+    const line = creature.memories.find((m) => m.id === 'p.bought')
+    expect(line).toBeDefined()
+    // 75 and not 115: the sum is of exactly the names printed under it. Ann
+    // first though she pledged last, because the order is what people put in.
+    expect(line?.text).toBe(
+      'It was bought for 75 coins, the cheapest of the three. ann put in 50 and bo 25.',
+    )
+    // The oldest thing in the chronicle, and it is drawn at the bottom.
+    expect(line?.atAction).toBe(0)
+    expect(creature.memories[creature.memories.length - 1]?.id).toBe('p.bought')
+    // No coins, no eggs and no hatch speed anywhere else in what a person reads.
+    expect(creature.memories.filter((m) => m.id === 'p.bought').length).toBe(1)
+    for (const w of wires) w.close()
+  })
+
+  it('says the same thing to the phone that watched and the phone that arrives after', async () => {
+    // The crossing. One of these came down on the message that resolved the
+    // market and the other out of a plain GET an hour later, and a group where
+    // those two disagree is a group whose members are reading different
+    // chronicles off the same animal.
+    const groupId = await makeGroup()
+    const ann = await member(groupId, 'ann')
+    const watched = await pledge(ann, 0, priceOf(0, 1))
+    expect(watched.type).toBe('bought')
+
+    const onTheWire = animalOf(watched.snapshot as GroupSnapshot)
+    const laterOn = animalOf(await creatureOf(groupId))
+    expect(JSON.stringify(onTheWire.memories)).toBe(JSON.stringify(laterOn.memories))
+    expect(onTheWire.memories.some((m) => m.id === 'p.bought')).toBe(true)
+    ann.close()
+  })
+
+  it('names a backer who has never touched the creature', async () => {
+    // The reason the names are in the sentence rather than in actorIds. Bo paid
+    // for a third of this animal and has never clicked anything, so bo has no
+    // bond, and a line that resolved ids through the bond list would quietly
+    // drop the person it exists to thank.
+    const groupId = await makeGroup()
+    const ann = await member(groupId, 'ann')
+    const bo = await member(groupId, 'bo')
+    expect((await pledge(bo, 0, 25)).type).toBe('market')
+    expect((await pledge(ann, 0, 50)).type).toBe('bought')
+
+    const creature = animalOf(await creatureOf(groupId))
+    expect(Object.keys(creature.bonds)).toEqual([])
+    expect(creature.memories.find((m) => m.id === 'p.bought')?.text).toContain('bo 25')
+    ann.close()
+    bo.close()
+  })
+
+  it('carries none for a group made before any of this, and one for a group that bought', async () => {
+    // The pairing, and the negative half is the one that matters: purchase is
+    // optional, so a server that simply never filled it in would pass every
+    // assertion above about a grandfathered group. The control is the identical
+    // read of a group that did buy, which has to carry one.
+    const grandfathered = await makeGroup()
+    const ann = await member(grandfathered, 'ann')
+    expect((await pledge(ann, 0, priceOf(0, 1))).type).toBe('bought')
+    ann.close()
+    // Puts this group back on the schema every live creature had the day before
+    // the market shipped: a seed, a log, no eggs and no pledge table at all. A
+    // read that reached for the pledges before noticing there is no purchase is
+    // a 500 on every one of them, which is the outage this file already has one
+    // fixture for.
+    await env.MONSTER_GROUP.getByName(grandfathered).forgetGrowthColumn()
+
+    const old = await creatureOf(grandfathered)
+    expect(old.purchase).toBeUndefined()
+    expect(animalOf(old).memories.some((m) => m.id === 'p.bought')).toBe(false)
+
+    const { groupId, wires } = await bought()
+    expect((await creatureOf(groupId)).purchase).toBeDefined()
+    for (const w of wires) w.close()
+  })
+})
+
+// ---------------------------------------------------------------------------
+
+/**
+ * A code presented on a hello, and the server saying who it turned out to be.
+ *
+ * The seating itself has always worked. What did not exist was the sentence: the
+ * room was told who is in it and the person who typed the code was told nothing,
+ * so the app guessed by diffing the present list for a newly seated member whose
+ * name matches this device, and declined whenever that was not unmistakable. The
+ * commonest reason for it not being unmistakable is the owner's other device
+ * already being connected, which is exactly who is typing a code.
+ */
+describe('a code that opens a place is answered by name', () => {
+  it('names the member it resolved to, on the socket that presented it', async () => {
+    const groupId = await makeGroup()
+    const ann = await claimant(groupId, 'ann')
+
+    // A second device. A different made-up id, because that is what a browser
+    // that has never been here sends, and it is the id the answer has to
+    // override.
+    const phone = await open(groupId)
+    const said = await reply(
+      phone,
+      { type: 'hello', actorId: 'a-brand-new-browser', actorName: 'ann', code: ann.code },
+      ['claimed', 'error'],
+    )
+    expect(said.type).toBe('claimed')
+    expect(said.actorId).toBe(ann.actorId)
+    expect(said.code).toBe(ann.code)
+
+    // And it is the seat that was named, not a new one: the group still holds
+    // one place, so nothing here minted anything.
+    expect((await marketOf(groupId)).claimed).toBe(1)
+    ann.w.close()
+    phone.close()
+  })
+
+  it('is unmistakable even when the owner’s other device is already in the room', async () => {
+    // The case the guessing cannot do, and the reason this exists. Ann is
+    // sitting here connected, so a second device presenting her code adds
+    // nobody to the present list: the diff sees no new member and declines, and
+    // that browser spends the session unable to reach the purse the server
+    // would happily let it spend.
+    const groupId = await makeGroup()
+    const ann = await claimant(groupId, 'ann')
+    const before = (await marketOf(groupId)).claimed
+
+    const laptop = await open(groupId)
+    const said = await reply(
+      laptop,
+      { type: 'hello', actorId: 'second-device', actorName: 'ann', code: ann.code },
+      ['claimed', 'error'],
+    )
+    expect(said.actorId).toBe(ann.actorId)
+    // Not a guess that happened to be right: the same id twice, and no second
+    // member behind it.
+    expect((await marketOf(groupId)).claimed).toBe(before)
+
+    // The enforcement half, and it is the half a message assertion on its own
+    // would not have. This connection really is ann, so it spends ann's purse:
+    // one coin over what ann has left is refused, and the group is not two
+    // hundred coins richer for having her on two devices.
+    expect((await pledge(laptop, 1, STARTING_PURSE + 1)).reason).toBe('too-poor')
+    const spent = await pledge(laptop, 1, 60)
+    expect(spent.type).toBe('market')
+    expect((await marketOf(groupId)).pledges.filter((p) => p.actorId === ann.actorId).length).toBe(1)
+    ann.w.close()
+    laptop.close()
+  })
+
+  it('answers in the form the saved card carries, however it was typed', async () => {
+    // Folded before it is looked up and the folded form is what goes back, so a
+    // browser told to keep this holds it in the shape everything else in the app
+    // produces. Typed with capitals and spaces here because that is what a
+    // person reading a picture off their phone actually sends.
+    const groupId = await makeGroup()
+    const ann = await claimant(groupId, 'ann')
+    const shouted = `  ${ann.code.replace(/-/g, ' ').toUpperCase()}  `
+    expect(shouted).not.toBe(ann.code)
+
+    const phone = await open(groupId)
+    const said = await reply(
+      phone,
+      { type: 'hello', actorId: 'noisy-typist', actorName: 'ann', code: shouted },
+      ['claimed', 'error'],
+    )
+    expect(said.type).toBe('claimed')
+    expect(said.code).toBe(ann.code)
+    expect(said.actorId).toBe(ann.actorId)
+    ann.w.close()
+    phone.close()
+  })
+
+  it('says nothing of the kind to a hello with no code, and does for the same hello with one', async () => {
+    // The pairing that keeps the message from being a thing the server just
+    // sends. A guest saying hello is the overwhelming majority of every hello
+    // this object ever sees, and one of these that named somebody would be
+    // handing a seat to whoever asked.
+    const groupId = await makeGroup()
+    const ann = await claimant(groupId, 'ann')
+
+    const stranger = await open(groupId)
+    stranger.send({ type: 'hello', actorId: 'stranger', actorName: 'ann' })
+    for (let i = 0; i < 20; i++) await scheduler.wait(25)
+    expect(stranger.all().some((one) => one.type === 'claimed')).toBe(false)
+    // And they are seated, so the silence is about the code and not about the
+    // hello having been dropped.
+    expect(stranger.all().some((one) => one.type === 'present')).toBe(true)
+
+    const control = await open(groupId)
+    const said = await reply(
+      control,
+      { type: 'hello', actorId: 'stranger-with-the-code', actorName: 'ann', code: ann.code },
+      ['claimed', 'error'],
+    )
+    expect(said.type).toBe('claimed')
+    ann.w.close()
+    stranger.close()
+    control.close()
+  })
+
+  it('refuses a code that opens nothing, and takes the same hello with the real one', async () => {
+    const groupId = await makeGroup()
+    const ann = await claimant(groupId, 'ann')
+
+    const guessing = await open(groupId)
+    const refused = await reply(
+      guessing,
+      { type: 'hello', actorId: 'guesser', actorName: 'ann', code: 'amber-heron-204' },
+      ['claimed', 'error'],
+    )
+    expect(refused.type).toBe('error')
+    expect(String(refused.message)).toBe('That code does not open anything here.')
+    expect(guessing.all().some((one) => one.type === 'claimed')).toBe(false)
+
+    // Misshapen gets the identical refusal, because telling somebody which of
+    // the three ways it was wrong tells them how far through the wordlist they
+    // have got.
+    const malformed = await open(groupId)
+    const alsoRefused = await reply(
+      malformed,
+      { type: 'hello', actorId: 'guesser', actorName: 'ann', code: '???' },
+      ['claimed', 'error'],
+    )
+    expect(alsoRefused.type).toBe('error')
+    expect(String(alsoRefused.message)).toBe('That code does not open anything here.')
+
+    // The control, one letter apart on screen: the real code on the same shape
+    // of hello is taken and named.
+    const right = await open(groupId)
+    expect((await reply(
+      right,
+      { type: 'hello', actorId: 'guesser', actorName: 'ann', code: ann.code },
+      ['claimed', 'error'],
+    )).type).toBe('claimed')
+    ann.w.close()
+    guessing.close()
+    malformed.close()
+    right.close()
+  })
+
+  it('says it once, and not again when the same connection changes its name', async () => {
+    // The app reads this message as "you have just been seated" and puts the
+    // code on screen under a heading saying it is shown once. A second hello
+    // from a connection that is already seated resolves the same code to the
+    // same person and is not news about who they are, so it must not arrive
+    // again.
+    const groupId = await makeGroup()
+    const ann = await claimant(groupId, 'ann')
+
+    const phone = await open(groupId)
+    expect((await reply(
+      phone,
+      { type: 'hello', actorId: 'phone', actorName: 'ann', code: ann.code },
+      ['claimed', 'error'],
+    )).type).toBe('claimed')
+    const once = phone.all().filter((one) => one.type === 'claimed').length
+    const rooms = phone.all().filter((one) => one.type === 'present').length
+
+    phone.send({ type: 'hello', actorId: 'phone', actorName: 'ann on the train', code: ann.code })
+    for (let i = 0; i < 20; i++) await scheduler.wait(25)
+    expect(phone.all().filter((one) => one.type === 'claimed').length).toBe(once)
+
+    // The hello itself went all the way through, so the silence is about this
+    // one message and not about the hello having been refused or dropped. It
+    // told the room, which a hello that changed nothing would not have done, and
+    // it was not turned away. The rename is deliberately not read back off the
+    // present list: ann is connected on two sockets and the list is by person
+    // rather than by connection, so what it shows is one of her two names.
+    expect(phone.all().filter((one) => one.type === 'present').length).toBeGreaterThan(rooms)
+    expect(phone.all().some((one) => one.type === 'error')).toBe(false)
+    ann.w.close()
+    phone.close()
+  })
+})
+
+// ---------------------------------------------------------------------------
+
+/**
+ * What a plain read of a settled group costs.
+ *
+ * Not "did the answer come back right" but "what did asking for it cost", which
+ * is a question this file could not ask before and the reason the two hooks it
+ * uses exist. A group nobody is looking at is supposed to be free: the market
+ * migration ran on the first read after every eviction and rewrote every
+ * surviving pledge row each time, so a group that bought its egg months ago went
+ * on paying for a fold it did years ago, forever, with nobody in the app.
+ *
+ * Measured across an eviction on purpose. The migration is remembered for the
+ * life of an instantiation, so two reads in a row is a question about a WARM
+ * read and would be green with the whole thing writing on every wake.
+ */
+describe('reading a group nobody is looking at', () => {
+  it('writes nothing at all on a cold read of a group that has already collapsed', async () => {
+    const groupId = await makeGroup()
+    const ann = await member(groupId, 'ann')
+    const bo = await member(groupId, 'bo')
+    // Rows left behind on purpose: one person adjusting on one egg, one person
+    // on another, and one that lost and was refunded. This is a group with a
+    // pledge table that has something in it, because an empty table would make
+    // an UPDATE over every row cost nothing and the test would pass on a fixture
+    // rather than on the fix.
+    expect((await pledge(bo, 1, 40)).type).toBe('market')
+    expect((await pledge(bo, 1, 55)).type).toBe('market')
+    expect((await pledge(ann, 0, priceOf(0, 2))).type).toBe('bought')
+    ann.close()
+    bo.close()
+
+    const stub = env.MONSTER_GROUP.getByName(groupId)
+    // Warmed first, because the genome is written down the first time anybody
+    // asks for it and that write is a different one, is correct, and happens
+    // once in a group's life.
+    await view(groupId)
+
+    await stub.evict()
+    const before = await stub.writesSinceWake()
+    const seen = await view(groupId)
+    // Exactly what a phone opening the app does, and it costs nothing.
+    expect(await stub.writesSinceWake()).toBe(before)
+    // A read that answered nothing would also have written nothing.
+    expect((seen as unknown as GroupSnapshot).genome).toBeDefined()
+
+    // And it stays nothing, wake after wake, which is the shape of the bill
+    // being complained about: it grew with how long the group had existed
+    // rather than with anything anybody did.
+    for (let i = 0; i < 3; i++) {
+      await stub.evict()
+      await view(groupId)
+    }
+    expect(await stub.writesSinceWake()).toBe(before)
+  })
+
+  it('still folds the rows it exists for, and writes exactly then', async () => {
+    // The positive control, and it is the whole worth of the pair: a probe that
+    // decided there was never anything to collapse would pass the test above
+    // perfectly and would leave every live market that predates the change
+    // unable to build its unique index.
+    const groupId = await makeGroup()
+    const ann = await member(groupId, 'ann')
+    expect((await pledge(ann, 0, 40)).type).toBe('market')
+    const first = (await marketOf(groupId)).pledges[0]
+
+    const stub = env.MONSTER_GROUP.getByName(groupId)
+    await stub.pledgeTwice(first.actorId, 'ann', 0, 25)
+    await stub.evict()
+    const before = await stub.writesSinceWake()
+
+    const folded = await marketOf(groupId)
+    // It wrote, because this time there was something to write.
+    expect(await stub.writesSinceWake()).toBeGreaterThan(before)
+    // And it wrote the right thing, without moving a coin.
+    expect(folded.pledges.length).toBe(1)
+    expect(folded.pledges[0].coins).toBe(65)
+
+    // Then never again for this group. The cost is paid once, by the group that
+    // needed it, and not by every later read of it.
+    await stub.evict()
+    const settled = await stub.writesSinceWake()
+    await marketOf(groupId)
+    expect(await stub.writesSinceWake()).toBe(settled)
+    ann.close()
   })
 })
 

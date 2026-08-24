@@ -27,6 +27,7 @@ function read(...parts: string[]): string {
 }
 
 const CROWD = read('ui', 'Crowd.tsx')
+const CODE_ROW = read('ui', 'CodeRow.tsx')
 const GROUP = read('ui', 'useGroup.ts')
 
 /** Every app source file, so a sweep is over the whole app and not over the
@@ -42,16 +43,18 @@ describe('a code has somewhere to be typed', () => {
     // Guards the guard. Every assertion below is about text that is absent, and
     // an empty read would satisfy most of them while checking nothing at all.
     expect(CROWD.length).toBeGreaterThan(2000)
+    expect(CODE_ROW.length).toBeGreaterThan(2000)
     expect(GROUP.length).toBeGreaterThan(2000)
     expect(appSources().length).toBeGreaterThan(10)
   })
 
   it('puts a field on the group panel and sends what was typed', () => {
-    expect(CROWD).toContain('<CodeRow')
-    expect(CROWD).toContain('enterPasscode(typed)')
+    expect(CROWD).toContain("from './CodeRow'")
+    expect(CROWD).toContain('<CodeRow actorId={actorId} />')
+    expect(CODE_ROW).toContain('enterPasscode(typed)')
     // A text input rather than any control: this gets typed off a photograph on
     // a phone, and the one thing it must never be is a thing to tap.
-    expect(CROWD).toMatch(/<input[^>]*className="text-input"/s)
+    expect(CODE_ROW).toMatch(/<input[^>]*className="text-input"/s)
   })
 
   it('offers it to somebody who is not already a member on this browser', () => {
@@ -59,11 +62,22 @@ describe('a code has somewhere to be typed', () => {
     // one here, and this one has to hide itself on the same question or the two
     // would disagree about who is being asked. Written against the condition
     // rather than against a rendered tree because there is no tree to render.
-    expect(CROWD).toMatch(/if \(claimed \|\| actorId\.startsWith\('@'\)\) return null/)
+    expect(CODE_ROW).toContain('const seated = isClaimedMember(actorId)')
+    expect(CODE_ROW).toMatch(/if \(seated\) return null/)
   })
 })
 
 describe('one reader, and it is the one the server uses', () => {
+  it('has one component implementation and two call sites', () => {
+    const sources = appSources()
+    expect(sources.filter((source) => /function CodeRow\(/.test(source))).toHaveLength(1)
+    const calls = sources.flatMap((source) => source.match(/<CodeRow actorId=/g) ?? [])
+    expect(calls).toHaveLength(2)
+    expect(CROWD).not.toContain('enterPasscode')
+    expect(CROWD).not.toContain('CODE_TROUBLE')
+    expect(CROWD).not.toContain('id="passcode"')
+  })
+
   it('takes the shape off the worker rather than restating it', () => {
     expect(GROUP).toMatch(/import \{ cleanPasscode \} from '\.\.\/\.\.\/worker\/passcode'/)
   })
@@ -93,7 +107,7 @@ describe('nothing about it fails silently', () => {
     expect(answers).toContain('accepted')
     expect(answers.length).toBeGreaterThan(2)
 
-    const said = /Record<Exclude<EnteredCode, 'accepted'>, string> = \{([\s\S]*?)\n\}/.exec(CROWD)
+    const said = /Record<Exclude<EnteredCode, 'accepted'>, string> = \{([\s\S]*?)\n\}/.exec(CODE_ROW)
     expect(said).not.toBeNull()
     for (const answer of answers) {
       if (answer === 'accepted') continue

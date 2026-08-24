@@ -68,6 +68,21 @@ interface Item {
   minStage?: number
   /** Narrower than the shelf, for an item that already carries a manner. */
   methods?: string[]
+  /**
+   * How it reads after somebody did it: "fed it strawberries".
+   *
+   * REQUIRED, and beside the item rather than in a table at the far end of
+   * another file, because a table is a thing you forget to add a row to. 186
+   * items shipped without one and the ticker fell back to the button label, so
+   * the app told a group "You strawberries."
+   */
+  past: string
+  /**
+   * The same thing said about a habit, for the chronicle: "bringing it
+   * strawberries". Written about somebody afterwards rather than to them at the
+   * moment, which is why it is a separate line and not derived.
+   */
+  memory: string
 }
 
 function merge(base: PressureDelta, tilt: PressureDelta | undefined): PressureDelta {
@@ -104,6 +119,8 @@ export function expand(shelves: Shelf[]): ActionVariant[] {
         ...(item.methods ?? shelf.methods) === undefined
           ? {}
           : { methods: item.methods ?? shelf.methods },
+        past: item.past,
+        memory: item.memory,
       })
     }
   }

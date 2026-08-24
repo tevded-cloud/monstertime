@@ -61,6 +61,7 @@ import type {
   Creature,
   ExpressedTrait,
   Genome,
+  GroupSnapshot,
   Locus,
   Memory,
   Morph,
@@ -68,11 +69,12 @@ import type {
   PressureAxis,
   PressureDelta,
   Pressures,
+  Purchase,
   StageName,
   Substance,
   SubstanceDelta,
 } from '../core/types'
-import { VARIANT_MEMORY, pushOf, variantById } from './actions'
+import { memoryOf, pushOf, variantById } from './actions'
 import { affinityShape, alleleById, centredShape, cosine } from './alleles'
 import { makeRng } from './rng'
 import { deriveStance } from './stance'
@@ -783,7 +785,7 @@ function traitMemory(
 ): Memory {
   const names = joinNames(namesOf(trait.credited, actors))
   const variantId = signatureVariant(result.allele, trait.credited, actors)
-  const phrase = variantId === null ? null : (VARIANT_MEMORY[variantId] ?? null)
+  const phrase = variantId === null ? null : (memoryOf(variantId) ?? null)
   const label = result.allele.label
   const turn = (count + LOCI.indexOf(result.locus)) % 3
 
@@ -836,6 +838,116 @@ function stageMemory(
   }
 }
 
+// The three eggs, as a person would say them, in mint order.
+//
+// Read off the index rather than off a price or a hatch speed, because the index
+// IS the order: cheapest, middle, dearest is what src/market puts on the screen
+// left to right and what the group was looking at when they argued about it.
+//
+// NOT THE EGG'S OWN NAME, which the market screen has and which would obviously
+// be better: it calls one of them something like "paler green, hairline
+// cracked". Those words come out of src/market/index.ts, which needs a palette
+// and therefore needs three.js, so importing it here would drag a renderer into
+// the Durable Object and into the folder the purity gate covers. It costs less
+// than it sounds. The egg they bought is standing in the middle of the screen
+// having hatched, so what the chronicle owes them is the part they can no longer
+// see: what it cost, and who put the coins in.
+const EGG_WORDS = ['cheapest', 'middle', 'dearest']
+
+/**
+ * How the group came to have an animal at all, which nobody's clicking wrote.
+ *
+ * The only memory in this file that is not read out of the log, because the only
+ * thing in the app that happened before the log existed. Everything it says
+ * comes off the argument, so two clients handed the same snapshot write the same
+ * sentence, and a client handed no purchase writes nothing rather than guessing.
+ *
+ * IT PUSHES NOTHING, and that is a design decision rather than an omission.
+ * Pressure is what a group's behaviour does to an animal, and there was no
+ * animal: coins are not a way of treating a creature. Wired to push, the egg
+ * choice would bend the first traits toward whoever happened to have coins
+ * spare, so a group's creature would carry the shape of its funding round for
+ * life. It is not counted as an action either, for a sharper reason: actionCount
+ * is the divisor in the pace gate in hasEarned, so counting the purchase would
+ * make every trait fractionally harder to earn for every group that ever bought
+ * an egg, and would hand one backer a bond and a cooldown they never earned.
+ * What it changes is the chronicle, and test/dna/memories.test.ts asserts that
+ * the whole rest of the creature is byte-identical with it and without it.
+ *
+ * WHY THE ROWS ARE FILTERED HERE rather than trusted as sent. Only pledges on
+ * the egg that won are read, so a losing row the server failed to refund is
+ * dropped instead of being read out as money somebody spent on this animal, and
+ * the total, which is the sum of exactly the rows named, cannot come apart from
+ * the names beside it. Only rows holding something are read, because a pledge of
+ * zero is how somebody takes their coins back off an egg and leaves a row at
+ * zero behind: the market screen already skips a backer holding nothing, and a
+ * chronicle that thanked them by name for nothing would be worse than the
+ * market screen was.
+ *
+ * WHEN THERE IS NOTHING LEFT TO NAME, there is no memory. Better silence than
+ * "bought for 0 coins", which is the only other thing this could say and is a
+ * false statement about the one purchase the group actually remembers making.
+ */
+function purchaseMemory(purchase: Purchase): Memory | null {
+  const backers = purchase.pledges.filter(
+    (pledge) =>
+      pledge.egg === purchase.egg && Number.isInteger(pledge.coins) && pledge.coins > 0,
+  )
+  if (backers.length === 0) return null
+
+  // Biggest first, ties on actor id. Sorted here and not taken as sent, because
+  // the order the rows arrive in is a SQL clause in the worker and a stream of
+  // market messages in the browser, and those are two orders. A group's oldest
+  // sentence must not be re-written the day somebody edits an ORDER BY, and the
+  // phone that sat through the market must not read differently from the phone
+  // that arrived after it. A copy, never the caller's array: deriveCreature is
+  // handed the snapshot's own list and does not get to reorder it.
+  backers.sort((a, b) => (b.coins !== a.coins ? b.coins - a.coins : a.actorId < b.actorId ? -1 : 1))
+
+  let spent = 0
+  for (const backer of backers) spent += backer.coins
+
+  // "put in" is said once and elided after it, so three backers read as a list
+  // and not as three sentences. joinNames does the joining, the same call the
+  // trait memories make, so the app has one way of listing people.
+  const parts: string[] = []
+  for (let i = 0; i < backers.length; i++) {
+    const backer = backers[i]
+    parts.push(
+      i === 0 ? `${backer.actorName} put in ${backer.coins}` : `${backer.actorName} ${backer.coins}`,
+    )
+  }
+  const who =
+    backers.length === 1 ? `${backers[0].actorName} put in all of it.` : `${joinNames(parts)}.`
+
+  // An index that is not one of the three loses the clause and keeps the figure.
+  // The fallback has to be that way round: what it cost is the fact, and which
+  // of three it was is the colour on top of it.
+  const known =
+    Number.isInteger(purchase.egg) && purchase.egg >= 0 && purchase.egg < EGG_WORDS.length
+  const bought = known
+    ? `It was bought for ${spent} coins, the ${EGG_WORDS[purchase.egg]} of the three.`
+    : `It was bought for ${spent} coins.`
+
+  return {
+    id: 'p.bought',
+    at: purchase.at,
+    // Before anybody had done anything, which is what zero means here and is
+    // true: the log starts at one. Chronicle reads this as its sort key.
+    atAction: 0,
+    text: `${bought} ${who}`,
+    // EMPTY, AND NOT THE BACKERS, which is the one thing about this that looks
+    // like a bug and is not. Chronicle turns actorIds into "X did this." by
+    // looking each id up in the bonds, and bonds are built from the action log,
+    // so a backer who paid for the animal and has not yet clicked anything has
+    // no bond and would be silently dropped from a line whose whole job is to
+    // say who paid. Every name is in the text above, with the figure beside it,
+    // where nothing can filter it. Nobody "did this" to the creature anyway:
+    // they bought it.
+    actorIds: [],
+  }
+}
+
 // ---------------------------------------------------------------------------
 // The derivation
 // ---------------------------------------------------------------------------
@@ -849,6 +961,15 @@ export function deriveCreature(
   // entered it: one action, one point. That default is what keeps every log
   // written before this change deriving the animal it always derived.
   grown?: number,
+  // What the group bought at the market, from the snapshot. Optional for the
+  // reason `grown` is: a group that predates markets has none, and left off it
+  // derives precisely the creature it always derived.
+  //
+  // A SECOND ARGUMENT IS NOT A SECOND SOURCE OF TRUTH, but it is a second thing
+  // a caller can forget, and forgetting it is a phone showing a shorter history
+  // than the phone beside it. That is what creatureOf below exists to make
+  // impossible, and why both derivations on any real path go through it.
+  purchase?: Purchase | null,
 ): Creature {
   const pressures = emptyPressures()
   const substance = emptySubstance()
@@ -898,7 +1019,7 @@ export function deriveCreature(
     }
 
     if (count === 1) {
-      const phrase = variant === undefined ? null : (VARIANT_MEMORY[variant.id] ?? null)
+      const phrase = variant === undefined ? null : (memoryOf(variant.id) ?? null)
       memories.push({
         id: 'a.first',
         at: action.at,
@@ -951,6 +1072,17 @@ export function deriveCreature(
     }
   }
 
+  // LAST IN THE ARRAY, and it is the oldest thing here. Its atAction is 0, and a
+  // creature that hatched with nobody touching it has a stage memory at 0 too,
+  // so the two tie. Chronicle sorts descending on atAction and Array.sort is
+  // stable, which means the later entry in this list is drawn underneath, and
+  // underneath is where the older of two things belongs. Pushed first, the
+  // purchase would sit above the hatching it paid for.
+  if (purchase !== undefined && purchase !== null) {
+    const bought = purchaseMemory(purchase)
+    if (bought !== null) memories.push(bought)
+  }
+
   const stage = stageFor(now)
 
   const bonds: Record<string, Bond> = {}
@@ -989,4 +1121,34 @@ export function deriveCreature(
     memories,
     actionCount: count,
   }
+}
+
+/**
+ * The creature a snapshot is of. The door every real caller goes through.
+ *
+ * ONE ARGUMENT, AND THAT IS THE ENTIRE POINT OF IT. deriveCreature takes five
+ * things and three of them are optional, so a caller can supply half an answer
+ * and get a creature that is wrong in a way nothing throws on: the app derived
+ * from four fields and the Durable Object from four, and the day a fifth landed
+ * on GroupSnapshot both had to be found and edited or the two would quietly
+ * disagree. They already nearly did. Growth was added the same way and the
+ * worker's stage check still passes it by hand.
+ *
+ * A snapshot in, a creature out, so there is no partial call to make. When
+ * something new arrives on GroupSnapshot that the derivation reads, it is wired
+ * here, once, and every caller has it. src/market/rules.ts states the same rule
+ * for prices and gives the same reason: the last fleet lost a working feature to
+ * two callers each holding half of one answer, and every test stayed green.
+ *
+ * The optional parameters stay on deriveCreature for the suites, which build
+ * logs rather than snapshots and mean to derive from exactly what they built.
+ */
+export function creatureOf(snapshot: GroupSnapshot): Creature {
+  return deriveCreature(
+    snapshot.genome,
+    snapshot.actions,
+    snapshot.name,
+    snapshot.growth,
+    snapshot.purchase,
+  )
 }

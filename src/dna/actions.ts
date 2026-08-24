@@ -34,9 +34,9 @@
 // cannot do to an egg: it cannot be fed, chased round a yard, walked to the
 // market or have its claws trimmed, and offering all of that to somebody
 // looking at an unhatched egg made the whole tray read as nonsense. What is
-// left is what you CAN do to an egg, which is sing to it, leave things beside
-// it, sit with it and keep it clean and warm, and that pool leans toward
-// resonance, craft, bond and stillness rather than sitting even.
+// left is what you CAN do to an egg, which is sing to it, leave a few things
+// beside it, sit with it and keep its place clean and warm. That pool leans
+// toward resonance, craft, bond and stillness rather than sitting even.
 //
 // That lean is accepted rather than corrected. The egg is five actions long,
 // no trait can express before the first growth tick at five, and an animal
@@ -74,6 +74,8 @@ export const ACTION_VARIANTS: ActionVariant[] = [
     label: 'wake it',
     blurb: 'A hand on its side, until it shifts.',
     push: { vigor: 1.5, ferocity: 1, bond: 0.5 },
+    past: 'woke it up',
+    memory: 'waking it up',
     whileAsleep: true,
   },
 ]
@@ -239,7 +241,7 @@ export const VARIANT_PAST: Record<string, string> = {
  * reads correctly after "You" already.
  */
 const VARIANT_PAST_YOU: Record<string, string> = {
-  'feed.fromYourHand': 'shared what you were eating',
+  'feed.fromYourHand': 'shared part of the meal with it',
 }
 
 export function pastTense(variantId: string, byYou: boolean): string | null {
@@ -247,8 +249,22 @@ export function pastTense(variantId: string, byYou: boolean): string | null {
     const mine = VARIANT_PAST_YOU[variantId]
     if (mine !== undefined) return mine
   }
+  // The item's own line first. The two tables below are what is left of the
+  // original thirty-six, kept because their keys are in real logs; everything
+  // added since carries its prose beside it in the shelf files, where a missing
+  // one is a compile error rather than a fallback to the button label. That
+  // fallback is how "You strawberries." reached a screen.
+  const own = variantById(variantId)?.past
+  if (own !== undefined) return own
   return VARIANT_PAST[variantId] ?? null
 }
+
+/** How a habit reads in the chronicle. Same rule: the item first, then what is
+ *  left of the original tables. */
+export function memoryOf(variantId: string): string | null {
+  return variantById(variantId)?.memory ?? VARIANT_MEMORY[variantId] ?? null
+}
+
 
 // --- how, as opposed to what ------------------------------------------------
 //
@@ -273,7 +289,7 @@ export const ACTION_METHODS: ActionMethod[] = [
 
   { id: 'train.hard', kind: 'train', label: 'hard', push: { ferocity: 1 } },
   { id: 'train.patiently', kind: 'train', label: 'patiently', push: { stillness: 1 } },
-  { id: 'train.tired', kind: 'train', label: 'until it is tired', push: { vigor: 1 } },
+  { id: 'train.tired', kind: 'train', label: 'until tired', push: { vigor: 1 } },
 
   { id: 'explore.leading', kind: 'explore', label: 'leading the way', push: { craft: 1 } },
   { id: 'explore.following', kind: 'explore', label: 'letting it lead', push: { roam: 1 } },
@@ -281,15 +297,15 @@ export const ACTION_METHODS: ActionMethod[] = [
 
   { id: 'sing.close', kind: 'sing', label: 'up close', push: { bond: 1 } },
   { id: 'sing.across', kind: 'sing', label: 'from across the room', push: { roam: 1 } },
-  { id: 'sing.underBreath', kind: 'sing', label: 'under your breath', push: { resonance: 1 } },
+  { id: 'sing.underBreath', kind: 'sing', label: 'barely aloud', push: { resonance: 1 } },
 
-  { id: 'give.leftOut', kind: 'give', label: 'left where it will find it', push: { stillness: 1 } },
+  { id: 'give.leftOut', kind: 'give', label: 'left beside it', push: { stillness: 1 } },
   { id: 'give.hidden', kind: 'give', label: 'hidden first, so it hunts', push: { craft: 1 } },
   { id: 'give.fuss', kind: 'give', label: 'with a great fuss', push: { resonance: 1 } },
 
   { id: 'tend.quickly', kind: 'tend', label: 'quickly', push: { vigor: 1 } },
   { id: 'tend.talking', kind: 'tend', label: 'talking to it the whole time', push: { resonance: 1 } },
-  { id: 'tend.firmly', kind: 'tend', label: 'firmly', push: { ferocity: 1 } },
+  { id: 'tend.firmly', kind: 'tend', label: 'deliberately', push: { ferocity: 1 } },
 ]
 
 const METHOD_BY_ID = new Map(ACTION_METHODS.map((m) => [m.id, m]))

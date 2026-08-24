@@ -101,6 +101,18 @@ export interface ActionVariant {
   // manner names the ones that can still be true of it. Absent means the whole
   // of its kind, which is the ordinary case.
   methods?: string[]
+  // How it reads once somebody has done it, and how it reads as a habit.
+  //
+  // These live beside the item in the shelf files rather than in a table at the
+  // far end of another file, because a table is a thing you forget to add a row
+  // to. 186 items shipped with no row in either, so the ticker fell back to the
+  // button label and the app told a group "You strawberries." The shelf type
+  // makes both mandatory, which turns that into a compile error.
+  //
+  // Optional HERE and required THERE on purpose: the original thirty-six still
+  // answer from the old tables, and their keys are in real logs.
+  past?: string
+  memory?: string
   // Whether this may be done to a creature that is asleep. The sleep gate
   // refuses every variant without it, so this is the flag that decides what a
   // group can still reach while their animal is down.
@@ -463,6 +475,60 @@ export type PledgeRefusal =
   | 'too-poor'
   | 'nothing-pledged'
 
+/**
+ * The one thing that outlives the market: what the group bought, and who paid.
+ *
+ * A market is gone a second after it resolves. The losing rows are deleted, the
+ * three candidates stop being offered, and an hour later nothing anywhere said
+ * which egg won, what it cost, or who backed it, while the chronicle's own empty
+ * state promised the first thing anybody does to it turns up there and stays.
+ * Buying the egg together IS the first thing, so this is what makes that promise
+ * true.
+ *
+ * IT IS NOT DERIVABLE FROM THE LOG AND NEVER WILL BE. Who pledged what is a fact
+ * the server holds in a table; a client folding (genome, actions) alone cannot
+ * recompute it, and a client that invented it would show a different history to
+ * the phone next to it. So it travels instead: it rides on GroupSnapshot beside
+ * the log and the growth, every client is handed the identical object, and
+ * deriveCreature reads it as an argument exactly like the two it already reads.
+ * The derivation stays a pure function, because pure is a statement about
+ * arguments and results and not about how few arguments there are.
+ *
+ * THERE IS NO TOTAL IN HERE, on purpose. What the group paid is the sum of the
+ * pledges below, added up at the one place it is spoken, because a stored total
+ * is a number that can quietly disagree with the list printed under it and this
+ * list is printed under it. src/market/rules.ts sums every figure it quotes for
+ * the same reason and says so.
+ */
+export interface Purchase {
+  /** Which of the three won, 0, 1 or 2. Validate with isEggIndex before
+   *  indexing anything by it, exactly as every other egg index off the wire. */
+  egg: number
+  /**
+   * When the market resolved.
+   *
+   * The same instant as the creature's `createdAt`, and deliberately not read
+   * off it. A creature bought at six in the evening begins at six in the
+   * evening, so the server writes both from one Date.now() and the two are equal
+   * today; but `createdAt` means phase zero of the sleep schedule and has a
+   * consumer that reads it as precisely that, and two questions that happen to
+   * share an answer are still two questions. The day one of them moves, only one
+   * of them should.
+   */
+  at: number
+  /**
+   * The pledges the server still holds, which after a resolution is the winning
+   * egg's and nothing else.
+   *
+   * The rows as stored rather than a summary, one per person per egg because the
+   * table carries a unique index saying so. Sent raw so the server has no
+   * shaping step of its own to get wrong: which rows are read, in what order,
+   * and what they add up to are all decided once, in the derivation, where the
+   * sentence that quotes them is written.
+   */
+  pledges: Pledge[]
+}
+
 /** What just moved, so the market screen can say it out loud. Null when the
  *  market is being sent for another reason, such as somebody claiming a place
  *  and every price going up with them. */
@@ -503,6 +569,19 @@ export interface GroupSnapshot {
   // long slow animal turns it down; a group that wants to raise one in an
   // evening turns it up.
   pace: number
+  // What this group bought at the market, if it ever went to one.
+  //
+  // Absent for every group made before markets existed, which was every live
+  // group the day this shipped, and absence means exactly that and nothing more:
+  // no purchase in their chronicle, and every other thing about their creature
+  // identical to the day before. Optional here rather than nullable so those
+  // groups need no migration and no field written to say they have none.
+  //
+  // It rides on the snapshot rather than being fetched, which is what makes the
+  // crossing work: the `bought` message carries a whole GroupSnapshot, so the
+  // phone that watched the market resolve and the phone that opens the app an
+  // hour later are handed the same purchase in the same field.
+  purchase?: Purchase
 }
 
 /**

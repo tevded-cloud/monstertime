@@ -2182,3 +2182,17 @@ button.creature-name {
 .market .claim {
   margin-top: 18px;
 }
+
+/* The closed passcode line, on the screen where it is the whole way back in.
+ *
+ * `.code-back` was written for the group menu, where it is the last thing in a
+ * column and has the panel's own bottom padding under it. Here it lands in the
+ * middle of the page with the three eggs immediately below, and at its own 12px
+ * it sits 10px off the first card, which is close enough to read as a caption on
+ * that card rather than as the answer to the block above it. The bottom figure
+ * is what it is because the margin under this and the margin over .eggs collapse
+ * to the larger of the two, so anything under 10px here buys nothing at all. */
+.market .code-back {
+  margin-top: 16px;
+  margin-bottom: 16px;
+}

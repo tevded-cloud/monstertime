@@ -449,7 +449,36 @@ export function checkPledge(
   return null
 }
 
-/** Whether there is anything to take back off this egg, or why not. */
+/**
+ * Whether there is anything to take back off this egg, or why not.
+ *
+ * NOTHING A PLAYER CAN DO REACHES THIS, AND THE REASON KEPT FOR IT IS NOT TRUE.
+ * The `withdraw` handler in worker/monstertime.ts says the message has to keep
+ * working because of what is already installed on people's phones. There are no
+ * such phones. The market screen and the `withdraw` message were built in the
+ * same unit and neither has been deployed, so a client old enough to predate
+ * this code is a client with no market to withdraw from, and the screen that
+ * exists sends a pledge of zero instead, because a pledge SETS the figure on an
+ * egg. src/ui/Market.tsx already says so about its own half: nothing there
+ * calls it.
+ *
+ * SO THIS AND withWithdrawal GO, AND THE ORDER IS THE WHOLE OF THE DECISION.
+ * Their one caller outside the tests is that handler, so deleting them here
+ * first is a worker that does not compile. The message leaves the wire and the
+ * handler leaves with it, and these two follow in the same wave. Taken the other
+ * way round they are a dead export that a hundred green tests keep alive, which
+ * is the shape this file has tombstoned twice already, above and at the bottom.
+ * They are kept until that lands rather than kept for a reason.
+ *
+ * WHAT REMOVING THEM COSTS, measured rather than asserted: against a pledge of
+ * zero the two differ by one row and by nothing else, and every total, purse,
+ * leader, shortfall, resolution and refusal in this file reads them identically.
+ * That is swept over a population in test/market/rules.test.ts. The one thing
+ * only this path can say is 'nothing-pledged', which tells somebody the coins
+ * they reached for are not there; no screen can reach it either, and a slider
+ * left at zero on an empty egg is a perfectly good instruction to leave it
+ * empty.
+ */
 export function checkWithdrawal(
   market: MarketState,
   actorId: string,
@@ -494,7 +523,13 @@ export function withPledge(market: MarketState, pledge: Pledge): MarketState {
 
 /** The market with everything one person had on one egg taken back off it.
  *  Their other eggs are untouched: this is changing your mind about one egg,
- *  not leaving the market. */
+ *  not leaving the market.
+ *
+ *  Goes with checkWithdrawal, in the wave that takes the `withdraw` message off
+ *  the wire, for the reason written out over that function. Note that the
+ *  refund at resolution does NOT run through here: the Durable Object deletes
+ *  the losing rows in SQL, and the refundLosers helper in
+ *  test/market/rules.test.ts is a simulation of that rather than a caller. */
 export function withWithdrawal(market: MarketState, actorId: string, egg: number): MarketState {
   return {
     ...market,

@@ -40,7 +40,6 @@
 import { DurableObject } from 'cloudflare:workers'
 import {
   allowedWhileAsleep,
-  deriveCreature,
   methodFits,
   rollActivity,
   rollGenome,
@@ -49,6 +48,21 @@ import {
   stageOfGrowth,
   variantById,
 } from '../src/dna/index'
+// The one door into the derivation, and deriveCreature is deliberately NOT
+// imported beside it. This file used to call deriveCreature with four of its
+// five arguments by hand, so the day `purchase` landed on GroupSnapshot the
+// server's stage check was deriving from a snapshot it was only half reading:
+// a creature with one fewer memory than the one on the phones, and nothing to
+// throw about it. creatureOf takes the whole snapshot and cannot be given half
+// of one. `noUnusedLocals` is on for this project, so the moment nothing here
+// calls deriveCreature the import cannot be left behind either.
+//
+// Reached at '../src/dna/express' rather than through '../src/dna/index'
+// because the index does not re-export it yet and that file belongs to another
+// pair of hands this wave. express.ts is exactly what index.ts re-exports for
+// the four names above, needs no DOM and no renderer, and this can move to the
+// index the moment the word is added there.
+import { creatureOf } from '../src/dna/express'
 import type { SleepState } from '../src/dna/index'
 import type { Genome } from '../src/core/types'
 import { googleKeys, verifyIdToken, type KeySource } from './verify'
@@ -940,6 +954,15 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     }
     this.ctx.storage.sql.exec("DELETE FROM meta WHERE k = 'hatchSpeed'")
     this.ctx.storage.sql.exec("DELETE FROM meta WHERE k = 'claimed'")
+    // And which of the three they bought, for the same reason as hatchSpeed and
+    // bornAt: nobody who got their creature before the market existed chose it
+    // out of three, so a group put back on that schema must not remember doing
+    // so. Left here it was worse than untidy. readSnapshot reads this row to
+    // decide whether there is a purchase at all, so the fixture came back
+    // carrying one, with an empty backer list under it because the pledge table
+    // had just been dropped, and the test that exists to prove a grandfathered
+    // group has no purchase was being handed a purchase of nothing by a hook.
+    this.ctx.storage.sql.exec("DELETE FROM meta WHERE k = 'egg'")
     // Nobody who bought before the market existed has one of these, and a group
     // put back on that schema must not either: what makes a grandfathered
     // creature's night correct is that it falls through to `createdAt`, and a
@@ -991,6 +1014,60 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     )
     this.migrated = false
     this.made = null
+  }
+
+  /**
+   * Forget everything this wake worked out, exactly as an eviction does, and
+   * touch no storage at all.
+   *
+   * The fourth hook the suite has, and it earns its place the way the other
+   * three do: what it reaches cannot be reached any other way. The migration
+   * runs once per instantiation, so the cost of a COLD read is a thing that
+   * happens the first time a group is looked at after nobody has looked at it
+   * for a while, and it is the only kind of read a long-lived group mostly gets.
+   * A test that reads a group twice in a row is asking about a warm read and
+   * would be green with the whole migration writing on every wake.
+   *
+   * Storage is deliberately untouched: an eviction loses memory and nothing
+   * else, so a hook that deleted or rewrote anything would be reproducing a
+   * different event and proving something about it instead.
+   */
+  async evict(): Promise<void> {
+    this.migrated = false
+    this.made = null
+    this.renamedAt = 0
+  }
+
+  /**
+   * How many rows this object has written since it woke, straight from SQLite.
+   *
+   * The fifth hook, and the only way this suite can ask the question that
+   * matters here, which is not "did the answer come back right" but "what did
+   * asking cost". Reads are the overwhelming majority of what this app does and
+   * a group nobody is looking at is supposed to be free, so a write on the read
+   * path is a bill that grows with how long a group has existed rather than with
+   * anything anybody did. It has already been paid once: collapsePledges rewrote
+   * every surviving pledge row on every cold read of every group that had ever
+   * bought an egg.
+   *
+   * total_changes() and not a counter of our own, because a counter of our own
+   * would only count the writes somebody remembered to route through it, which
+   * is exactly the shape of a gate that cannot fail. This one is SQLite's, it
+   * counts every INSERT, UPDATE and DELETE this connection has run whoever ran
+   * it, and a write added anywhere in this file tomorrow is caught by it without
+   * anybody wiring anything up.
+   *
+   * A RUNNING TOTAL AND NOT A MEASUREMENT, so it is read either side of the
+   * thing being asked about and the difference is the answer. evict() above
+   * deliberately does not reset it: a real eviction takes the whole SQLite
+   * connection with it and the counter starts again at zero, which would be the
+   * same reading by a longer road, and a hook that zeroed it by hand would be
+   * inventing a state rather than reproducing one.
+   */
+  async writesSinceWake(): Promise<number> {
+    return this.ctx.storage.sql
+      .exec<{ n: number }>('SELECT total_changes() AS n')
+      .one().n
   }
 
   private migrate(): void {
@@ -1130,8 +1207,39 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
    *
    * A no-op on a group that has never pledged and on every group made after this,
    * which is what lets it sit on the same path as the CREATE.
+   *
+   * IT WAS A NO-OP THAT WROTE, which is not a no-op. The two statements below
+   * run from pledgeTable(), which runs from the migration on the first read
+   * after every eviction, so a plain GET of a group that bought its egg months
+   * ago was an UPDATE and a DELETE against their pledge table: every surviving
+   * row is the MIN(n) of its own person and egg, so every one of them matched
+   * the UPDATE and was rewritten with the value it already had. Nobody was
+   * looking, nothing changed, and it billed a write per row per cold read for
+   * the rest of the group's life. This object already refuses to write on a read
+   * elsewhere for exactly this reason (see claimedCount, which declines to store
+   * the answer it works out), and a table full of rows was the louder version of
+   * the same mistake.
+   *
+   * So the probe. It asks the one question the collapse exists to answer, in a
+   * read that touches an index and stops at the first row, and there is nothing
+   * to do unless somebody actually has two rows on one egg. A group that has
+   * collapsed, a group made after a pledge started replacing rather than adding,
+   * and a group that has never pledged all leave here having written nothing at
+   * all, forever, rather than having written nothing that matters once per wake.
+   *
+   * NOT A FLAG IN `meta`, and the difference is worth stating because the flag is
+   * the obvious shape. A row saying "collapsed" is a write of its own on the
+   * first read of every group that exists, it has to be written before it is
+   * true or after, and it is a second answer to a question the rows can already
+   * be asked. The probe cannot go stale, because it IS the state.
    */
   private collapsePledges(): void {
+    const duplicated = this.ctx.storage.sql
+      .exec<{ n: number }>(
+        'SELECT MIN(n) AS n FROM pledges GROUP BY actorId, egg HAVING COUNT(*) > 1 LIMIT 1',
+      )
+      .toArray()
+    if (duplicated.length === 0) return
     this.ctx.storage.sql.exec(
       'UPDATE pledges SET coins = (SELECT SUM(dup.coins) FROM pledges dup' +
         ' WHERE dup.actorId = pledges.actorId AND dup.egg = pledges.egg)' +
@@ -1359,9 +1467,20 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
 
     // A passcode, if they have one. Checked after a token, because a token is
     // the stronger claim and there is no reason to look at both.
+    //
+    // Who it resolved to, kept for the answer at the bottom of this method. Null
+    // for every hello that presented no code, which is what stops a guest saying
+    // hello being handed somebody's seat.
+    let resolved: { actorId: string; code: string } | null = null
     if (actorId === claimed && code !== undefined) {
-      const owner = await this.whoHolds(code)
-      if (owner === null) {
+      // Folded to the form the card carries before it is looked up, so the same
+      // string can be hashed and sent back. whoHolds folds it too, which is why
+      // it went unfolded before: nothing downstream of it needed the tidy form
+      // and now something does, and a browser told to keep 'AMBER Heron 204'
+      // would be holding its code in a shape nothing else in the app produces.
+      const tidy = cleanPasscode(code)
+      const owner = tidy === null ? null : await this.whoHolds(tidy)
+      if (tidy === null || owner === null) {
         // Deliberately the same refusal whether the code was malformed, unknown
         // or simply wrong. Telling somebody which of those it was is telling
         // them how far through the wordlist they have got.
@@ -1369,6 +1488,7 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
         return
       }
       actorId = owner
+      resolved = { actorId: owner, code: tidy }
     }
 
     if (seat.actorId !== null && seat.actorId !== actorId) {
@@ -1382,7 +1502,47 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     const named = actorName === '' ? NAMELESS : actorName
     // A hello that says nothing new is not news for anybody else either.
     if (seat.actorId === actorId && seat.actorName === named) return
+    const moved = seat.actorId !== actorId
     ws.serializeAttachment({ sid: seat.sid, actorId, actorName: named })
+
+    // WHO THE CODE TURNED OUT TO BE, said to the person who presented it.
+    //
+    // Sent before the room is told, because it is the answer to what this socket
+    // asked and the broadcast is not. Until this line existed the server seated
+    // somebody and told them nothing: the room got a `present` list and whoever
+    // typed the code was left to work out which of the people on it had become
+    // them. src/net/connection.ts does that by diffing the list for a newly
+    // seated '@' member whose shown name matches this device, which is not an
+    // answer, it is a guess with a tell: it declines whenever the answer is not
+    // unmistakable, and the commonest reason for that is the owner's OTHER
+    // device already being connected, which is precisely the person most likely
+    // to be typing their code in. Declining costs them the market: every "may I
+    // spend" is asked of the id this browser made up, and the server would
+    // happily have taken their coins.
+    //
+    // The code goes back down because the contract's message carries one and the
+    // client keeps both halves together. It is not a disclosure: it is the exact
+    // string that arrived on this socket a moment ago, going back to the socket
+    // that sent it, and the server could not produce any other one if it wanted
+    // to (only the hash is stored).
+    //
+    // Only when the seat actually MOVED. A second hello on a seated connection
+    // (somebody changing their shown name) resolves the same code to the same
+    // person and is not news about who they are, and this message is read by the
+    // app as "you have just been seated".
+    //
+    // WHAT THE APP STILL HAS TO DO ABOUT IT, written here because this is where
+    // somebody will come looking. `claimed` is currently the answer to a claim
+    // as well, and useGroup.ts puts every one of them on screen under "This is
+    // your code. It is shown once." A browser that already holds the code sends
+    // it on every connect, so with this message and nothing else that panel
+    // comes up on every launch, offering to save a code the person saved months
+    // ago. Nothing is minted, nothing is lost and the code shown is genuinely
+    // theirs, so it is a wrong screen rather than a wrong seat, but it is one
+    // this must not ship without: connection.ts knows which of the two it is,
+    // because on a claim it did not present a code and here it presented this
+    // exact one.
+    if (resolved !== null && moved) this.tell(ws, { type: 'claimed', ...resolved })
     this.broadcast({ type: 'present', present: this.present(null) })
   }
 
@@ -1838,6 +1998,22 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
   private resolve(bought: Resolution): void {
     if (this.metaValue('seed') !== null) return
     const at = Date.now()
+    // WHICH OF THE THREE THEY BOUGHT, written down before the losing rows go.
+    //
+    // Taken from the resolution rather than worked out later from which pledges
+    // survived the DELETE below, and the ordering is what makes that true rather
+    // than merely intended. Inferring it afterwards would be reading a fact off
+    // a side effect: the rows that are left are the ones that were not refunded,
+    // which happens to answer the same question today and stops answering it the
+    // day a refund is written any other way, or the day a group buys an egg
+    // nobody had a row on. Nothing else in this object stores the egg index, so
+    // without this line the chronicle's oldest sentence would have no source.
+    //
+    // No total and no copy of the pledges beside it, on purpose. What the group
+    // paid is the sum of the rows that are still here, added up at the one place
+    // it is spoken (src/dna/express.ts, purchaseMemory), because a stored total
+    // is a number that can quietly disagree with the names printed under it.
+    this.setMeta('egg', String(bought.egg))
     // Everything on the eggs that lost goes back to whoever put it there. The
     // rows are deleted rather than kept, because a purse is a hundred minus what
     // that person has on the table and the coins are no longer on the table; a
@@ -2120,12 +2296,13 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     if (reached >= stage) return true
     const snapshot = this.readSnapshot()
     if (snapshot === null) return false
-    const grown = deriveCreature(
-      snapshot.genome,
-      snapshot.actions,
-      snapshot.name,
-      snapshot.growth,
-    ).stage
+    // The whole snapshot, through the one door. This was four arguments picked
+    // out by hand, which was the same four the app passed until the app grew a
+    // fifth: two callers each holding half of one answer, agreeing right up to
+    // the day they did not. Nothing here chooses what the derivation reads any
+    // more, so a field added to GroupSnapshot arrives on this path without
+    // anybody remembering to come and fetch it.
+    const grown = creatureOf(snapshot).stage
     if (grown > reached) this.setMeta('stage', String(grown))
     return grown >= stage
   }
@@ -2445,6 +2622,21 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
     if (!this.exists()) return null
     const seed = this.metaValue('seed')
     if (seed === null) return null
+    // THE EGG META IS READ FIRST AND THE PLEDGES ARE NOT TOUCHED WITHOUT IT.
+    // A group that predates the market has no `egg` row, so the absence is
+    // answered here and those groups leave with no `purchase` at all, deriving
+    // precisely the creature they always derived.
+    //
+    // Written as an order rather than a filter because of what it would cost to
+    // get wrong: pledgeRows() against a table that is not there throws, and on
+    // this path that is not a missing field, it is a 500 on every read of every
+    // grandfathered group, which is the outage this file has already had once
+    // over a column (see addGrowthColumn). Today the table is always there by
+    // the time anything reaches here, because exists() runs the migration that
+    // makes it and readSnapshot's first line is exists(). This is belt to that
+    // brace: it costs one meta read, and it is what keeps the answer right if a
+    // caller is ever added that gets here without the migration behind it.
+    const eggBought = this.metaValue('egg')
     return {
       groupId: this.metaValue('groupId') ?? '',
       // THE CREATURE'S BEGINNING, which for a group that bought an egg is the
@@ -2475,6 +2667,26 @@ export class MonsterGroup extends DurableObject<MonsterEnv> {
         // SQL says null, the contract says absent. Left as null it would reach
         // methodFits as a value and read as a manner nobody chose.
         .map(({ methodId, ...rest }) => (methodId === null ? rest : { ...rest, methodId })),
+      // What the group bought, for the one line in the chronicle that nobody's
+      // clicking wrote.
+      //
+      // The rows go up RAW: read in whatever order the SELECT returns, unsorted,
+      // unfiltered, not summed. The derivation drops the losing and the empty
+      // ones and sorts by what people put in, so there is no shaping step here
+      // to get wrong and the phone that sat through the market writes the same
+      // sentence as the phone that arrived an hour later. Editing the ORDER BY
+      // in pledgeRows cannot rewrite a group's oldest sentence.
+      //
+      // `at` is the same instant as `createdAt` above and is carried separately
+      // rather than read off it, because createdAt means phase zero of the sleep
+      // schedule and has a consumer that reads it as exactly that. They are equal
+      // by construction: resolve() writes bornAt from the same Date.now() that
+      // decided the purchase. Two questions with one answer are still two
+      // questions, and the day one of them moves only one of them should.
+      purchase:
+        eggBought === null
+          ? undefined
+          : { egg: Number(eggBought), at: Number(this.bornAt() ?? '0'), pledges: this.pledgeRows() },
     }
   }
 
