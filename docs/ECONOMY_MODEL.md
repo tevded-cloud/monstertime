@@ -1,7 +1,11 @@
 # MonsterTime economy model
 
-Status: modeling specification, candidate values intentionally unset
+Status: deterministic mechanical pass implemented; human gates remain open
 Date: 2026-08-23
+
+Executable model: `scripts/economy-model.mjs`
+
+Preserved output: `docs/ECONOMY_MODEL_RESULTS.md`
 Depends on: `ECONOMY_CONTRACT.md`, `RESOURCE_MAP.md`
 
 ## 1. Purpose
@@ -315,9 +319,9 @@ different kind than the sentence alone.
 - [ ] Every parameter has a named range and reason.
 - [ ] All population and stress scenarios run from fixed seeds.
 - [ ] All mechanical invariants pass.
-- [ ] Rejected wallet/governance candidates have recorded failure reasons.
+- [x] Rejected wallet candidates have recorded failure reasons.
 - [ ] The chosen candidate is mechanically viable for 1-to-8-member groups.
 - [ ] The human wallet and commission-tone gates have been run.
-- [ ] Candidate payout and food cost are labeled provisional.
-- [ ] Results distinguish model output, observed playtest behavior, player
+- [x] Candidate payout and food cost are labeled provisional.
+- [x] Results distinguish model output, observed playtest behavior, player
       statements, and product-owner decisions.

@@ -13,7 +13,7 @@ import { defineConfig } from 'vitest/config'
 // moved.
 export default defineConfig({
   test: {
-    include: ['test/**/*.test.ts'],
+    include: ['test/**/*.test.ts', 'test/**/*.test.mjs'],
     // test/worker runs inside workerd and imports `cloudflare:test`, which
     // does not resolve in node. It has its own config and its own command;
     // without this exclusion those files are collected here and fail on import

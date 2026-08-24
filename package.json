@@ -12,6 +12,7 @@
     "test:dna": "vitest run",
     "test:worker": "vitest run -c vitest.workers.config.ts",
     "icons": "node scripts/make-icons.mjs",
+    "model:economy": "node scripts/economy-model.mjs",
     "stage": "node scripts/deploy.mjs",
     "preview": "vite preview"
   },
