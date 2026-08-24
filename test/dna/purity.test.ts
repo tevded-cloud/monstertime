@@ -198,6 +198,7 @@ describe('the shared code stays engine independent', () => {
       'dna/catalogue.ts',
       'dna/express.ts',
       'dna/index.ts',
+      'dna/reactions.ts',
       'dna/rng.ts',
       'dna/shelves-explore.ts',
       'dna/shelves-feed.ts',

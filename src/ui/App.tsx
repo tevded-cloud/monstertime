@@ -149,6 +149,8 @@ export default function App(): JSX.Element {
         />
         <ActionBar
           creature={group.creature}
+          genome={group.genome}
+          actions={actions}
           actorId={group.seatId}
           live={group.status === 'open'}
           onAct={group.act}

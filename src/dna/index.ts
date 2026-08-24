@@ -31,3 +31,4 @@ export { deriveCreature, emptyPressures, emptySubstance, stageOfGrowth } from '.
 export { lastRouseAt, rollActivity, ROUSE_MS, sleepState, sleepStateOf } from './sleep'
 export type { SleepState } from './sleep'
 export { deriveStance, STANCE_FOR } from './stance'
+export { reactionTo } from './reactions'

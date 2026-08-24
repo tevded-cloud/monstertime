@@ -1,9 +1,10 @@
 // ActionBar.tsx: the six things a person can do, and the tree under each.
 //
-// The variants show their blurb and nothing else. No pressures, no numbers, no
-// hint of what a choice pushes toward, because the moment somebody can read the
-// mechanics off a button they start optimising, and an optimised creature is
-// the same creature every group gets. Instinct is the input this app wants.
+// The variants show only the thing a person can choose. They do NOT show their
+// authored vignette: those lines describe what happened after the choice, and
+// putting them on the button both spoils the moment and promises every group's
+// creature will respond identically. No pressures or numbers appear either;
+// instinct is still the input this app wants.
 //
 // Three levels, and the middle one is deliberately not a gate. Shelves sit as a
 // row of chips inside the tray rather than as a screen you have to pass
@@ -36,8 +37,8 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { JSX } from 'react'
 import { ACTION_KINDS } from '../core/types'
-import type { ActionKind, ActionMethod, ActionVariant, Creature } from '../core/types'
-import { availableVariants, methodFits, methodsForKind } from '../dna'
+import type { ActionKind, ActionMethod, ActionRecord, ActionVariant, Creature, Genome } from '../core/types'
+import { availableVariants, methodFits, methodsForKind, reactionTo } from '../dna'
 // Reached past src/net's barrel deliberately and not happily. The barrel is the
 // public face of that module and this belongs on it; until it is added there,
 // the alternative is leaving every sentence the object writes in the console.
@@ -90,19 +91,23 @@ interface Answer {
 
 interface ActionBarProps {
   creature: Creature | null
+  genome: Genome | null
+  actions: ActionRecord[]
   actorId: string
   live: boolean
   onAct: (variantId: string, methodId?: string) => void
 }
 
-export default function ActionBar({ creature, actorId, live, onAct }: ActionBarProps): JSX.Element {
+export default function ActionBar({ creature, genome, actions, actorId, live, onAct }: ActionBarProps): JSX.Element {
   const [open, setOpen] = useState<ActionKind | null>(null)
   const [shelf, setShelf] = useState<string | null>(null)
   const [picked, setPicked] = useState<ActionVariant | null>(null)
   const [localAt, setLocalAt] = useState(0)
   const [lastKind, setLastKind] = useState<ActionKind | null>(null)
+  const [reaction, setReaction] = useState<{ id: string; text: string } | null>(null)
   const [now, setNow] = useState(() => Date.now())
   const root = useRef<HTMLDivElement | null>(null)
+  const seenActions = useRef(-1)
 
   // The same answer the Durable Object refuses actions with, off the same pure
   // function, corrected against the same clock. This screen never works sleep
@@ -144,6 +149,34 @@ export default function ActionBar({ creature, actorId, live, onAct }: ActionBarP
     const t = window.setTimeout(() => setFromHere(null), SENTENCE_MS)
     return () => window.clearTimeout(t)
   }, [fromHere])
+
+  // The catalogue used to put one pre-written outcome under every choice. It
+  // meant the result was known before the tap and the same creature appeared
+  // to answer every group. The chooser now keeps quiet; once the server echoes
+  // a real action, this line reads the resulting creature instead. `reactionTo`
+  // uses its accumulated stance and its seed, so history supplies the character
+  // and the action supplies the moment. The opening snapshot is skipped: a year
+  // of old reactions on load would be noise, not presence.
+  useEffect(() => {
+    const count = actions.length
+    if (seenActions.current < 0 || count <= seenActions.current) {
+      seenActions.current = count
+      return
+    }
+    seenActions.current = count
+    if (!creature || !genome) return
+    const last = actions[count - 1]
+    const text = reactionTo(creature, genome, last)
+    if (text !== null) setReaction({ id: last.id, text })
+  }, [actions, actions.length, creature, genome])
+
+  // Long enough to read and to belong to the tap; short enough that the quiet
+  // state gets its line back before the creature is ready for another action.
+  useEffect(() => {
+    if (reaction === null) return
+    const t = window.setTimeout(() => setReaction(null), 12_000)
+    return () => window.clearTimeout(t)
+  }, [reaction])
 
   // A sentence from the object takes back the cooldown the tap started.
   //
@@ -247,6 +280,7 @@ export default function ActionBar({ creature, actorId, live, onAct }: ActionBarP
     // seconds and reports it over an action that has just gone through.
     forgetSentence()
     setFromHere(null)
+    setReaction(null)
     shut()
   }
 
@@ -267,6 +301,8 @@ export default function ActionBar({ creature, actorId, live, onAct }: ActionBarP
     ? 'Not connected to it right now.'
     : answer !== null
       ? answer.text
+      : reaction !== null
+        ? reaction.text
       : cooling
         ? lastKind
           ? SETTLE[lastKind]
@@ -347,7 +383,6 @@ export default function ActionBar({ creature, actorId, live, onAct }: ActionBarP
                     }}
                   >
                     <strong>{variant.label}</strong>
-                    <em>{variant.blurb}</em>
                   </button>
                 ))}
               </div>
