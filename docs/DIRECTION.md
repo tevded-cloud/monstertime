@@ -131,12 +131,22 @@ That is accepted rather than versioned. It is early and there are few groups.
 
 ## 3. The economy
 
-Money out is eggs and food. Money in is jobs and selling. Votes decide both.
-All of it is group scoped, which is the important part: the group buys the egg,
-splits the payday, votes to sell, and holds the collection. Only "my groups"
-and anything traded between groups needs identity to reach across.
+Money out is initially eggs and expressive food. Money in is commissions the
+group undertakes with the creature. Selling is a possible future source, not a
+first-slice dependency. Ordinary purchases and irreversible creature decisions
+need different governance. All of it is group scoped, which is the important
+part: the group buys the egg, earns and spends coins, and holds the collection.
+Only "my groups" and anything eventually traded between groups needs identity
+to reach across.
 
-Shape, not yet designed in detail:
+The detailed economy plan now lives in:
+
+- `ECONOMY_CONTRACT.md`
+- `RESOURCE_MAP.md`
+- `ECONOMY_VERTICAL_SLICE.md`
+- `ECONOMY_MODEL.md`
+
+Those documents refine the outline below without changing its product intent:
 
 - A group forms first and everyone is invited before anything is bought, so the
   creature belongs to the group rather than to whoever made it. This is the
@@ -156,10 +166,11 @@ Shape, not yet designed in detail:
   needs real weight rather than a majority click, and the chronicle already
   exists to remember it forever.
 
-**Tonal fork worth deciding deliberately:** today the creature is an end in
-itself. Give it a wage and it is partly an instrument. That is a legitimate
-direction and plenty of games are built on it, but it is a different feeling and
-it is easier to choose now than to notice in three months.
+**Resolved tonal direction:** the creature remains an end in itself. The first
+jobs are shared commissions or outings whose opportunities and approaches are
+shaped by the creature. Autonomous wages, passive income, and a creature whose
+purpose is production are outside the first economy slice. Exact wallet
+ownership remains a deliberate comparison, not a settled implementation fact.
 
 ---
 
